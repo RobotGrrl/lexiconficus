@@ -34,7 +34,7 @@ volatile boolean QS = false;        // becomes true when Arduoino finds a beat.
 
 // NeoPixel parameters. These are configurable, but the pin number must
 // be different than the servo(s).
-#define N_LEDS       7
+#define N_LEDS       10
 #define LED_PIN       6
 
 Adafruit_L3GD20 gyro;
