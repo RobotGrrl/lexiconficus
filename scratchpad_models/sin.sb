@@ -3,7 +3,7 @@
         {
             "datums": [
                 {
-                    "expr": "'=X - sin(Y); '",
+                    "expr": "'=X - sin(4*Y); '",
                     "name": "fn",
                     "type": "str",
                     "uid": 0
@@ -33,7 +33,7 @@
                     "uid": 4
                 },
                 {
-                    "expr": "\u0012fab.types.Shape('a=X - sin(Y); aa-f-2.78X-Xf1.63a-f-1.52Y-Yf4.58',float('-2.780000'),float('-1.520000'),float('-inf'),float('1.630000'),float('4.580000'),float('inf'))",
+                    "expr": "\u0012fab.types.Shape('a=X - sin(4*Y); aa-f-2.78X-Xf1.63a-f-1.52Y-Yf4.58',float('-2.780000'),float('-1.520000'),float('-inf'),float('1.630000'),float('4.580000'),float('inf'))",
                     "name": "shape",
                     "type": "_fabtypes.Shape",
                     "uid": 5
