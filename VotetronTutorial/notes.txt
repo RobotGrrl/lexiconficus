@@ -1,2 +1,7 @@
 the express app is created in the index.js file
 
+the keys go in to a .env file so that they won't be committed with source control
+
+heroku uses the .env file for reading the keys
+
+the callback url is what github goes to after the login
