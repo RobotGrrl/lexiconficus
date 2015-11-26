@@ -1,0 +1,80 @@
+
+list all the serial devices:
+ls /dev/cu.usbserial-*
+
+open the edison connection:
+screen /dev/cu.usbserial-A502OOMO 115200 -L
+
+(enter)
+
+username is:
+root
+
+configure_edison --password
+
+new password is:
+meepmeep
+
+configure the wifi:
+configure_edison --wifi
+
+sites:
+http://172.18.0.124 or http://edison.local
+http://172.18.4.43 or http://edison.local
+
+can ssh into it now:
+ssh root@edison.local
+
+shut down the edison:
+shutdown -h -P now
+
+---
+
+FAIL: do not do this
+
+followed instructions on this blog to install pip:
+http://blog.salvius.org/2015/05/installing-pip-on-intel-edison.html
+
+then tried opkg upgrade but then:
+Collected errors:
+ * copy_file_chunk: write: No space left on device.
+
+---
+
+do this:
+vi /etc/opkg/base-feeds.conf
+
+add to the file:
+src/gz all http://repo.opkg.net/edison/repo/all
+src/gz edison http://repo.opkg.net/edison/repo/edison
+src/gz core2-32 http://repo.opkg.net/edison/repo/core2-32
+
+do this:
+opkg update
+
+then do this:
+opkg install python-pip
+
+---
+
+i keep getting this error but it doesn't seem to stop things...
+Collected errors:
+ * parse_from_stream_nomalloc: Missing new line character at end of file!
+
+
+upgrade pip, because kept having errors trying to install tweepy:
+pip install 'pip>1.5' --upgrade
+
+
+now can install tweepy:
+pip install tweepy
+
+good to install git:
+opkg install git
+
+---
+
+installing tweepy on mac os 10.11:
+pip install tweepy --ignore-installed six
+
+
