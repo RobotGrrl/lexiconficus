@@ -8,3 +8,7 @@ the callback url is what github goes to after the login
 
 adding the passport. snippets to index.js lets it configure passport to use the github strategy. and it sets the callback paths.
 
+to test it out, the server has to be started with
+foreman start
+not sure what foreman is and currently doesn't work, so will have to look it up later
+
