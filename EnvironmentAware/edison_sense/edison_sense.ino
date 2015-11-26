@@ -26,43 +26,64 @@ const int pinTemp = A0;
 // and used to convert from the analog value it measures and a temperature value.
 const int B = 3975;
 
-void setup()
-{
-    // Configure the serial communication line at 9600 baud (bits per second.)
-    Serial.begin(9600);
+int message_num = 0;
+long current_time = 0;
+long last_message_change = 0;
 
-    // set up the LCD's number of columns and rows:
-    lcd.begin(16, 2);
-    
-    lcd.setRGB(colorR, colorG, colorB);
-    
-    // Print a message to the LCD.
-    lcd.print("current temp:");
 
+void setup() {
+  Serial.begin(9600);
+  lcd.begin(16, 2);
 }
 
-void loop()
-{
-    // Get the (raw) value of the temperature sensor.
-    int val = analogRead(pinTemp);
+void loop() {
 
-    // Determine the current resistance of the thermistor based on the sensor value.
-    float resistance = (float)(1023-val)*10000/val;
+  current_time = millis();
 
-    // Calculate the temperature based on the resistance value.
-    float temperature = 1/(log(resistance/10000)/B+1/298.15)-273.15;
+  if(current_time-last_message_change >= long(10*1000)) {
+    message_num++;
+    if(message_num > 1) message_num = 0;
+    
+    if(message_num == 0) {
+      
+      // Get the (raw) value of the temperature sensor.
+      int val = analogRead(pinTemp);
+    
+      // Determine the current resistance of the thermistor based on the sensor value.
+      float resistance = (float)(1023-val)*10000/val;
+    
+      // Calculate the temperature based on the resistance value.
+      float temperature = 1/(log(resistance/10000)/B+1/298.15)-273.15;
+    
+      // Print the temperature to the serial console.
+      Serial.println(temperature);
+    
+    lcd.setRGB(150, 150, 210);
+    
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("current temp:");
+      lcd.setCursor(0, 1);
+      // print the number of seconds since reset:
+      lcd.print(temperature);
+    
+      publishData(temperature);
+    
+    } else if(message_num == 1) {
+    
+      lcd.setRGB(200, 50, 100);
+    
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("Where there is");
+      lcd.setCursor(0, 1);
+      lcd.print("luv there's life");
+      
+    }
+    
+    last_message_change = current_time;
+  }
 
-    // Print the temperature to the serial console.
-    Serial.println(temperature);
-
-    lcd.setCursor(0, 1);
-    // print the number of seconds since reset:
-    lcd.print(temperature);
-
-    publishData(temperature);
-
-    // Wait one second between measurements.
-    delay(1000);
 }
 
 
