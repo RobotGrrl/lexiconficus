@@ -36,9 +36,33 @@ nodemon server.js
 
 it sort of works but crashes immediately 
 
+{ [Error: Cannot find module '../build/Release/bson'] code: 'MODULE_NOT_FOUND' }
+js-bson: Failed to load c++ bson extension, using pure JS version
 events.js:141
       throw er; // Unhandled 'error' event
       ^
 
 config/database.js is where the info for the database goes. using modulus.io for a mongodb databse
+
+now added routes.js. it's sort of like middleware, for example, you can protect certain routes like the profile section - a user has to be logged in to access it
+
+trying to figure out the error from above, forgot to install xcode command line tools:
+xcode-select --install
+
+and then re-install all the node modules
+
+(didn't work)
+
+trying this:
+npm install -g node-gyp 
+
+(didn't work)
+
+tried this:
+cd node_modules/mongoose/
+npm install bson
+
+(didn't work)
+
+tried deleting everything and using sudo npm install, still didn't work
 
