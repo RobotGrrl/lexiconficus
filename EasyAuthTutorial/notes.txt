@@ -66,3 +66,16 @@ npm install bson
 
 tried deleting everything and using sudo npm install, still didn't work
 
+tried changing index.js in bson, to go to the browser_build directory, still didn't work
+
+tried deleting mongoose package and npm install mongoose@3.8.23, still doesn't work
+
+tried cloning js-bson git clone https://github.com/mongodb/js-bson.git and using it as the install, but it still didn't work
+
+
+
+
+
+
+
+
