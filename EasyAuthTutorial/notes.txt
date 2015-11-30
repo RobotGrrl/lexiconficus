@@ -18,4 +18,9 @@ this is the application structure:
     - package.json      <!-- handle our npm packages -->
     - server.js         <!-- setup our application -->
 
-    
+
+packages.json has all of the packages we need. so it's easy to install them in this list, just:
+npm install
+
+server.js is going to be the glue of the entire app. the idea is to not edit this if it can be helped!
+
