@@ -24,3 +24,21 @@ npm install
 
 server.js is going to be the glue of the entire app. the idea is to not edit this if it can be helped!
 
+passport object is created at the beginning of the file, then is configured in config/passport.js. then it gets passed along to app/routes.js for using with the routes
+
+routes are pages that it can go to, like home page or login / signup page
+
+start the server:
+node server.js
+
+to auto refresh the server each time a file changes, use nodemon:
+nodemon server.js
+
+it sort of works but crashes immediately 
+
+events.js:141
+      throw er; // Unhandled 'error' event
+      ^
+
+config/database.js is where the info for the database goes. using modulus.io for a mongodb databse
+
