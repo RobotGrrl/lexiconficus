@@ -24,11 +24,11 @@ passport.use(new GitHubStrategy(
 ));
 
 // configure Express
-app.use(express.logger());
-app.use(express.cookieParser());
-app.use(express.bodyParser());
-app.use(express.methodOverride());
-app.use(express.session({ secret: 'cookie monster' }));
+app.use(logger());
+app.use(cookieParser());
+app.use(bodyParser());
+app.use(methodOverride());
+app.use(session({ secret: 'cookie monster' }));
 app.use(passport.initialize());
 app.use(passport.session());
 app.use(app.router);

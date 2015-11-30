@@ -24,4 +24,14 @@ source .env
 
 so it runs the .env file, which is running EXPORT variable name -- and that sets the environment variables. makes sense!
 
+running node index.js, receive this error:
+
+throw new Error('Most middleware (like ' + name + ') is no longer bundled with Express and must be installed separately. Please see https://github.com/senchalabs/connect#middleware.');
+
+don't understand what middleware means. even removing the express. portion doesn't fix it
+
+app.use(logger());
+        ^
+
+ReferenceError: logger is not defined
 
