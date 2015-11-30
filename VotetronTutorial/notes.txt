@@ -1,3 +1,6 @@
+trying to follow this tutorial:
+https://www.ctl.io/developers/blog/post/build-a-hacker-news-style-voting-application-with-orchestrate
+
 the express app is created in the index.js file
 
 the keys go in to a .env file so that they won't be committed with source control
@@ -11,4 +14,14 @@ adding the passport. snippets to index.js lets it configure passport to use the 
 to test it out, the server has to be started with
 foreman start
 not sure what foreman is and currently doesn't work, so will have to look it up later
+
+foreman is the heroku cli. can also just place the keys in index.js and just do node index.js
+
+wait- the .env file is the actual name, and this is what contains the keys
+
+to use them you just do this:
+source .env
+
+so it runs the .env file, which is running EXPORT variable name -- and that sets the environment variables. makes sense!
+
 
