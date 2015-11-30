@@ -2,6 +2,13 @@ var express = require('express'),
     passport = require('passport'),
     GitHubStrategy = require('passport-github').Strategy;
 
+var morgan = require('morgan');
+var cookieparser = require('cookie-parser');
+var bodyparser = require('body-parser');
+var multer = require('multer');
+var methodoverride = require('method-override');
+var session = require('express-session');
+
 var app = express();
 
 passport.serializeUser(function(user, done) {
@@ -24,11 +31,13 @@ passport.use(new GitHubStrategy(
 ));
 
 // configure Express
-app.use(logger());
-app.use(cookieParser());
-app.use(bodyParser());
-app.use(methodOverride());
+app.use(morgan);
+app.use(cookieparser);
+app.use(bodyparser);
+app.use(multer);
+app.use(methodoverride);
 app.use(session({ secret: 'cookie monster' }));
+
 app.use(passport.initialize());
 app.use(passport.session());
 app.use(app.router);

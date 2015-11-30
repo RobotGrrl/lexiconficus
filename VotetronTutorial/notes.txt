@@ -35,3 +35,18 @@ app.use(logger());
 
 ReferenceError: logger is not defined
 
+here is info about the middleware:
+http://expressjs.com/guide/migrating-4.html#core-changes
+
+so express 4 is different than express 3. now you have to install all these external things.
+
+did npm install on all the new things in index.js that are require()
+
+now there's a new error:
+
+      throw new Error('\'app.router\' is deprecated!\nPlease see the 3.x to 4.x migration guide for details on how to update your app.');
+      ^
+
+Error: 'app.router' is deprecated!
+
+
