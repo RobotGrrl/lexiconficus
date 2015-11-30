@@ -1,0 +1,19 @@
+following this tutorial:
+https://scotch.io/tutorials/easy-node-authentication-setup-and-local
+
+this is the application structure:
+    - app
+    ------ models
+    ---------- user.js  <!-- our user model -->
+    ------ routes.js    <!-- all the routes for our application -->
+    - config
+    ------ auth.js      <!-- will hold all our client secret keys (facebook, twitter, google) -->
+    ------ database.js  <!-- will hold our database connection settings -->
+    ------ passport.js  <!-- configuring the strategies for passport -->
+    - views
+    ------ index.ejs    <!-- show our home page with login links -->
+    ------ login.ejs    <!-- show our login form -->
+    ------ signup.ejs   <!-- show our signup form -->
+    ------ profile.ejs  <!-- after a user logs in, they will see their profile -->
+    - package.json      <!-- handle our npm packages -->
+    - server.js         <!-- setup our application -->
