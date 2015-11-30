@@ -17,3 +17,5 @@ this is the application structure:
     ------ profile.ejs  <!-- after a user logs in, they will see their profile -->
     - package.json      <!-- handle our npm packages -->
     - server.js         <!-- setup our application -->
+
+    
