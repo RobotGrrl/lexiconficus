@@ -35,3 +35,5 @@ mkdir -p /data/db
 or you can just do this:
 mongod --dbpath ~/mongodb
 
+added account.js to models directory. for password security, passport-local-mongoose is able to automatically do the salting and hashing of the password for us.
+
