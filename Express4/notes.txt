@@ -44,3 +44,4 @@ it works, but receive warnings that using an unstable release of mongoose
 
 added the code to index.js within the routes folder
 
+added all of the jade views - jade is a template engine
