@@ -14,3 +14,24 @@ keep getting error:
       'gss_acquire_cred_impersonate_name' is invalid in C99
       [-Wimplicit-function-declaration]
 
+trying to run:
+sudo mongod
+
+but it doesn't work (not found)
+
+trying to install with brew:
+brew install mongodb
+
+now when trying to run mongod, get this error:
+I STORAGE  [initandlisten] exception in initAndListen: 29 Data directory /data/db not found., terminating
+2015-12-02T19:26:14.980-0500 I CONTROL  [initandlisten] dbexit:  rc: 100
+
+there are instructions here:
+https://docs.mongodb.org/manual/tutorial/install-mongodb-on-os-x/
+
+mongod needs a directory to write data:
+mkdir -p /data/db
+
+or you can just do this:
+mongod --dbpath ~/mongodb
+
