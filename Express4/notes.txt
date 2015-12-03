@@ -37,3 +37,10 @@ mongod --dbpath ~/mongodb
 
 added account.js to models directory. for password security, passport-local-mongoose is able to automatically do the salting and hashing of the password for us.
 
+when testing it out:
+node ./bin/www
+
+it works, but receive warnings that using an unstable release of mongoose
+
+added the code to index.js within the routes folder
+
