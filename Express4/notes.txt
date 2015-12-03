@@ -4,3 +4,13 @@ http://mherman.org/blog/2015/01/31/local-authentication-with-passport-and-expres
 creating an app from an existing template:
 express passport-local-express4
 
+checking if it runs:
+node ./bin/www
+
+it works, next step is to install mongodb
+
+keep getting error:
+../lib/kerberosgss.c:509:13: warning: implicit declaration of function
+      'gss_acquire_cred_impersonate_name' is invalid in C99
+      [-Wimplicit-function-declaration]
+
