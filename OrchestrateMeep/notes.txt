@@ -1,0 +1,8 @@
+trying to make a simple web app that uploads data to orchestrate.io
+
+npm install orchestrate
+
+for the .env just do this to make all of them environment variables:
+source .env
+
+
