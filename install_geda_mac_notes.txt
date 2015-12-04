@@ -1,0 +1,10 @@
+install geda on mac
+
+brew install homebrew/x11/geda-gaf
+
+make sure you have xquartz installed:
+https://xquartz.macosforge.org
+
+brew install homebrew/x11/pcb
+
+pcb doesn't work - the user interface is glitched...
