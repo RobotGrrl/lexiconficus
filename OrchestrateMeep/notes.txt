@@ -5,4 +5,5 @@ npm install orchestrate
 for the .env just do this to make all of them environment variables:
 source .env
 
-
+if try to PUT the same thing twice, then it just hangs
+but, POST works fine for this
