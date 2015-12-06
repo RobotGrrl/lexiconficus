@@ -1,96 +1,171 @@
 var orchestrate = require('orchestrate');
 
-var collection = process.env.ORCHESTRATE_COLLECTION;
+//var collection = process.env.ORCHESTRATE_COLLECTION;
+var collection = 'users';
 var key = process.env.ORCHESTRATE_API_KEY;
 
 var db = orchestrate(key);
 
-var step = 1;
+var step = -1;
+var user_count = 0;
 
-console.log("going to call start()");
 
 function start() {
-  console.log("start was called");
-
-  db.post(collection, {
-    "name": "WOOOOT",
-    "hometown": "MEEEEP",
-    "twitter": "@robotgrrl"
-  })
-  .then(function (result) {
-    console.log("success- POST the data");
-  })
-  .fail(function (err) {
-    console.log("fail- did not POST the data");
-  })
 
 
-  db.post(collection, {
-    "name": "YA",
-    "hometown": "RA",
-    "twitter": "BLERG"
-  })
-  .then(function (result) {
-    console.log("success- POST the data");
-  })
-  .fail(function (err) {
-    console.log("fail- did not POST the data");
-  })
-
-}
-
-
-function getIt() {
-  console.log("getIt was called");
-
-  db.get(collection, key)
-  .then(function (result) {
-    console.log(result.body);
+  // why doesn't this work for me?
+  /*
+  db.ping()
+  .then(function () {
+    console.log('connection is all good' + res.statusCode);
     next();
   })
   .fail(function (err) {
-    console.log("fail- did not get the data");
+    console.log('FAIL - connection does not work');
+    console.log(err);
+  })
+  */
+  next();
+
+}
+
+function newUserA() {
+  console.log("newUserA");
+
+  db.put(collection, ('user-'+user_count), {
+    "username": "frankenmeep",
+    "name": "Franken Meepen Stein",
+    "hometown": "Zombieland",
+    "pet": "Poodle"
+  })
+  .then(function (res) {
+    console.log('done:' + res.statusCode);
+    user_count++;
+    next();
   })
 
 }
 
 
-function updateIt() {
-  console.log("updateIt was called");
+function newUserB() {
+  console.log("newUserB");
 
-  db.merge(collection, key, {
-    "name": "BLEEEEP"
+  db.put(collection, ('user-'+user_count), {
+    "username": "hikingboots",
+    "name": "Squished Catepillar",
+    "hometown": "Forest",
+    "pet": "Flea"
   })
+  .then(function (res) {
+    console.log('done:' + res.statusCode);
+    user_count++;
+    next();
+  })
+
+}
+
+
+function getUserA() {
+  console.log('getUserA');
+
+  db.get(collection, 'user-0')
+  .then(function (res) {
+    console.log(res.body);
+    next();
+  })
+  .fail(function (err) {});
+
+}
+
+
+function getUserB() {
+  console.log('getUserB');
+
+  db.get(collection, 'user-1')
+  .then(function (res) {
+    console.log(res.body);
+    next();
+  })
+  .fail(function (err) {});
+
+}
+
+
+function updateUserA() {
+  console.log('updateUserA');
+
+  db.newPatchBuilder(collection, 'user-0')
+    .add('favorite_food', "Brains")
+    .replace('pet', "Dragon")
+    .apply()
   .then(function (result) {
-    console.log("success- updated the data");
+    console.log(res.statusCode);
     next();
   })
   .fail(function (err) {
-    console.log("fail- did not update the data");
+    console.log('update A error');
+    console.log(err);
   })
 
+  // keep getting the error
+  // [ReferenceError: res is not defined]
 
 }
 
+function updateUserB() {
+  console.log('updateUserB');
+
+  db.newPatchBuilder(collection, 'user-1')
+    .add('favorite_food', "Meow Mix")
+    .replace('pet', "Rock")
+    .apply()
+  .then(function (result) {
+    console.log(res.statusCode);
+    next();
+  })
+  .fail(function (err) {
+    console.log('update B error');
+    console.log(err);
+  })
+
+}
 
 
 
 function next() {
+  step++;
   switch(step) {
     case 0:
       start();
     break;
     case 1:
-      getIt();
+      newUserA();
     break;
     case 2:
-      updateIt();
+      newUserB();
     break;
     case 3:
-      getIt();
+      getUserA();
+    break;
+    case 4:
+      getUserB();
+    break;
+    case 5:
+      updateUserA();
+    break;
+    case 6:
+      updateUserB();
+    break;
+    case 7:
+      getUserA();
+    break;
+    case 8:
+      getUserB();
+    break;
+    case 9:
+      console.log('c\'est finis');
     break;
   }
-  step++;
 }
 
 
