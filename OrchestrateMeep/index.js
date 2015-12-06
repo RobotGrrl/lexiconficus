@@ -12,22 +12,18 @@ var user_count = 0;
 
 function start() {
 
-
-  // why doesn't this work for me?
-  /*
   db.ping()
   .then(function () {
-    console.log('connection is all good' + res.statusCode);
+    console.log('connection is all good');
     next();
   })
   .fail(function (err) {
     console.log('FAIL - connection does not work');
     console.log(err);
   })
-  */
-  next();
-
+  
 }
+
 
 function newUserA() {
   console.log("newUserA");
@@ -98,19 +94,17 @@ function updateUserA() {
     .add('favorite_food', "Brains")
     .replace('pet', "Dragon")
     .apply()
-  .then(function (result) {
-    console.log(res.statusCode);
+  .then(function (res) {
+    console.log('done: ' + res.statusCode);
     next();
   })
   .fail(function (err) {
     console.log('update A error');
     console.log(err);
-  })
-
-  // keep getting the error
-  // [ReferenceError: res is not defined]
+  });
 
 }
+
 
 function updateUserB() {
   console.log('updateUserB');
@@ -119,17 +113,16 @@ function updateUserB() {
     .add('favorite_food', "Meow Mix")
     .replace('pet', "Rock")
     .apply()
-  .then(function (result) {
-    console.log(res.statusCode);
+  .then(function (res) {
+    console.log('done: ' + res.statusCode);
     next();
   })
   .fail(function (err) {
     console.log('update B error');
     console.log(err);
-  })
+  });
 
 }
-
 
 
 function next() {
@@ -163,7 +156,7 @@ function next() {
       getUserB();
     break;
     case 9:
-      console.log('c\'est finis');
+      console.log('c\'est fini! w00t!');
     break;
   }
 }
