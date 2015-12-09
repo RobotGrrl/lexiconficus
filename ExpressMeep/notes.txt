@@ -1,0 +1,10 @@
+trying to make a simple simple example
+
+creating from existing template:
+express passport-local-express4 -e --hbs
+
+the --hbs is to enable support for handlebars instead of jade for the views
+
+check if it runs:
+node ./bin/www
+
