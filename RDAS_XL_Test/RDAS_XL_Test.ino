@@ -36,18 +36,37 @@ int mid_b = 1500;
 int cast_b = 1800;
 int drive_b = 1200;
 
+boolean FWD = true;
+boolean BWD = false;
 
-void motor_a(int speedy) {
-  digitalWrite(ain_1, HIGH);
-  digitalWrite(ain_2, LOW);
+float brightness = 0.1;
+CRGB wat  = CRGB( brightness*200, brightness*50, brightness*100);
+
+
+
+
+void motor_a(boolean dir, int speedy) {
+  if(dir == FWD) {
+   digitalWrite(ain_1, HIGH);
+   digitalWrite(ain_2, LOW); 
+  } else if(dir == BWD) {
+   digitalWrite(ain_1, LOW);
+   digitalWrite(ain_2, HIGH);  
+  }
   analogWrite(pwm_a, speedy);
 }
 
-void motor_b(int speedy) {
-  digitalWrite(bin_1, LOW);
-  digitalWrite(bin_2, HIGH);
+void motor_b(boolean dir, int speedy) {
+  if(dir == FWD) {
+    digitalWrite(bin_1, HIGH);
+    digitalWrite(bin_2, LOW); 
+  } else if(dir == BWD) {
+    digitalWrite(bin_1, LOW);
+    digitalWrite(bin_2, HIGH); 
+  }
   analogWrite(pwm_b, speedy);
 }
+
 
 
 void setup() {
@@ -58,6 +77,7 @@ void setup() {
   FastLED.addLeds<NEOPIXEL, DATA_PIN>(leds, NUM_LEDS);
 
   pinMode(led, OUTPUT);
+  digitalWrite(led, HIGH);
 
   pinMode(pwm_a, OUTPUT);
   pinMode(ain_1, OUTPUT);
@@ -67,36 +87,18 @@ void setup() {
   pinMode(bin_1, OUTPUT);
   pinMode(bin_2, OUTPUT);
 
-  motor_a(0);
 
   // mid: 1500, casting @ 90deg: 1200, driving @ 90deg: 1800
   servo_a.attach(servo_a_pin);
-
   // mid: 1500, casting @ 90deg: 1800, driving @ 90deg: 1200
   servo_b.attach(servo_b_pin);
 
-  motor_b(0);
-  
-  
+  motor_a(FWD, 0);
+  motor_b(FWD, 0);
 
 
+  /*
   int del = 5;
-
-  // -- demo 1
-  // go from middle to cast, then drive forwards and backwards
-  
-  servo_a.write(mid_a);
-  servo_b.write(mid_b); 
-
-  for(int i=0; i<300; i++) {
-    servo_a.write(1500-i);
-    servo_b.write(1500+i);
-    delay(10);
-  }
-
-  
-
-  
  
   // from mid to casting
   for(int i=0; i<300; i++) {
@@ -125,73 +127,18 @@ void setup() {
     servo_b.write(1200+i);
     delay(del);
   }
-  
+  */
 
 
-// ----------
-
-
-
-
-  digitalWrite(ain_1, HIGH);
-  digitalWrite(ain_2, LOW);
-  analogWrite(pwm_a, motor_speed);
-
-  digitalWrite(bin_1, LOW);
-  digitalWrite(bin_2, HIGH);
-  analogWrite(pwm_b, motor_speed);
-
-
-}
-
-
-// This will always work on Teensy, does not depend on buffer size
-boolean getNumbersFromSerial() {
-  
-  int count=0;
-  const int cap = 1;
-  char buf[cap];
-  
-  while (count < cap) {
-    if (Serial.available()) {  // receive all 11 bytes into "buf"
-      buf[count++] = Serial.read();
-    }
-  }
-  
-  if (buf[0] == '@') {
-    Serial.print("@");
-    return true;   // return true if time message received
-  }
-  
-  return false;  //if no message return false
 }
 
 
 void loop() { 
   
+  current_time = millis();
+  //digitalWrite(led, (current_time%1000) < 100 || ((current_time%1000) > 200 && (current_time%1000) < 300));// || ((current_time%1000) > 400 && (current_time%1000) < 500));
 
   /*
-  int maxp = 1800;
-  int minp = 1200;
-
-  for(int i=minp; i<maxp; i++) {
-    servo_a.write(i);
-    servo_b.write(i);
-    delay(1);
-  }
-
-  for(int i=maxp; i>minp; i--) {
-    servo_a.write(i);
-    servo_b.write(i);
-    delay(1);
-  }
-  */
-
-  //getNumbersFromSerial();
-
-  current_time = millis();
-  digitalWrite(led, (current_time%1000) < 100 || ((current_time%1000) > 200 && (current_time%1000) < 300));// || ((current_time%1000) > 400 && (current_time%1000) < 500));
-
   float brightness = 0.1;
   CRGB wat  = CRGB( brightness*200, brightness*50, brightness*100);
 
@@ -211,36 +158,258 @@ void loop() {
     blink_on = !blink_on;
     last_blink = current_time;
   }
-
-}
-
+  */
 
 
-void mleep() {
+  // a bit of a delay so that i can press the switch to start the motors
 
-
-  Serial.println("hi");
-
-  CRGB wat  = CRGB( 10, 10, 10);
-
-  //servo_a.write(800);
+  for(int j=0; j<25; j++) {
   
-  // Turn the LED on, then pause
-  for(int i=0; i<NUM_LEDS; i++) {
-  leds[i] = wat;
-  FastLED.show();
+    for(int i=NUM_LEDS-1; i>=0; i--) {
+      if(i%2 == 0) {
+       leds[i] = CRGB::Black; 
+      } else {
+       leds[i] = wat;
+      }
+    }
+    FastLED.show();
+    delay(100);
+
+    for(int i=NUM_LEDS-1; i>=0; i--) {
+      if(i%2 == 1) {
+       leds[i] = CRGB::Black; 
+      } else {
+       leds[i] = wat;
+      }
+    }
+    FastLED.show();
+    delay(100);
+
   }
-  delay(1000);
 
 
-  //servo_a.write(2200);
-  
-  // Now turn the LED off, then pause
+  // -- demo 1
+  // go from middle to cast, then drive forwards and backwards
+
   for(int i=NUM_LEDS-1; i>=0; i--) {
-  leds[i] = CRGB::Black;
-  FastLED.show();
+    leds[i] = CRGB::Black;
   }
-  delay(1000);
+  leds[3] = wat;
+  leds[4] = wat;
+  FastLED.show();
   
+  servo_a.write(mid_a);
+  servo_b.write(mid_b); 
+
+  for(int i=0; i<300; i++) {
+    servo_a.write(mid_a-i);
+    servo_b.write(mid_b+i);
+    delay(10);
+  }
+
+  servo_a.write(cast_a);
+  servo_b.write(cast_b); 
+
+  motor_a(FWD, 100);
+  motor_b(FWD, 100);
+  delay(1000);
+
+  motor_a(BWD, 100);
+  motor_b(BWD, 100);
+  delay(1000);
+
+  motor_a(FWD, 0);
+  motor_b(FWD, 0);
+  
+
+  // -- demo 2
+  // go from cast to middle, then perform a turning maneouver
+
+  for(int i=NUM_LEDS-1; i>=0; i--) {
+    leds[i] = CRGB::Black;
+  }
+  leds[2] = wat;
+  leds[5] = wat;
+  FastLED.show();
+
+  servo_a.write(cast_a);
+  servo_b.write(cast_b);
+
+  for(int i=0; i<300; i++) {
+    servo_a.write(cast_a+i);
+    servo_b.write(cast_b-i);
+    delay(10);
+  }
+
+  servo_a.write(mid_a);
+  servo_b.write(mid_b);
+
+  motor_a(FWD, 100);
+  motor_b(BWD, 180);
+  delay(1000);
+
+  motor_a(FWD, 0);
+  motor_b(BWD, 0);
+  delay(500);
+
+  motor_a(BWD, 180);
+  motor_b(FWD, 100);
+  delay(1000);
+
+  motor_a(FWD, 0);
+  motor_b(FWD, 0);
+
+
+  // -- demo 3
+  // go from middle to drive, then accelerate forwards
+
+  for(int i=NUM_LEDS-1; i>=0; i--) {
+    leds[i] = CRGB::Black;
+  }
+  leds[1] = wat;
+  leds[6] = wat;
+  FastLED.show();
+
+  servo_a.write(mid_a);
+  servo_b.write(mid_b);
+
+  for(int i=0; i<300; i++) {
+    servo_a.write(mid_a+i); // drive
+    servo_b.write(mid_b-i); // drive
+    delay(10);
+  }
+
+  servo_a.write(drive_a);
+  servo_b.write(drive_b);
+
+  for(int i=50; i<180; i++) {
+    motor_a(FWD, i);
+    motor_b(FWD, i);
+    delay(15);
+  }
+
+  delay(1000);
+
+  for(int i=180; i>50; i--) {
+    motor_a(FWD, i);
+    motor_b(FWD, i);
+    delay(15);
+  }
+
+  motor_a(FWD, 0);
+  motor_b(FWD, 0);
+
+
+  // -- demo 4
+  // go back to middle, then alternate both positions
+
+  for(int i=NUM_LEDS-1; i>=0; i--) {
+    leds[i] = CRGB::Black;
+  }
+  leds[0] = wat;
+  leds[7] = wat;
+  FastLED.show();
+  
+  servo_a.write(drive_a);
+  servo_b.write(drive_b);
+
+  for(int i=0; i<300; i++) {
+    servo_a.write(mid_a-i); // cast
+    servo_b.write(mid_b-i); // drive
+    delay(10);
+  }
+
+  for(int i=0; i<300; i++) {
+    servo_a.write(cast_a+i); // mid
+    servo_b.write(drive_b+i); // mid
+    delay(10);
+  }
+
+  for(int i=0; i<300; i++) {
+    servo_a.write(mid_a+i); // drive
+    servo_b.write(mid_b+i); // cast
+    delay(10);
+  }
+
+  motor_a(FWD, 100);
+  motor_b(FWD, 0);
+  delay(1500);
+
+  motor_a(FWD, 0);
+  motor_b(FWD, 0);
+
+  for(int i=0; i<300; i++) {
+    servo_a.write(cast_a-i); // mid
+    servo_b.write(drive_b-i); // mid
+    delay(10);
+  }
+
+  for(int i=0; i<300; i++) {
+    servo_a.write(mid_a-i); // cast
+    servo_b.write(mid_b-i); // drive
+    delay(10);
+  }
+
+  motor_a(FWD, 0);
+  motor_b(FWD, 100);
+  delay(1500);
+
+  motor_a(FWD, 0);
+  motor_b(FWD, 0);
+
+  for(int i=0; i<300; i++) {
+    servo_a.write(cast_a+i); // mid
+    servo_b.write(drive_b+i); // mid
+    delay(10);
+  }
+
+  servo_a.write(mid_a);
+  servo_b.write(mid_b);
+  
+
+  // -- demo 5
+  // raise one of the wheels up and move
+
+  for(int i=NUM_LEDS-1; i>=0; i--) {
+    leds[i] = CRGB::Black;
+  }
+  leds[0] = wat;
+  leds[2] = wat;
+  leds[4] = wat;
+  leds[6] = wat;
+  FastLED.show();
+
+  servo_a.write(mid_a);
+  servo_b.write(mid_b);
+  
+  for(int i=0; i<300; i++) {
+    servo_a.write(mid_a+i); // drive
+    delay(10);
+  }
+
+  motor_a(FWD, 100);
+  motor_b(FWD, 100);
+  delay(1500);
+
+  motor_a(FWD, 0);
+  motor_b(FWD, 0);
+
+  for(int i=0; i<300; i++) {
+    servo_a.write(drive_a-i); // mid
+    delay(10);
+  }
+
+  servo_a.write(mid_a);
+  servo_b.write(mid_b);
+
+
+
+
+
+
+
+
 }
+
+
 
