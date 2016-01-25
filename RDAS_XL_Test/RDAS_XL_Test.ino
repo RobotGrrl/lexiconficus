@@ -26,7 +26,7 @@ long current_time = 0;
 long last_blink = 0;
 boolean blink_on = true;
 
-int motor_speed = 100;
+int motor_speed = 255;
 
 int mid_a = 1500;
 int cast_a = 1200;
@@ -93,9 +93,10 @@ void setup() {
   // mid: 1500, casting @ 90deg: 1800, driving @ 90deg: 1200
   servo_b.attach(servo_b_pin);
 
-  motor_a(FWD, 0);
-  motor_b(FWD, 0);
-
+  while(1<2) {
+    motor_a(BWD, 255);
+    motor_b(FWD, 255);
+  }
 
   /*
   int del = 5;
@@ -401,12 +402,6 @@ void loop() {
 
   servo_a.write(mid_a);
   servo_b.write(mid_b);
-
-
-
-
-
-
 
 
 }
