@@ -24,6 +24,8 @@ long current_time = 0;
 long last_time = 0;
 boolean meepmeep = true;
 
+ArduinoNunchuk nunchuk = ArduinoNunchuk();
+
 void setup() {
   Serial.begin(9600);
   mySerial.begin(9600);
@@ -62,11 +64,17 @@ void loop() {
   if(nunchuk.zButton == 1) {
       mySerial.println("z");
       Serial.println("z");
+  } else if(nunchuk.zButton == 0) {
+    mySerial.println("y");
+    Serial.println("y");
   }
 
   if(nunchuk.cButton == 1) {
       mySerial.println("c");
       Serial.println("c");
+  } else if(nunchuk.cButton == 0) {
+      mySerial.println("d");
+      Serial.println("d");
   }
   
 }

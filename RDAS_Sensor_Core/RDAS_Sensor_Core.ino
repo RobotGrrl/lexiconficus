@@ -48,8 +48,12 @@ void loop() {
       digitalWrite(13, LOW);
     } else if(c == 'z') {
       mySerial.println("m");
+    } else if(c == 'y') {
+      mySerial.println("n");
     } else if(c == 'c') {
       mySerial.println("s");
+    } else if(c == 'd') {
+      mySerial.println("t");
     }
   }
 

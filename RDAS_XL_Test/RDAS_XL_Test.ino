@@ -1,3 +1,15 @@
+/*
+ * RDAS XL Motor Core
+ * ------------------
+ * Teensy-LC
+ * 
+ * connects to sensor core on Serial3
+ * 
+ * Erin RobotGrrl
+ * Jan. 25, 2016
+ * 
+ */
+
 #include <Servo.h>
 #include "FastLED.h"
 
@@ -15,8 +27,15 @@ int ain_1 = 11;
 int ain_2 = 12;
 int servo_a_pin = 22;
 
+int servo_linka_pin = 16;
+int servo_linkb_pin = 17;
+int servo_claw_pin = 20;
+
 Servo servo_a;
 Servo servo_b;
+Servo link_a;
+Servo link_b;
+Servo claw;
 
 // the side nearest to the power plug is A
 // the side farthest away from power plug is B
@@ -41,8 +60,6 @@ boolean BWD = false;
 
 float brightness = 0.1;
 CRGB wat  = CRGB( brightness*200, brightness*50, brightness*100);
-
-
 
 
 void motor_a(boolean dir, int speedy) {
@@ -72,6 +89,7 @@ void motor_b(boolean dir, int speedy) {
 void setup() {
 
   Serial.begin(9600);
+  Serial3.begin(9600);
   Serial.println("hi");
     
   FastLED.addLeds<NEOPIXEL, DATA_PIN>(leds, NUM_LEDS);
@@ -93,44 +111,8 @@ void setup() {
   // mid: 1500, casting @ 90deg: 1800, driving @ 90deg: 1200
   servo_b.attach(servo_b_pin);
 
-  while(1<2) {
-    motor_a(BWD, 255);
-    motor_b(FWD, 255);
-  }
-
-  /*
-  int del = 5;
- 
-  // from mid to casting
-  for(int i=0; i<300; i++) {
-    servo_a.write(1500-i);
-    servo_b.write(1500+i);
-    delay(del);
-  }
+  link_a.attach(servo_linka_pin);
   
-  // from casting to mid
-  for(int i=0; i<300; i++) {
-    servo_a.write(1200+i);
-    servo_b.write(1800-i);
-    delay(del);
-  }
-
-  // from mid to driving
-  for(int i=0; i<300; i++) {
-    servo_a.write(1500+i);
-    servo_b.write(1500-i);
-    delay(del);
-  }
-
-  // from driving to mid
-  for(int i=0; i<300; i++) {
-    servo_a.write(1800-i);
-    servo_b.write(1200+i);
-    delay(del);
-  }
-  */
-
-
 }
 
 
@@ -139,31 +121,55 @@ void loop() {
   current_time = millis();
   //digitalWrite(led, (current_time%1000) < 100 || ((current_time%1000) > 200 && (current_time%1000) < 300));// || ((current_time%1000) > 400 && (current_time%1000) < 500));
 
-  /*
-  float brightness = 0.1;
-  CRGB wat  = CRGB( brightness*200, brightness*50, brightness*100);
+  if(Serial3.available()) {
+    char c = Serial3.read();
 
-  if(current_time-last_blink >= 500) {
-    Serial.println("sup");
-    if(blink_on) {
-      for(int i=0; i<NUM_LEDS; i++) {
-        leds[i] = wat;
-        FastLED.show();
-      }    
-    } else {
-      for(int i=NUM_LEDS-1; i>=0; i--) {
-        leds[i] = CRGB::Black;
-        FastLED.show();
-      }
+    if(c == 'm') {
+      motor_a(FWD, 128);
+    } else if(c == 'n') {
+      motor_a(FWD, 0);
+    } else if(c == 's') {
+      link_a.attach(servo_linka_pin);
+      link_a.write(90);
+      delay(100);
+      link_a.write(120);
+      delay(100);
+    } else if(c == 't') {
+      link_a.detach();
     }
-    blink_on = !blink_on;
-    last_blink = current_time;
+    
   }
-  */
 
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void allDemos() {
 
   // a bit of a delay so that i can press the switch to start the motors
-
   for(int j=0; j<25; j++) {
   
     for(int i=NUM_LEDS-1; i>=0; i--) {
@@ -404,7 +410,7 @@ void loop() {
   servo_b.write(mid_b);
 
 
+  
 }
-
 
 
