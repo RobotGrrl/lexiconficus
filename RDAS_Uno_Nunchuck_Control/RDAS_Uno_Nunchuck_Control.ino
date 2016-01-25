@@ -1,10 +1,15 @@
 /*
- *  Nunchuck Control
+ *  RDAS Nunchuck Control
+ *  ---------------------
+ *  Arduino UNO
  *  
  *  xbee rx to 3
  *  xbee tx to 2
  *  nunchuck purple (d) to a4
  *  nunchuck orange (c) to a5
+ * 
+ *  Erin RobotGrrl
+ *  Jan. 25, 2016
  * 
  */
 
