@@ -6,6 +6,7 @@
  *  xbee to hw uart (has wire jumpers)
  *  teensy-lc tx to 4
  *  teensy-lc rx to 8
+ *  sonar sensor A0
  * 
  *  Erin RobotGrrl
  *  Jan. 25, 2016
@@ -20,15 +21,22 @@ int led = 13;
 long current_time = 0;
 long last_time = 0;
 boolean meepmeep = true;
+int sonar = A0;
 
 void setup() {
   Serial.begin(9600);
   mySerial.begin(9600);
   pinMode(led, OUTPUT);
+  pinMode(sonar, INPUT);
 }
 
 void loop() {
 
+  int sonar_val = analogRead(sonar);
+  Serial.println(sonar_val);
+  delay(100);
+
+  /*
   current_time = millis();
   
   if (mySerial.available()) {
@@ -68,6 +76,7 @@ void loop() {
     meepmeep = !meepmeep;
     last_time = current_time;
   }
+  */
   
 }
 
