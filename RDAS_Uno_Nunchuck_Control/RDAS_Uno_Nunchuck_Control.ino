@@ -7,6 +7,13 @@
  *  xbee tx to 2
  *  nunchuck purple (d) to a4
  *  nunchuck orange (c) to a5
+ *  
+ *  0 - gnd
+ *  1 - 5v
+ *  2 - A4
+ *  3 - A5
+ *  4 - pin 3
+ *  5 - pin 2
  * 
  *  Erin RobotGrrl
  *  Jan. 25, 2016
@@ -37,6 +44,25 @@ void setup() {
 
 void loop() {
 
+  nunchuk.update();
+
+  Serial.print(nunchuk.analogX, DEC);
+  Serial.print(' ');
+  Serial.print(nunchuk.analogY, DEC);
+  Serial.print(' ');
+  Serial.print(nunchuk.accelX, DEC);
+  Serial.print(' ');
+  Serial.print(nunchuk.accelY, DEC);
+  Serial.print(' ');
+  Serial.print(nunchuk.accelZ, DEC);
+  Serial.print(' ');
+  Serial.print(nunchuk.zButton, DEC);
+  Serial.print(' ');
+  Serial.println(nunchuk.cButton, DEC);
+
+  delay(100);
+
+  /*
   current_time = millis();
   nunchuk.update();
 
@@ -76,6 +102,7 @@ void loop() {
       mySerial.println("d");
       Serial.println("d");
   }
+  */
   
 }
 
