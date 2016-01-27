@@ -24,8 +24,12 @@
 #include <ArduinoNunchuk.h>
 #include <SoftwareSerial.h>
 #include <Streaming.h>
+#include "Promulgate.h"
+
+boolean DEBUG = false;
 
 SoftwareSerial mySerial(3, 2); // RX, TX
+Promulgate promulgate = Promulgate(&mySerial, &mySerial);
 
 int led = 13;
 long current_time = 0;
@@ -49,6 +53,10 @@ void setup() {
   Serial.begin(9600);
   mySerial.begin(9600);
   Serial.println("RDAS Nunchuck Control");
+  
+  promulgate.LOG_LEVEL = Promulgate::ERROR_;
+  promulgate.set_rx_callback(received_action);
+  promulgate.set_tx_callback(transmit_complete);
   
   pinMode(led, OUTPUT);
   nunchuk.init();
@@ -87,44 +95,92 @@ void loop() {
     if(nunchuk.analogX > max_x) nunchuk.analogX = max_x;
     if(nunchuk.analogX < min_x) nunchuk.analogX = min_x;
 
-    if(nunchuk.analogY >= home_y) { // fwd
+    boolean blorp = false;
+
+
+    if(nunchuk.analogY >= (home_y-10) && nunchuk.analogY <= (home_y+10)
+       && nunchuk.analogX >= (home_x-10) && nunchuk.analogX <= (home_x+10)) {
+      
+      // stand still
+      promulgate.transmit_action('#', 'L', 1, 0, '!');
+      promulgate.transmit_action('#', 'R', 1, 0, '!');
+      
+    } else if(nunchuk.analogY >= (home_y-10) && nunchuk.analogY <= (home_y+10)) { // turning
+      
+      if(nunchuk.analogX >= (min_x+10)) {
+        promulgate.transmit_action('#', 'L', 0, 128, '!');
+        promulgate.transmit_action('#', 'R', 1, 255, '!');
+      }
+      if(nunchuk.analogX <= (max_x-10)) {
+        promulgate.transmit_action('#', 'L', 1, 255, '!');
+        promulgate.transmit_action('#', 'R', 0, 128, '!');
+      }
+      
+    } else if(nunchuk.analogY >= home_y) { // fwd
+      
       motor_speed = map(nunchuk.analogY, home_y, max_y, 0, 255);
       motor_dir = true;
+      blorp = true;
+      
     } else { // bwd
+      
       motor_speed = map(nunchuk.analogY, min_y, home_y, 255, 0);
       motor_dir = false;
+      blorp = true;
+      
     }
 
-    float percent_r = (float)map(nunchuk.analogX, min_x, max_x, 0, 100);
-    percent_r /= 100.0;
-    float percent_l = 1.0-percent_r;
+    if(blorp) {
+      
+      float percent_r = (float)map(nunchuk.analogX, min_x, max_x, 0, 100);
+      percent_r /= 100.0;
+      float percent_l = 1.0-percent_r;
+  
+      int speed_r = (int)((float)motor_speed * percent_r);
+      int speed_l = (int)((float)motor_speed * percent_l);
+  
+      Serial << "speed L: " << speed_l << " R: " << speed_r << endl;
+      
+      // sending the data
+      if(motor_dir) {
+        promulgate.transmit_action('#', 'L', 1, motor_speed, '!');
+        promulgate.transmit_action('#', 'R', 1, motor_speed, '!');
+      } else {
+        promulgate.transmit_action('#', 'L', 0, motor_speed, '!');
+        promulgate.transmit_action('#', 'R', 0, motor_speed, '!');
+      }
 
-    int speed_r = (int)((float)motor_speed * percent_r);
-    int speed_l = (int)((float)motor_speed * percent_l);
+    }
 
-    // TODO: send speeds here
-
+    if(DEBUG) {
     if(motor_dir) {
       Serial << "FWD- ";
     } else {
       Serial << "BWD- ";
     }
-    //Serial << "speed L: " << speed_l << " R: " << speed_r << endl;
+    
     Serial << "motor_speed: " << motor_speed << endl;
+    }
     
   } else if(nunchuk.zButton == 1 && nunchuk.cButton == 0) { // arm
 
-    int servo_pos = map(nunchuk.analogY, min_y, max_y, 0, 180);
-    // TODO: send the servo pos here
+    digitalWrite(led, LOW);
+
+    int servo_pos = map(nunchuk.analogY, min_y, max_y, 0, 45);
+    
+    promulgate.transmit_action('#', 'S', 0, servo_pos, '!');
 
     Serial << "arm pos: " << servo_pos << endl;
     
   } else if(nunchuk.zButton == 0 && nunchuk.cButton == 1) { // tilt
 
-    if(current_time-last_c >= 5000) { // cycle through tilt modes
+    if(current_time-last_c >= 1000) { // cycle through tilt modes
+      digitalWrite(led, HIGH);
       tilt_mode++;
       if(tilt_mode > max_tilt_modes) tilt_mode = 0;
-      // TODO: send the tilt mode here
+      
+      promulgate.transmit_action('#', 'T', 0, tilt_mode, '!');
+
       Serial << "tilt mode: " << tilt_mode << endl;
       last_c = current_time;
     }
@@ -133,6 +189,11 @@ void loop() {
 
   delay(20);
 
+
+  if(mySerial.available()) {
+    char c = mySerial.read();
+    promulgate.organize_message(c);
+  }
   
 
   /*
@@ -177,5 +238,24 @@ void loop() {
   }
   */
   
+}
+
+
+
+void received_action(char action, char cmd, uint8_t key, uint16_t val, char delim) {
+  
+  if(DEBUG) {
+    Serial << "---CALLBACK---" << endl;
+    Serial << "action: " << action << endl;
+    Serial << "command: " << cmd << endl;
+    Serial << "key: " << key << endl;
+    Serial << "val: " << val << endl;
+    Serial << "delim: " << delim << endl;
+  }
+  
+}
+
+void transmit_complete() {
+  if(DEBUG) Serial << "transmit complete!" << endl;
 }
 

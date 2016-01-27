@@ -10,8 +10,14 @@
  * 
  */
 
+#include <Streaming.h>
 #include <Servo.h>
 #include "FastLED.h"
+#include "Promulgate.h"
+
+boolean DEBUG = false;
+
+Promulgate promulgate = Promulgate(&Serial3, &Serial3);
 
 #define NUM_LEDS 8
 #define DATA_PIN 17
@@ -63,10 +69,10 @@ CRGB wat  = CRGB( brightness*200, brightness*50, brightness*100);
 
 
 void motor_a(boolean dir, int speedy) {
-  if(dir == FWD) {
+  if(dir == BWD) {
    digitalWrite(ain_1, HIGH);
    digitalWrite(ain_2, LOW); 
-  } else if(dir == BWD) {
+  } else if(dir == FWD) {
    digitalWrite(ain_1, LOW);
    digitalWrite(ain_2, HIGH);  
   }
@@ -74,17 +80,18 @@ void motor_a(boolean dir, int speedy) {
 }
 
 void motor_b(boolean dir, int speedy) {
-  if(dir == FWD) {
+  if(dir == BWD) {
     digitalWrite(bin_1, HIGH);
     digitalWrite(bin_2, LOW); 
-  } else if(dir == BWD) {
+  } else if(dir == FWD) {
     digitalWrite(bin_1, LOW);
     digitalWrite(bin_2, HIGH); 
   }
   analogWrite(pwm_b, speedy);
 }
 
-
+void transmit_complete();
+void received_action(char action, char cmd, uint8_t key, uint16_t val, char delim);
 
 void setup() {
 
@@ -105,13 +112,42 @@ void setup() {
   pinMode(bin_1, OUTPUT);
   pinMode(bin_2, OUTPUT);
 
-
+  promulgate.LOG_LEVEL = Promulgate::ERROR_;
+  promulgate.set_rx_callback(received_action);
+  promulgate.set_tx_callback(transmit_complete);
+  
   // mid: 1500, casting @ 90deg: 1200, driving @ 90deg: 1800
   servo_a.attach(servo_a_pin);
   // mid: 1500, casting @ 90deg: 1800, driving @ 90deg: 1200
   servo_b.attach(servo_b_pin);
 
   link_a.attach(servo_linka_pin);
+
+  for(int i=0; i<3; i++) {
+    digitalWrite(led, HIGH);
+    delay(100);
+    digitalWrite(led, LOW);
+    delay(100);
+  }
+
+  /*
+  while(1<3) {
+    motor_a(FWD, 255);
+    motor_b(FWD, 255);
+  }
+  */
+
+  for(int i=NUM_LEDS-1; i>=0; i--) {
+        leds[i] = CRGB::Yellow; 
+    }
+    FastLED.show();
+
+  delay(100);
+
+    for(int i=NUM_LEDS-1; i>=0; i--) {
+    leds[i] = CRGB::Black;
+  }
+  FastLED.show();
   
 }
 
@@ -123,25 +159,112 @@ void loop() {
 
   if(Serial3.available()) {
     char c = Serial3.read();
-
-    if(c == 'm') {
-      motor_a(FWD, 128);
-    } else if(c == 'n') {
-      motor_a(FWD, 0);
-    } else if(c == 's') {
-      link_a.attach(servo_linka_pin);
-      link_a.write(90);
-      delay(100);
-      link_a.write(120);
-      delay(100);
-    } else if(c == 't') {
-      link_a.detach();
-    }
-    
+    promulgate.organize_message(c);
   }
 
 }
 
+
+void received_action(char action, char cmd, uint8_t key, uint16_t val, char delim) {
+  
+  if(DEBUG) {
+    Serial << "---CALLBACK---" << endl;
+    Serial << "action: " << action << endl;
+    Serial << "command: " << cmd << endl;
+    Serial << "key: " << key << endl;
+    Serial << "val: " << val << endl;
+    Serial << "delim: " << delim << endl;
+  }
+
+  if(cmd == 'L') { // left motor
+    if(key == 1) { // fwd
+      motor_a(FWD, val);
+    } else if(key == 0) { // bwd
+      motor_a(BWD, val);
+    }
+  }
+
+  if(cmd == 'R') { // right motor
+    if(key == 1) { // fwd
+      motor_b(FWD, val);
+    } else if(key == 0) { // bwd
+      motor_b(BWD, val);
+    }
+  }
+
+  if(cmd == 'S') { // arm
+
+    digitalWrite(led, LOW);
+    
+    int servo_pos = val;
+    link_a.write(servo_pos);
+  }
+
+  if(cmd == 'T') { // tilt mode
+
+    digitalWrite(led, HIGH);  
+    
+    int tilt_mode = val;
+
+    if(tilt_mode%2 == 0) {
+
+      servo_a.write(mid_a);
+      servo_b.write(mid_b); 
+    
+      for(int i=0; i<300; i++) {
+        servo_a.write(mid_a-i);
+        servo_b.write(mid_b+i);
+        delay(10);
+      }
+    
+      servo_a.write(cast_a);
+      servo_b.write(cast_b); 
+      
+    } else {
+
+      servo_a.write(mid_a);
+      servo_b.write(mid_b);
+    
+      for(int i=0; i<300; i++) {
+        servo_a.write(mid_a+i); // drive
+        servo_b.write(mid_b-i); // drive
+        delay(10);
+      }
+    
+      servo_a.write(drive_a);
+      servo_b.write(drive_b);
+      
+    }
+    
+  }
+
+  if(cmd == 'Z') { // soil sample
+
+    if(key == 0) {
+      for(int i=NUM_LEDS-1; i>=0; i--) {
+        CRGB wat  = CRGB( brightness*255, brightness*0, brightness*0);
+        leds[i] = wat; 
+      }
+    } else if(key == 1) {
+      for(int i=NUM_LEDS-1; i>=0; i--) {
+        CRGB wat  = CRGB( brightness*0, brightness*255, brightness*0);
+        leds[i] = wat; 
+      }
+    } else if(key == 2) {
+      for(int i=NUM_LEDS-1; i>=0; i--) {
+        CRGB wat  = CRGB( brightness*0, brightness*0, brightness*255);
+        leds[i] = wat; 
+      }
+    }
+    FastLED.show();
+    
+  }
+  
+}
+
+void transmit_complete() {
+  
+}
 
 
 
