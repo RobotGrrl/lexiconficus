@@ -206,7 +206,7 @@ void received_action(char action, char cmd, uint8_t key, uint16_t val, char deli
     
     int tilt_mode = val;
 
-    if(tilt_mode%2 == 0) {
+    if(tilt_mode%3 == 0) {
 
       servo_a.write(mid_a);
       servo_b.write(mid_b); 
@@ -220,7 +220,21 @@ void received_action(char action, char cmd, uint8_t key, uint16_t val, char deli
       servo_a.write(cast_a);
       servo_b.write(cast_b); 
       
-    } else {
+    } else if(tilt_mode%3 == 1) {
+
+      servo_a.write(cast_a);
+      servo_b.write(cast_b);
+    
+      for(int i=0; i<300; i++) {
+        servo_a.write(cast_a+i);
+        servo_b.write(cast_b-i);
+        delay(10);
+      }
+
+      servo_a.write(mid_a);
+      servo_b.write(mid_b);
+      
+    } else if(tilt_mode%3 == 2) {
 
       servo_a.write(mid_a);
       servo_b.write(mid_b);
