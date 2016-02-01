@@ -78,6 +78,10 @@ volatile int IBI = 600;
 volatile boolean Pulse = false;
 volatile boolean QS = false;
 
+// pusle sensor
+int pulsePin = A0;                 // Pulse Sensor purple wire connected to analog pin 0
+int blinkPin = 13;                // pin to blink led at each beat
+
 // timing
 long current_time = 0;
 long last_servo_update = 0;
@@ -95,6 +99,20 @@ float z_acc = 0;
 
 int z_val = 0;
 int x_val = 0;
+
+// gyro
+float gyro_home = 0;
+float gyro_zero_voltage = 0;
+float max_voltage = 5;
+
+// states
+int NONE = 99;
+int state = NONE;
+int LEFT = 0;
+int RIGHT = 1;
+int FRONT = 2;
+int BACK = 3;
+long last_refresh = 0;
 
 
 void setup() {
@@ -134,13 +152,48 @@ void loop() {
   detectMotionZ();
   
   detectMotionX();
+
+  refreshStates(false);
   
   wingWiggleBehaviour();
     
   heartbeatBehaviour();
     
-  checkCommunication();      
+  checkCommunication(); 
 
+}
+
+
+void refreshStates(boolean force) {
+
+  if(current_time-last_refresh >= 250 || force == true) {
+
+    if(state == NONE) {
+      Serial << "NONE" << endl;
+      xbee_promulgate.transmit_action('#', 'L', 1, 0, '!');
+      xbee_promulgate.transmit_action('#', 'R', 1, 0, '!');
+    } else if(state == LEFT) {
+      Serial << "LEFT" << endl;
+      xbee_promulgate.transmit_action('#', 'L', 0, 128, '!');
+      xbee_promulgate.transmit_action('#', 'R', 1, 255, '!');
+    } else if(state == RIGHT) {
+      Serial << "RIGHT" << endl;
+      xbee_promulgate.transmit_action('#', 'L', 1, 255, '!');
+      xbee_promulgate.transmit_action('#', 'R', 0, 128, '!');
+    } else if(state == BACK) {
+      Serial << "BACK" << endl;
+      xbee_promulgate.transmit_action('#', 'L', 0, 200, '!');
+      xbee_promulgate.transmit_action('#', 'R', 0, 200, '!');
+    } else if(state == FRONT) {
+      Serial << "FRONT" << endl;
+      xbee_promulgate.transmit_action('#', 'L', 1, 200, '!');
+      xbee_promulgate.transmit_action('#', 'R', 1, 200, '!');
+    }
+
+    last_refresh = current_time;
+
+  }
+  
 }
 
 

@@ -6,7 +6,7 @@ void initWings() {
   servo_R.write(SERVO_R_HOME); 
 }
 
-
+/*
 void heartbeatBehaviour() {
  
   if(QS == true) {                       // Quantified Self flag is true when arduino finds a heartbeat
@@ -107,5 +107,9 @@ void wingWiggleBehaviour() {
     }
     
   }
-  
+
 }
+
+*/
+
+
