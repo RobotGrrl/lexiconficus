@@ -32,6 +32,7 @@ int soil_dry = 0;
 int soil_hand = 250;
 int soil_wet = 500;
 long last_sensor_send = 0;
+long last_print = 0;
 
 void setup() {
   Serial.begin(9600);
@@ -64,7 +65,12 @@ void loop() {
   }
 
   int soil_val = analogRead(soil);
-  //Serial << "soil: " << soil_val << endl;
+  
+  if(current_time-last_print >= 100) {
+    //promulgate_hw.transmit_action('#', 'G', 0, soil_val, '!');
+    Serial << "Soil, " << soil_val << ", !" << endl;
+    last_print = current_time;
+  }
 
   if(current_time-last_sensor_send >= 1000) {
       
