@@ -56,10 +56,12 @@ int motor_speed = 255;
 int mid_a = 1500;
 int cast_a = 1200;
 int drive_a = 1800;
+int prev_tilt_pos_a = mid_a;
 
 int mid_b = 1500;
 int cast_b = 1800;
 int drive_b = 1200;
+int prev_tilt_pos_b = mid_b;
 
 boolean FWD = true;
 boolean BWD = false;
@@ -214,6 +216,16 @@ void closeClaw() {
 
 
 void received_action(char action, char cmd, uint8_t key, uint16_t val, char delim) {
+
+  /* API
+   * ----
+   * L = left motor
+   * R = right motor
+   * S = arm
+   * T = tilt / center of gravity
+   * Z = soil sample leds
+   * C = claw
+   */
   
   if(DEBUG) {
     Serial << "---CALLBACK---" << endl;
@@ -242,8 +254,6 @@ void received_action(char action, char cmd, uint8_t key, uint16_t val, char deli
 
   if(cmd == 'S') { // arm (data from 0-45)
 
-    digitalWrite(led, LOW);
-
     // for the soil arm
     int servo_pos = val;
     link_a.write(servo_pos);
@@ -254,10 +264,57 @@ void received_action(char action, char cmd, uint8_t key, uint16_t val, char deli
     
   }
 
+  if(cmd == 'C') { // claw
+    digitalWrite(led, HIGH);
+    if(claw_state) {
+      closeClaw();
+    } else {
+      openClaw();
+    }
+    digitalWrite(led, LOW);
+  }
+
   if(cmd == 'T') { // tilt mode
 
-    digitalWrite(led, HIGH);  
-    
+    digitalWrite(led, HIGH);
+
+    int tilt_pos_a = (int)map(val, 0, 45, drive_a, cast_a);
+    int tilt_pos_b = (int)map(val, 0, 45, drive_b, cast_b);
+
+    if(val == 999) {
+      tilt_pos_a = mid_a;
+      tilt_pos_b = mid_b;
+    }
+
+    if(tilt_pos_a > prev_tilt_pos_a) {
+      for(int i=prev_tilt_pos_a; i<tilt_pos_a; i++) {
+        servo_a.write(i);
+        delay(20);
+      }
+    } else if(tilt_pos_a < prev_tilt_pos_a) {
+      for(int i=prev_tilt_pos_a; i>tilt_pos_a; i--) {
+        servo_a.write(i);
+        delay(20);
+      }
+    }
+
+    if(tilt_pos_b > prev_tilt_pos_b) {
+      for(int i=prev_tilt_pos_b; i<tilt_pos_b; i++) {
+        servo_b.write(i);
+        delay(20);
+      }
+    } else if(tilt_pos_b < prev_tilt_pos_b) {
+      for(int i=prev_tilt_pos_b; i>tilt_pos_b; i--) {
+        servo_b.write(i);
+        delay(20);
+      }
+    }
+
+    prev_tilt_pos_a = tilt_pos_a;
+    prev_tilt_pos_b = tilt_pos_b;
+
+    /*
+    // no longer doing it this way
     int tilt_mode = val;
 
     if(tilt_mode%3 == 0) {
@@ -303,6 +360,9 @@ void received_action(char action, char cmd, uint8_t key, uint16_t val, char deli
       servo_b.write(drive_b);
       
     }
+    */
+
+    digitalWrite(led, LOW);
     
   }
 

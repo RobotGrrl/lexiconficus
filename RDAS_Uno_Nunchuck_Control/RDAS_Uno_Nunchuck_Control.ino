@@ -187,7 +187,22 @@ void loop() {
         Serial << "arm pos: " << servo_pos << endl;
         
       } else if(nunchuk.zButton == 0 && nunchuk.cButton == 1) { // tilt
-    
+
+        int tilt_pos = map(nunchuk.analogY, min_y, max_y, 0, 45);
+
+        if(nunchuk.analogY >= (home_y-10) && nunchuk.analogY <= (home_y+10)
+           && nunchuk.analogX >= (home_x-10) && nunchuk.analogX <= (home_x+10)) {
+
+            tilt_pos = 999; // placeholder value for home pos
+            
+           }
+
+        promulgate.transmit_action('#', 'T', 0, tilt_pos, '!');
+
+        Serial << "tilt pos: " << tilt_pos << endl;
+
+        /*
+        // no longer doing it this way
         if(current_time-last_c >= 1000) { // cycle through tilt modes
           digitalWrite(led, HIGH);
           tilt_mode++;
@@ -198,7 +213,21 @@ void loop() {
           Serial << "tilt mode: " << tilt_mode << endl;
           last_c = current_time;
         }
+        */
         
+      } else if(nunchuk.zButton == 1 && nunchuk.cButton == 1) { // claw
+
+        if(current_time-last_c >= 1000) {
+          digitalWrite(led, HIGH);
+
+          promulgate.transmit_action('#', 'C', 0, 0, '!');
+
+          Serial << "claw triggered" << endl;
+          
+          last_c = current_time;
+          digitalWrite(led, LOW);
+        }
+
       }
 
   //last_control = current_time;
