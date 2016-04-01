@@ -67,6 +67,14 @@ boolean BWD = false;
 float brightness = 0.1;
 CRGB wat  = CRGB( brightness*200, brightness*50, brightness*100);
 
+int claw_open = 180;
+int claw_closed = 0;
+boolean claw_state = true; // open by default
+
+int link_b_max = 120;
+int link_b_min = 180;
+int link_b_level = 140;
+
 
 void motor_a(boolean dir, int speedy) {
   if(dir == BWD) {
@@ -92,6 +100,9 @@ void motor_b(boolean dir, int speedy) {
 
 void transmit_complete();
 void received_action(char action, char cmd, uint8_t key, uint16_t val, char delim);
+
+void openClaw();
+void closeClaw();
 
 void setup() {
 
@@ -122,6 +133,11 @@ void setup() {
   servo_b.attach(servo_b_pin);
 
   link_a.attach(servo_linka_pin);
+  link_b.attach(servo_linkb_pin);
+  claw.attach(servo_claw_pin);
+
+  claw.write(claw_open);
+  delay(100);
 
   for(int i=0; i<3; i++) {
     digitalWrite(led, HIGH);
@@ -148,11 +164,23 @@ void setup() {
     leds[i] = CRGB::Black;
   }
   FastLED.show();
-  
+ 
 }
 
 
 void loop() { 
+
+  openClaw();
+  delay(100);
+  closeClaw();
+  delay(100);
+
+  link_b.write(link_b_min);
+  delay(1000);  
+  link_b.write(link_b_level);
+  delay(1000);
+  link_b.write(link_b_max);
+  delay(1000);
   
   current_time = millis();
   //digitalWrite(led, (current_time%1000) < 100 || ((current_time%1000) > 200 && (current_time%1000) < 300));// || ((current_time%1000) > 400 && (current_time%1000) < 500));
@@ -162,6 +190,26 @@ void loop() {
     promulgate.organize_message(c);
   }
 
+}
+
+void openClaw() {
+  if(!claw_state) {
+    for(int i=claw_closed; i<claw_open; i++) {
+      claw.write(i);
+      delay(10);
+    }
+    claw_state = !claw_state;
+  }
+}
+
+void closeClaw() {
+  if(claw_state) {
+    for(int i=claw_open; i>claw_closed; i--) {
+      claw.write(i);
+      delay(10);
+    }
+    claw_state = !claw_state;
+  }
 }
 
 
@@ -192,12 +240,18 @@ void received_action(char action, char cmd, uint8_t key, uint16_t val, char deli
     }
   }
 
-  if(cmd == 'S') { // arm
+  if(cmd == 'S') { // arm (data from 0-45)
 
     digitalWrite(led, LOW);
-    
+
+    // for the soil arm
     int servo_pos = val;
     link_a.write(servo_pos);
+
+    // for the claw arm
+    int claw_arm_pos = (int)map(val, 0, 45, link_b_min, link_b_max);
+    link_b.write(claw_arm_pos);
+    
   }
 
   if(cmd == 'T') { // tilt mode
