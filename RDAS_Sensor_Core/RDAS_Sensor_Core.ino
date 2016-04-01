@@ -125,7 +125,7 @@ void received_action_hw(char action, char cmd, uint8_t key, uint16_t val, char d
   }
 
   // forwarding the messages
-  if(cmd == 'T' || cmd == 'S' || cmd == 'L' || cmd == 'R') {
+  if(cmd == 'T' || cmd == 'S' || cmd == 'L' || cmd == 'R' || cmd == 'C') {
     promulgate.transmit_action(action, cmd, key, val, delim);
   }
   
