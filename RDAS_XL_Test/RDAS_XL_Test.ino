@@ -69,13 +69,13 @@ boolean BWD = false;
 float brightness = 0.1;
 CRGB wat  = CRGB( brightness*200, brightness*50, brightness*100);
 
-int claw_open = 180;
-int claw_closed = 0;
+int claw_open = 80;//140;//80;
+int claw_closed = 160;
 boolean claw_state = true; // open by default
 
-int link_b_max = 120;
-int link_b_min = 180;
-int link_b_level = 140;
+int link_b_max = 90;
+int link_b_min = 200;//180;
+int link_b_level = 120;
 
 
 void motor_a(boolean dir, int speedy) {
@@ -166,23 +166,47 @@ void setup() {
     leds[i] = CRGB::Black;
   }
   FastLED.show();
+
+
+  link_b.write(link_b_min);
+  delay(500);
+
+  link_b.write(link_b_level);
+  delay(500);
+
+  servo_a.detach();
+  servo_b.detach();
+
+  /*
+  servo_a.detach();
+  servo_b.detach();
+  
+  link_a.detach();
+  link_b.detach();
+
+  while(1<3) {
+    openClaw();
+    delay(50);
+    closeClaw();
+    delay(50);
+  }
+  */
  
 }
 
 
 void loop() { 
 
-  openClaw();
-  delay(100);
-  closeClaw();
-  delay(100);
+  
 
+  /*
   link_b.write(link_b_min);
   delay(1000);  
   link_b.write(link_b_level);
   delay(1000);
   link_b.write(link_b_max);
   delay(1000);
+  */
   
   current_time = millis();
   //digitalWrite(led, (current_time%1000) < 100 || ((current_time%1000) > 200 && (current_time%1000) < 300));// || ((current_time%1000) > 400 && (current_time%1000) < 500));
@@ -195,23 +219,23 @@ void loop() {
 }
 
 void openClaw() {
-  if(!claw_state) {
-    for(int i=claw_closed; i<claw_open; i++) {
+  //if(!claw_state) {
+    for(int i=claw_closed; i>claw_open; i--) {
       claw.write(i);
       delay(10);
     }
     claw_state = !claw_state;
-  }
+  //}
 }
 
 void closeClaw() {
-  if(claw_state) {
-    for(int i=claw_open; i>claw_closed; i--) {
+  //if(claw_state) {
+    for(int i=claw_open; i<claw_closed; i++) {
       claw.write(i);
       delay(10);
     }
     claw_state = !claw_state;
-  }
+  //}
 }
 
 
@@ -286,6 +310,10 @@ void received_action(char action, char cmd, uint8_t key, uint16_t val, char deli
       tilt_pos_b = mid_b;
     }
 
+    //servo_a.write(tilt_pos_a);
+    //servo_b.write(tilt_pos_b);
+
+    /*
     if(tilt_pos_a > prev_tilt_pos_a) {
       for(int i=prev_tilt_pos_a; i<tilt_pos_a; i++) {
         servo_a.write(i);
@@ -309,6 +337,7 @@ void received_action(char action, char cmd, uint8_t key, uint16_t val, char deli
         delay(20);
       }
     }
+    */
 
     prev_tilt_pos_a = tilt_pos_a;
     prev_tilt_pos_b = tilt_pos_b;

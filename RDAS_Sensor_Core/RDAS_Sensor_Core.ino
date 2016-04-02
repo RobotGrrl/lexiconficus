@@ -116,14 +116,6 @@ void received_action_hw(char action, char cmd, uint8_t key, uint16_t val, char d
     Serial << "delim: " << delim << endl;
   }
 
-  if(cmd == 'T') {
-    digitalWrite(led, HIGH);
-  }
-
-  if(cmd == 'S') {
-    digitalWrite(led, LOW);
-  }
-
   // forwarding the messages
   if(cmd == 'T' || cmd == 'S' || cmd == 'L' || cmd == 'R' || cmd == 'C') {
     promulgate.transmit_action(action, cmd, key, val, delim);

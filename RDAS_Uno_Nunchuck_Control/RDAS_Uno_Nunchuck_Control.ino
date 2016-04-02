@@ -49,6 +49,7 @@ int tilt_mode = 0;
 int max_tilt_modes = 5;
 long last_c = 0;
 long last_control = 0;
+long claw_time = 0;
 
 void setup() {
   Serial.begin(9600);
@@ -177,6 +178,8 @@ void loop() {
         }
         
       } else if(nunchuk.zButton == 1 && nunchuk.cButton == 0) { // arm
+
+        if(current_time-claw_time < 500) return; // claw buttons released check
     
         digitalWrite(led, LOW);
     
@@ -187,6 +190,8 @@ void loop() {
         Serial << "arm pos: " << servo_pos << endl;
         
       } else if(nunchuk.zButton == 0 && nunchuk.cButton == 1) { // tilt
+
+        if(current_time-claw_time < 500) return; // claw buttons released check
 
         int tilt_pos = map(nunchuk.analogY, min_y, max_y, 0, 45);
 
@@ -227,6 +232,8 @@ void loop() {
           last_c = current_time;
           digitalWrite(led, LOW);
         }
+
+        claw_time = current_time;
 
       }
 
