@@ -24,6 +24,7 @@ Promulgate promulgate = Promulgate(&mySerial, &mySerial);
 Promulgate promulgate_hw = Promulgate(&Serial, &Serial);
 
 int led = 13;
+int big_led = 3;
 long current_time = 0;
 long last_time = 0;
 boolean meepmeep = true;
@@ -33,11 +34,13 @@ int soil_hand = 250;
 int soil_wet = 500;
 long last_sensor_send = 0;
 long last_print = 0;
+long last_fwd_msg = 0;
 
 void setup() {
   Serial.begin(9600);
   mySerial.begin(9600);
   pinMode(led, OUTPUT);
+  pinMode(big_led, OUTPUT);
   pinMode(soil, INPUT);
 
   promulgate.LOG_LEVEL = Promulgate::ERROR_;
@@ -47,6 +50,10 @@ void setup() {
   promulgate_hw.LOG_LEVEL = Promulgate::ERROR_;
   promulgate_hw.set_rx_callback(received_action_hw);
   promulgate_hw.set_tx_callback(transmit_complete_hw);
+
+  digitalWrite(big_led, HIGH);
+  delay(1000);
+  digitalWrite(big_led, LOW);
   
 }
 
@@ -84,6 +91,12 @@ void loop() {
     last_sensor_send = current_time;
 
   }
+
+  if(current_time-last_fwd_msg >= 1000) {
+    digitalWrite(big_led, LOW);    
+  } else {
+    digitalWrite(big_led, (current_time%1000) < 100 || ((current_time%1000) > 200 && (current_time%1000) < 300));
+  }
   
 }
 
@@ -119,6 +132,7 @@ void received_action_hw(char action, char cmd, uint8_t key, uint16_t val, char d
   // forwarding the messages
   if(cmd == 'T' || cmd == 'S' || cmd == 'L' || cmd == 'R' || cmd == 'C') {
     promulgate.transmit_action(action, cmd, key, val, delim);
+    last_fwd_msg = current_time;
   }
   
 }
