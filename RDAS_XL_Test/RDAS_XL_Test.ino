@@ -77,6 +77,8 @@ int link_b_max = 90;
 int link_b_min = 200;//180;
 int link_b_level = 120;
 
+long last_tilt = 0;
+
 
 void motor_a(boolean dir, int speedy) {
   if(dir == BWD) {
@@ -130,9 +132,9 @@ void setup() {
   promulgate.set_tx_callback(transmit_complete);
   
   // mid: 1500, casting @ 90deg: 1200, driving @ 90deg: 1800
-  servo_a.attach(servo_a_pin);
+  //servo_a.attach(servo_a_pin);
   // mid: 1500, casting @ 90deg: 1800, driving @ 90deg: 1200
-  servo_b.attach(servo_b_pin);
+  //servo_b.attach(servo_b_pin);
 
   link_a.attach(servo_linka_pin);
   link_b.attach(servo_linkb_pin);
@@ -174,9 +176,6 @@ void setup() {
   link_b.write(link_b_level);
   delay(500);
 
-  servo_a.detach();
-  servo_b.detach();
-
   /*
   servo_a.detach();
   servo_b.detach();
@@ -215,6 +214,14 @@ void loop() {
     char c = Serial3.read();
     promulgate.organize_message(c);
   }
+
+  /*
+  if(current_time-last_tilt>=1000) {
+    servo_a.detach();
+    servo_b.detach();
+  }
+  */
+  
 
 }
 
@@ -310,8 +317,15 @@ void received_action(char action, char cmd, uint8_t key, uint16_t val, char deli
       tilt_pos_b = mid_b;
     }
 
-    //servo_a.write(tilt_pos_a);
-    //servo_b.write(tilt_pos_b);
+    /*
+    servo_a.attach(servo_a_pin);
+    servo_b.attach(servo_b_pin);
+
+    servo_a.write(tilt_pos_a);
+    servo_b.write(tilt_pos_b);
+
+    last_tilt = current_time;
+    */
 
     /*
     if(tilt_pos_a > prev_tilt_pos_a) {
@@ -342,7 +356,7 @@ void received_action(char action, char cmd, uint8_t key, uint16_t val, char deli
     prev_tilt_pos_a = tilt_pos_a;
     prev_tilt_pos_b = tilt_pos_b;
 
-    /*
+    
     // no longer doing it this way
     int tilt_mode = val;
 
@@ -389,7 +403,7 @@ void received_action(char action, char cmd, uint8_t key, uint16_t val, char deli
       servo_b.write(drive_b);
       
     }
-    */
+    
 
     digitalWrite(led, LOW);
     

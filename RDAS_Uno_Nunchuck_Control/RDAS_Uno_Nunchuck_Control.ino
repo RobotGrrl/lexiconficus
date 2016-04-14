@@ -193,6 +193,7 @@ void loop() {
 
         if(current_time-claw_time < 500) return; // claw buttons released check
 
+        /*
         int tilt_pos = map(nunchuk.analogY, min_y, max_y, 0, 45);
 
         if(nunchuk.analogY >= (home_y-10) && nunchuk.analogY <= (home_y+10)
@@ -205,8 +206,9 @@ void loop() {
         promulgate.transmit_action('#', 'T', 0, tilt_pos, '!');
 
         Serial << "tilt pos: " << tilt_pos << endl;
-
-        /*
+        */
+        
+        
         // no longer doing it this way
         if(current_time-last_c >= 1000) { // cycle through tilt modes
           digitalWrite(led, HIGH);
@@ -218,7 +220,7 @@ void loop() {
           Serial << "tilt mode: " << tilt_mode << endl;
           last_c = current_time;
         }
-        */
+        
         
       } else if(nunchuk.zButton == 1 && nunchuk.cButton == 1) { // claw
 
