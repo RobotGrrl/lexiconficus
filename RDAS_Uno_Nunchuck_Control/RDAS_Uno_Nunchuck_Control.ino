@@ -27,6 +27,7 @@
 #include "Promulgate.h"
 
 boolean DEBUG = false;
+boolean MYO_MODE = false;
 
 SoftwareSerial mySerial(3, 2); // RX, TX
 Promulgate promulgate = Promulgate(&mySerial, &mySerial);
@@ -79,7 +80,27 @@ void loop() {
   */
 
   nunchuk.update();
+
+
+
+  if(Serial.available()) {
+    char c = Serial.read();
   
+    if(MYO_MODE) {
+      if(c == 'B') { // wave left
+        promulgate.transmit_action('#', 'L', 1, 255, '!');
+        promulgate.transmit_action('#', 'R', 1, 255, '!');
+      } else if(c == 'C') { // wave right
+        promulgate.transmit_action('#', 'L', 0, 255, '!');
+        promulgate.transmit_action('#', 'R', 0, 255, '!');
+      } else if(c == 'A') { // fist
+        promulgate.transmit_action('#', 'L', 1, 0, '!');
+        promulgate.transmit_action('#', 'R', 1, 0, '!');
+      }
+    }
+
+  }
+
   /*  
   Serial.print(nunchuk.analogX, DEC);
   Serial.print(' ');
@@ -97,6 +118,9 @@ void loop() {
 
   delay(100);
   */
+
+  if(!MYO_MODE) {
+    
 
   //if(current_time-last_control >= 20) {
 
@@ -241,6 +265,8 @@ void loop() {
 
   //last_control = current_time;
   //}
+
+  }
 
   delay(20);
 

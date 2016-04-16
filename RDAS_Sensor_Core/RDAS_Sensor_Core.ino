@@ -18,6 +18,7 @@
 #include "Promulgate.h"
 
 boolean DEBUG = false;
+boolean MYO_MODE = false;
 
 SoftwareSerial mySerial(4, 8); // RX, TX
 Promulgate promulgate = Promulgate(&mySerial, &mySerial);
@@ -68,7 +69,22 @@ void loop() {
 
   if(Serial.available()) {
     char c = Serial.read();
-    promulgate_hw.organize_message(c);
+
+    if(!MYO_MODE) {
+      promulgate_hw.organize_message(c);  
+    } else {
+      if(c == 'B') { // wave left
+        promulgate.transmit_action('#', 'L', 1, 255, '!');
+        promulgate.transmit_action('#', 'R', 1, 255, '!');
+      } else if(c == 'C') { // wave right
+        promulgate.transmit_action('#', 'L', 0, 255, '!');
+        promulgate.transmit_action('#', 'R', 0, 255, '!');
+      } else if(c == 'A') { // fist
+        promulgate.transmit_action('#', 'L', 1, 0, '!');
+        promulgate.transmit_action('#', 'R', 1, 0, '!');
+      }
+    }
+    
   }
 
   int soil_val = analogRead(soil);

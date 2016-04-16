@@ -69,8 +69,8 @@ boolean BWD = false;
 float brightness = 0.1;
 CRGB wat  = CRGB( brightness*200, brightness*50, brightness*100);
 
-int claw_open = 80;//140;//80;
-int claw_closed = 160;
+int claw_open = -20;
+int claw_closed = 60;
 boolean claw_state = true; // open by default
 
 int link_b_max = 90;
@@ -156,6 +156,7 @@ void setup() {
     motor_b(FWD, 255);
   }
   */
+  
 
   for(int i=NUM_LEDS-1; i>=0; i--) {
         leds[i] = CRGB::Yellow; 
@@ -190,6 +191,27 @@ void setup() {
     delay(50);
   }
   */
+
+/*
+while(1<3){
+  
+  claw.write(0);
+  delay(1000);
+  claw.write(90);
+  delay(1000);
+  claw.write(180);
+  delay(1000);
+  
+//  claw.write(claw_open);
+//  delay(1000);
+//  claw.write(claw_closed);
+//  delay(1000);
+  claw.write(-20);
+  delay(1000);
+  claw.write(60); // 120 = up, apparently
+  delay(1000);
+}
+*/
  
 }
 
@@ -226,21 +248,33 @@ void loop() {
 }
 
 void openClaw() {
+
+  claw.write(claw_open);
+  delay(1000);
+
+  /*
   //if(!claw_state) {
     for(int i=claw_closed; i>claw_open; i--) {
       claw.write(i);
       delay(10);
     }
+    */
     claw_state = !claw_state;
   //}
 }
 
 void closeClaw() {
+
+  claw.write(claw_closed);
+  delay(1000);
+
+  /*
   //if(claw_state) {
     for(int i=claw_open; i<claw_closed; i++) {
       claw.write(i);
       delay(10);
     }
+    */
     claw_state = !claw_state;
   //}
 }
@@ -309,6 +343,15 @@ void received_action(char action, char cmd, uint8_t key, uint16_t val, char deli
 
     digitalWrite(led, HIGH);
 
+    // f it
+
+    if(claw_state) {
+      closeClaw();
+    } else {
+      openClaw();
+    }
+
+    /*
     int tilt_pos_a = (int)map(val, 0, 45, drive_a, cast_a);
     int tilt_pos_b = (int)map(val, 0, 45, drive_b, cast_b);
 
@@ -316,6 +359,7 @@ void received_action(char action, char cmd, uint8_t key, uint16_t val, char deli
       tilt_pos_a = mid_a;
       tilt_pos_b = mid_b;
     }
+    */
 
     /*
     servo_a.attach(servo_a_pin);
@@ -353,8 +397,8 @@ void received_action(char action, char cmd, uint8_t key, uint16_t val, char deli
     }
     */
 
-    prev_tilt_pos_a = tilt_pos_a;
-    prev_tilt_pos_b = tilt_pos_b;
+    //prev_tilt_pos_a = tilt_pos_a;
+    //prev_tilt_pos_b = tilt_pos_b;
 
     
     // no longer doing it this way
