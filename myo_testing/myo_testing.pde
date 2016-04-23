@@ -11,7 +11,7 @@ void setup() {
   // myo.setVerbose(true);
   // myo.setVerboseLevel(4); // Default: 1 (1-4)
   
-  
+  myo.setLockingPolicy(Myo.LockingPolicy.NONE);
   
 }
 

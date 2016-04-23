@@ -147,12 +147,12 @@ void loop() {
         } else if(nunchuk.analogY >= (home_y-10) && nunchuk.analogY <= (home_y+10)) { // turning
           
           if(nunchuk.analogX >= (min_x+10)) {
-            promulgate.transmit_action('#', 'L', 0, 128, '!');
-            promulgate.transmit_action('#', 'R', 1, 255, '!');
+            promulgate.transmit_action('@', 'L', 0, 128, '!');
+            promulgate.transmit_action('@', 'R', 1, 255, '!');
           }
           if(nunchuk.analogX <= (max_x-10)) {
-            promulgate.transmit_action('#', 'L', 1, 255, '!');
-            promulgate.transmit_action('#', 'R', 0, 128, '!');
+            promulgate.transmit_action('@', 'L', 1, 255, '!');
+            promulgate.transmit_action('@', 'R', 0, 128, '!');
           }
           
         } else if(nunchuk.analogY >= home_y) { // fwd

@@ -53,18 +53,23 @@ boolean blink_on = true;
 
 int motor_speed = 255;
 
-int mid_a = 1500;
-int cast_a = 1200;
+// RIGHT
+int mid_a = 1400;
+int cast_a = 1000;
 int drive_a = 1800;
+int turn_a = 1600;
 int prev_tilt_pos_a = mid_a;
 
-int mid_b = 1500;
-int cast_b = 1800;
+// LEFT
+int mid_b = 1800;
+int cast_b = 2000;
 int drive_b = 1200;
+int turn_b = 1400;
 int prev_tilt_pos_b = mid_b;
 
 boolean FWD = true;
 boolean BWD = false;
+boolean TURNING = false;
 
 float brightness = 0.1;
 CRGB wat  = CRGB( brightness*200, brightness*50, brightness*100);
@@ -132,9 +137,13 @@ void setup() {
   promulgate.set_tx_callback(transmit_complete);
   
   // mid: 1500, casting @ 90deg: 1200, driving @ 90deg: 1800
-  //servo_a.attach(servo_a_pin);
+  servo_a.attach(servo_a_pin);
+  servo_a.write(mid_a);
+  //servo_a.write(cast_a);
   // mid: 1500, casting @ 90deg: 1800, driving @ 90deg: 1200
-  //servo_b.attach(servo_b_pin);
+  servo_b.attach(servo_b_pin);
+  servo_b.write(mid_b);
+  //servo_b.write(cast_b);
 
   link_a.attach(servo_linka_pin);
   link_b.attach(servo_linkb_pin);
@@ -301,20 +310,66 @@ void received_action(char action, char cmd, uint8_t key, uint16_t val, char deli
     Serial << "delim: " << delim << endl;
   }
 
-  if(cmd == 'L') { // left motor
-    if(key == 1) { // fwd
-      motor_a(FWD, val);
-    } else if(key == 0) { // bwd
-      motor_a(BWD, val);
-    }
-  }
+  if(action == '#') {
 
-  if(cmd == 'R') { // right motor
-    if(key == 1) { // fwd
-      motor_b(FWD, val);
-    } else if(key == 0) { // bwd
-      motor_b(BWD, val);
+    /*
+    if(TURNING) {
+      // tilt base to mid position
+      // TODO: check previous state, return to that position
+      servo_a.write(mid_a);
+      servo_b.write(mid_b);
+      TURNING = false;
     }
+    */
+
+    if(cmd == 'L') { // left motor
+      if(key == 1) { // fwd
+        motor_a(FWD, val);
+      } else if(key == 0) { // bwd
+        motor_a(BWD, val);
+      }
+    }
+  
+    if(cmd == 'R') { // right motor
+      if(key == 1) { // fwd
+        motor_b(FWD, val);
+      } else if(key == 0) { // bwd
+        motor_b(BWD, val);
+      }
+    }
+
+  } else if(action == '@') {
+
+    TURNING = true;
+
+    if(cmd == 'L') { // left motor
+      if(key == 1) { // fwd
+        motor_a(FWD, val);
+        // move the left side (B) to drive position
+        //servo_a.write(mid_a);
+        //servo_b.write(turn_b);
+      } else if(key == 0) { // bwd
+        motor_a(BWD, val);
+        // move the right side (A) to drive position
+        //servo_a.write(turn_a);
+        //servo_b.write(mid_b);
+      }
+    }
+  
+    if(cmd == 'R') { // right motor
+      if(key == 1) { // fwd
+        motor_b(FWD, val);
+        // move the right side (A) to drive position
+        //servo_b.write(cast_a);
+        //servo_b.write(mid_b);
+      } else if(key == 0) { // bwd
+        motor_b(BWD, val);
+        // move the left side (B) to drive position
+        //servo_a.write(mid_a);
+        //servo_b.write(turn_b);
+      }
+    }
+    
   }
 
   if(cmd == 'S') { // arm (data from 0-45)
