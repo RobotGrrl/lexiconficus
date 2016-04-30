@@ -8,16 +8,19 @@ void setup() {
   // ...
 
   myo = new Myo(this);
-  // myo.setVerbose(true);
+  //myo.setVerbose(true);
   // myo.setVerboseLevel(4); // Default: 1 (1-4)
   
   myo.setLockingPolicy(Myo.LockingPolicy.NONE);
+  
   
 }
 
 void draw() {
   background(255);
-  // ...
+  
+  //rect(0, 0, width, height);
+  
 }
 
 // ----------------------------------------------------------
@@ -79,7 +82,7 @@ void myoOnPose(Myo myo, long timestamp, Pose pose) {
     break;
   case FIST:
     println("Pose: FIST");
-    myo.vibrate();
+    //myo.vibrate(1);
     break;
   case FINGERS_SPREAD:
     println("Pose: FINGERS_SPREAD");
@@ -98,8 +101,36 @@ void myoOnPose(Myo myo, long timestamp, Pose pose) {
   }
 }
 
+// pitch = elbow up / down
+// roll = hand in / out (twisting your arm)
+// yaw = arm close to chest / away
 void myoOnOrientation(Myo myo, long timestamp, PVector orientation) {
-  // println("Sketch: myoOnOrientation");
+  println("Sketch: myoOnOrientation");
+  
+  float roll = orientation.x;
+  float pitch = orientation.y;
+  float yaw = orientation.z;
+  
+  println("roll: " + roll + " pitch: " + pitch + " yaw: " + yaw);
+  
+  float pitch_home = 8.5;
+  float pitch_home_range = 1.0;
+  
+  float roll_vals_range = 0.2;
+  float roll_max = 7.2;
+  float roll_min = 5.5;
+  
+  float yaw_home = 12.2;
+  float yaw_home_range = 0.5;
+  
+  if(pitch >= (pitch_home-pitch_home_range) && pitch <= (pitch_home+pitch_home_range)) { // arm is held out (like 90 degrees to ground)
+    if(roll >= (roll_max-roll_vals_range) && roll <= (roll_max+roll_vals_range)) { // hand is palm down
+      if(yaw >= (yaw_home-yaw_home_range) && yaw <= (yaw_home+yaw_home_range)) { // arm is held out (like 90 degrees to torso)
+        println("home!");
+      }
+    }
+  }
+  
 }
 
 void myoOnAccelerometer(Myo myo, long timestamp, PVector accelerometer) {
