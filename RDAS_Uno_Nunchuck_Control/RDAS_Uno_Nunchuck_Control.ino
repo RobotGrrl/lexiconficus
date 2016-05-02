@@ -27,10 +27,11 @@
 #include "Promulgate.h"
 
 boolean DEBUG = false;
-boolean MYO_MODE = false;
+boolean MYO_MODE = true;
 
 SoftwareSerial mySerial(3, 2); // RX, TX
 Promulgate promulgate = Promulgate(&mySerial, &mySerial);
+Promulgate promulgate_hw = Promulgate(&Serial, &Serial);
 
 int led = 13;
 long current_time = 0;
@@ -55,11 +56,15 @@ long claw_time = 0;
 void setup() {
   Serial.begin(9600);
   mySerial.begin(9600);
-  Serial.println("RDAS Nunchuck Control");
+  //Serial.println("RDAS Nunchuck Control");
   
   promulgate.LOG_LEVEL = Promulgate::ERROR_;
   promulgate.set_rx_callback(received_action);
   promulgate.set_tx_callback(transmit_complete);
+
+  promulgate_hw.LOG_LEVEL = Promulgate::ERROR_;
+  promulgate_hw.set_rx_callback(received_action_hw);
+  promulgate_hw.set_tx_callback(transmit_complete_hw);
   
   pinMode(led, OUTPUT);
   nunchuk.init();
@@ -79,10 +84,26 @@ void loop() {
   }
   */
 
-  nunchuk.update();
+ 
+  if(MYO_MODE) {
+
+    if(Serial.available()) {
+      int read_speed = Serial.parseInt();
+      //if(read_speed < 1000) {
+        promulgate.transmit_action('@', 'L', 0, read_speed, '!');
+        promulgate.transmit_action('@', 'R', 0, read_speed, '!');
+      //} else if(read_speed >= 1000) {
+      //  promulgate.transmit_action('@', 'L', 1, read_speed-1000, '!');
+      //  promulgate.transmit_action('@', 'R', 1, read_speed-1000, '!');
+      //}
+      //char c = Serial.read();
+      //promulgate_hw.organize_message(c);
+    }
+
+  }
 
 
-
+  /*
   if(Serial.available()) {
     char c = Serial.read();
   
@@ -100,6 +121,7 @@ void loop() {
     }
 
   }
+  */
 
   /*  
   Serial.print(nunchuk.analogX, DEC);
@@ -120,6 +142,9 @@ void loop() {
   */
 
   if(!MYO_MODE) {
+
+
+  nunchuk.update();
     
 
   //if(current_time-last_control >= 20) {
@@ -178,7 +203,7 @@ void loop() {
           int speed_r = (int)((float)motor_speed * percent_r);
           int speed_l = (int)((float)motor_speed * percent_l);
       
-          Serial << "speed L: " << speed_l << " R: " << speed_r << endl;
+          if(DEBUG) Serial << "speed L: " << speed_l << " R: " << speed_r << endl;
           
           // sending the data
           if(motor_dir) {
@@ -319,18 +344,18 @@ void loop() {
 
 void received_action(char action, char cmd, uint8_t key, uint16_t val, char delim) {
   
-  //if(DEBUG) {
+  if(DEBUG) {
     Serial << "---CALLBACK---" << endl;
     Serial << "action: " << action << endl;
     Serial << "command: " << cmd << endl;
     Serial << "key: " << key << endl;
     Serial << "val: " << val << endl;
     Serial << "delim: " << delim << endl;
-  //}
+  }
 
   if(cmd == 'G') {
     int soil_reading = val;
-    Serial << "Soil, " << soil_reading << endl;
+    //Serial << "Soil, " << soil_reading << endl;
   }
   
 }
@@ -338,4 +363,31 @@ void received_action(char action, char cmd, uint8_t key, uint16_t val, char deli
 void transmit_complete() {
   if(DEBUG) Serial << "transmit complete!" << endl;
 }
+
+
+
+
+void received_action_hw(char action, char cmd, uint8_t key, uint16_t val, char delim) {
+  
+  if(DEBUG) {
+    Serial << "---CALLBACK---" << endl;
+    Serial << "action: " << action << endl;
+    Serial << "command: " << cmd << endl;
+    Serial << "key: " << key << endl;
+    Serial << "val: " << val << endl;
+    Serial << "delim: " << delim << endl;
+  }
+
+  if(cmd == 'L' || cmd == 'R') {
+    promulgate.transmit_action(action, 'L', key, val, delim);
+    promulgate.transmit_action(action, 'R', key, val, delim);
+    digitalWrite(led, !digitalRead(led));
+  }
+  
+}
+
+void transmit_complete_hw() {
+  if(DEBUG) Serial << "transmit complete!" << endl;
+}
+
 

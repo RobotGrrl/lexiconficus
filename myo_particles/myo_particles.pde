@@ -1,6 +1,8 @@
 import traer.physics.*;
 
 static int NUM_POINTS = 10;
+static int PARTICLE_SIZE = 30;
+
 ParticleSystem physics;
 Particle[] particles = new Particle[NUM_POINTS];
 
@@ -30,7 +32,7 @@ void draw() {
   
   fill(0, 255, 0);
   for(int i=0; i<NUM_POINTS; i++) {
-    ellipse(particles[i].position().x(), particles[i].position().y(), 15, 15);
+    ellipse(particles[i].position().x(), particles[i].position().y(), PARTICLE_SIZE, PARTICLE_SIZE);
   }
   
   // handle the boundaries
