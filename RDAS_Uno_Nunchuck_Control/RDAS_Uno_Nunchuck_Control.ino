@@ -53,6 +53,9 @@ long last_c = 0;
 long last_control = 0;
 long claw_time = 0;
 
+int read_speed = 0;
+int read_dir = 0;
+
 void setup() {
   Serial.begin(9600);
   mySerial.begin(9600);
@@ -88,10 +91,19 @@ void loop() {
   if(MYO_MODE) {
 
     if(Serial.available()) {
-      int read_speed = Serial.parseInt();
+      read_speed = Serial.parseInt();
+
+      /*
+      if(read_speed >= 1000) {
+        read_speed -= 1000;
+        read_dir = 1;
+      } else {
+        read_dir = 0;
+      }
+      */
+      
       //if(read_speed < 1000) {
-        promulgate.transmit_action('@', 'L', 0, read_speed, '!');
-        promulgate.transmit_action('@', 'R', 0, read_speed, '!');
+        
       //} else if(read_speed >= 1000) {
       //  promulgate.transmit_action('@', 'L', 1, read_speed-1000, '!');
       //  promulgate.transmit_action('@', 'R', 1, read_speed-1000, '!');
@@ -99,6 +111,9 @@ void loop() {
       //char c = Serial.read();
       //promulgate_hw.organize_message(c);
     }
+
+    promulgate.transmit_action('@', 'L', 1, read_speed, '!');
+    promulgate.transmit_action('@', 'R', 1, read_speed, '!');
 
   }
 

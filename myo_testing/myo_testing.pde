@@ -273,14 +273,17 @@ void myoOnOrientation(Myo myo, long timestamp, PVector orientation) {
   //if(millis() % 100 == 0) {
     println("~");
     
+    arduino.write(speed + ";");
     
-    //if(dir == 0) {
+    /*
+    if(dir == 0) {
       //arduino.write(speed + ";");
       arduino.write(speed + ";");
       //delay(20);
-    //} else if(dir == 1) {
-    //  arduino.write((speed+1000) + ";");
-    //}
+    } else if(dir == 1) {
+      arduino.write((speed+1000) + ";");
+    }
+    */
     
     
     //arduino.write(128);
