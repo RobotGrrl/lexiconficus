@@ -137,12 +137,12 @@ void setup() {
   promulgate.set_tx_callback(transmit_complete);
   
   // mid: 1500, casting @ 90deg: 1200, driving @ 90deg: 1800
-  servo_a.attach(servo_a_pin);
-  servo_a.write(mid_a);
+  //servo_a.attach(servo_a_pin);
+  //servo_a.write(mid_a);
   //servo_a.write(cast_a);
   // mid: 1500, casting @ 90deg: 1800, driving @ 90deg: 1200
-  servo_b.attach(servo_b_pin);
-  servo_b.write(mid_b);
+  //servo_b.attach(servo_b_pin);
+  //servo_b.write(mid_b);
   //servo_b.write(cast_b);
 
   link_a.attach(servo_linka_pin);

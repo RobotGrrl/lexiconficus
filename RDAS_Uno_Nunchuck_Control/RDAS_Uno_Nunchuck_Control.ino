@@ -27,9 +27,9 @@
 #include "Promulgate.h"
 
 boolean DEBUG = false;
-boolean MYO_MODE = true;
+boolean MYO_MODE = false;
 
-SoftwareSerial mySerial(3, 2); // RX, TX
+SoftwareSerial mySerial(2, 3); // RX, TX
 Promulgate promulgate = Promulgate(&mySerial, &mySerial);
 Promulgate promulgate_hw = Promulgate(&Serial, &Serial);
 
@@ -76,6 +76,8 @@ void setup() {
 void loop() {
 
   current_time = millis();
+
+  //mySerial.print("A");
 
   /*
   // somethin' buggy with this
@@ -187,12 +189,12 @@ void loop() {
         } else if(nunchuk.analogY >= (home_y-10) && nunchuk.analogY <= (home_y+10)) { // turning
           
           if(nunchuk.analogX >= (min_x+10)) {
-            promulgate.transmit_action('@', 'L', 0, 128, '!');
+            promulgate.transmit_action('@', 'L', 0, 255, '!');
             promulgate.transmit_action('@', 'R', 1, 255, '!');
           }
           if(nunchuk.analogX <= (max_x-10)) {
             promulgate.transmit_action('@', 'L', 1, 255, '!');
-            promulgate.transmit_action('@', 'R', 0, 128, '!');
+            promulgate.transmit_action('@', 'R', 0, 255, '!');
           }
           
         } else if(nunchuk.analogY >= home_y) { // fwd
