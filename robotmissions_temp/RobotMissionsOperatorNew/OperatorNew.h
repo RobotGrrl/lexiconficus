@@ -48,23 +48,23 @@
 //#define DEBUG false
 #define COMM_DEBUG false
 #define OP_DEBUG false
-#define BUTTON_DEBUG true
+#define BUTTON_DEBUG false
 
 // button pins
 #define REDBUTTON 14
-#define GREENBUTTON 2
-#define YELLOWBUTTON 3
-#define BLUEBUTTON 4
-#define WHITEBUTTON 7
-#define BLACKBUTTON 8
-#define DEBOUNCE 10
+#define GREENBUTTON 3
+#define YELLOWBUTTON 2
+#define BLUEBUTTON 8
+#define WHITEBUTTON 4
+#define BLACKBUTTON 9
+#define DEBOUNCE 20
 
 // led pins
 #define BOARD_LED 13
 #define LED1 23
 #define LED2 22
 #define LED3 21
-#define LED4 20
+#define LED4 20 
 #define LED5 6
 #define LED6 5
 

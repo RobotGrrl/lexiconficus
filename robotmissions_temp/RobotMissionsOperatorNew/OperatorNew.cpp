@@ -61,22 +61,22 @@ void Operator::init() {
 void Operator::update() {
   current_time = millis();
   updateButtons();
-  
+
   // by slowing down the updates when the nunchuck is idle, we will receive the
   // replies from the robot less frequently, thereby letting us check the buttons
   // more frequently, so that the experience can be more responsive
   if(joystick_idle == true && current_time-last_idle_update >= IDLE_UPDATE_FREQ) {
-    joystickControl();
+    if(red_on) joystickControl();
     last_idle_update = current_time;
   } else {
-    joystickControl();
+    if(red_on) joystickControl();
   }
   
 }
 
 void Operator::breatheLeds() {
 
-  for(int i=0; i<256; i+=2) {
+  for(int i=0; i<=256; i+=2) {
     analogWrite(LED1, i);
     analogWrite(LED2, i);
     analogWrite(LED3, i);
@@ -94,7 +94,7 @@ void Operator::breatheLeds() {
   digitalWrite(LED6, HIGH);
   delay(100);
 
-  for(int i=256; i>0; i-=2) {
+  for(int i=256; i>=0; i-=2) {
     analogWrite(LED1, i);
     analogWrite(LED2, i);
     analogWrite(LED3, i);
@@ -171,82 +171,46 @@ void Operator::joystickControl() {
     m.val2 = speed_r;
     m.delim = '!';
     
-  } else if(joy_x >= (MAX_X-50) && ( joy_y >= (HOME_Y-20) && joy_y <= (HOME_Y+20) ) ) {
+  } else if(joy_x >= (MAX_X-100) && ( joy_y >= (HOME_Y-30) && joy_y <= (HOME_Y+30) ) ) {
   
     // hard turn to the left (so rev right higher)
+    m.priority = 3;
+    m.action = '#';
+    m.cmd = 'L';
+    m.key = 1;
+    m.val = 255;
+    m.cmd2 = 'R';
+    m.key2 = 0;
+    m.val2 = 255;
+    m.delim = '!';
 
-    if(joy_y >= HOME_Y) {
-      Serial << "------------";
-    } else {
-      Serial << "++++++++++++";
-    }
-
-    Serial << " hard left" << endl;
+    if(OP_DEBUG) Serial << " hard left" << endl;
   
-  } else if(joy_x <= (MIN_X+50) && ( joy_y >= (HOME_Y-20) && joy_y <= (HOME_Y+20) )) {
+  } else if(joy_x <= (MIN_X+100) && ( joy_y >= (HOME_Y-30) && joy_y <= (HOME_Y+30) )) {
 
     // hard turn to the right (so rev left higher)
 
-    if(joy_y >= HOME_Y) {
-      Serial << "------------";
-    } else {
-      Serial << "++++++++++++";
-    }
+    m.priority = 3;
+    m.action = '#';
+    m.cmd = 'L';
+    m.key = 0;
+    m.val = 255;
+    m.cmd2 = 'R';
+    m.key2 = 1;
+    m.val2 = 255;
+    m.delim = '!';
 
-    Serial << " hard right" << endl;
+    if(OP_DEBUG) Serial << " hard right" << endl;
 
   } else {
 
     if(joy_y > HOME_Y) {
       motor_speed = map(joy_y, HOME_Y, MAX_Y, 0, 255);
+      motor_dir = true;
     } else if(joy_y < HOME_Y) {
       motor_speed = map(joy_y, HOME_Y, MIN_Y, 0, 255);
+      motor_dir = false;
     }
-
-    if(joy_x > HOME_X) {
-      speed_l = map(joy_x, HOME_X, MAX_X, 0, 100);
-    } else if(joy_x < HOME_X) {
-      speed_r = map(joy_x, HOME_X, MIN_X, 0, 100);
-    }
-
-    float percent_l = speed_l / 100.0;
-    float percent_r = speed_r / 100.0;
-
-    speed_l = percent_l * motor_speed;
-    speed_r = percent_r * motor_speed;    
-
-    //Serial << "motor speed: " << motor_speed << endl;
-    Serial << "L: " << speed_l << " R: " << speed_r << endl;
-
-  }
-
-  /*
-  else if(joy_y >= HOME_Y) { // fwd
-
-    motor_speed = map(joy_y, MAX_Y, HOME_Y, 0, 255);
-    motor_dir = true;
-    speed_adj = true;
-
-    if(slower_speed) motor_speed = map(joy_y, HOME_Y, MAX_Y, 0, slow_speed);
-
-  } else if(joy_y <= HOME_Y) { // bwd
-    
-    motor_speed = map(joy_y, MIN_Y, HOME_Y, 255, 0);
-    motor_dir = false;
-    speed_adj = true;
-
-    if(slower_speed) motor_speed = map(joy_y, MIN_Y, HOME_Y, slow_speed, 0);
-
-  }
-
-  if(speed_adj) { // calculate the motor speed for L and R
-    
-    float percent_r = (float)map(joy_x, MIN_X, MAX_X, 0, 100);
-    percent_r /= 100.0;
-    float percent_l = 1.0-percent_r;
-
-    speed_r = (int)((float)motor_speed * percent_r);
-    speed_l = (int)((float)motor_speed * percent_l);
 
     // sending the data
     if(motor_dir) {
@@ -271,51 +235,18 @@ void Operator::joystickControl() {
       m.delim = '!';
     }
 
+    if(OP_DEBUG) Serial << " motor_speed: " << motor_speed << endl;
+
+    /*
+    float percent_l = (float)( map(joy_x, MIN_X, MAX_X, 0, 100) );
+    percent_l /= 100.0;
+    float percent_r = 1.0 - percent_l;
+
+    speed_l = (int)(percent_l * (float)motor_speed);
+    speed_r = (int)(percent_r * (float)motor_speed);    
+    */
+
   }
-
-  //if(OP_DEBUG) {
-    if(motor_dir) {
-      Serial << "FWD- ";
-    } else {
-      Serial << "BWD- ";
-    }
-    Serial << " speed L: " << speed_l << " R: " << speed_r << endl;
-  //}
-  */
-
-  /* else if(nunchuk.zButton == 1 && nunchuk.cButton == 0) { // arm
-
-    uint8_t servo_pos = map(joy_y, MIN_Y, MAX_Y, 0, 45);
-
-    m.priority = 2;
-    m.action = '#';
-    m.cmd = 'S';
-    m.key = 0;
-    m.val = servo_pos;
-    m.cmd2 = '0';
-    m.key2 = 0;
-    m.val2 = 0;
-    m.delim = '!';
-
-    if(OP_DEBUG) Serial << "arm pos: " << servo_pos << endl;
-    
-  } else if(nunchuk.zButton == 0 && nunchuk.cButton == 1) {
-
-    uint8_t servo_pos = map(joy_y, MIN_Y, MAX_Y, 0, 45);
-
-    m.priority = 2;
-    m.action = '#';
-    m.cmd = 'C';
-    m.key = 0;
-    m.val = servo_pos;
-    m.cmd2 = '0';
-    m.key2 = 0;
-    m.val2 = 0;
-    m.delim = '!';
-
-    if(OP_DEBUG) Serial << "claw pos: " << servo_pos << endl;
-    
-  }*/
 
   insertNextMsg(m);
 
@@ -470,9 +401,9 @@ void Operator::updateButtons() {
     m.delim = '!';
 
     if(green_on) {
-      digitalWrite(LED2, HIGH);
+      digitalWrite(LED3, HIGH);
     } else {
-      digitalWrite(LED2, LOW);
+      digitalWrite(LED3, LOW);
     }
 
     addNextMsg(m);
@@ -484,13 +415,13 @@ void Operator::updateButtons() {
     if(BUTTON_DEBUG) Serial.print(F("yellow button (Y)"));
 
     yellow_on = !yellow_on;
-
+    
     m.priority = 1;
     m.action = '#';
     m.cmd = 'Y';
     m.key = 0;
 
-    if(red_on) {
+    if(yellow_on) {
       m.val = 1;
     } else {
       m.val = 0;
@@ -502,11 +433,11 @@ void Operator::updateButtons() {
     m.delim = '!';
     
     if(yellow_on) {
-      digitalWrite(LED3, HIGH);
-      turn_on_spot = true;
+      digitalWrite(LED2, HIGH);
+      //turn_on_spot = true;
     } else {
-      digitalWrite(LED3, LOW);
-      turn_on_spot = false;
+      digitalWrite(LED2, LOW);
+      //turn_on_spot = false;
     }
 
     addNextMsg(m);
@@ -536,11 +467,11 @@ void Operator::updateButtons() {
     m.delim = '!';
 
     if(blue_on) {
-      digitalWrite(LED4, HIGH);
-      slower_speed = true;
+      digitalWrite(LED5, HIGH);
+      //slower_speed = true;
     } else {
-      digitalWrite(LED4, LOW);
-      slower_speed = false;
+      digitalWrite(LED5, LOW);
+      //slower_speed = false;
     }
 
     addNextMsg(m);
@@ -570,9 +501,9 @@ void Operator::updateButtons() {
     m.delim = '!';
 
     if(white_on) {
-      digitalWrite(LED5, HIGH);
+      digitalWrite(LED4, HIGH);
     } else {
-      digitalWrite(LED5, LOW);
+      digitalWrite(LED4, LOW);
     }
 
     addNextMsg(m);
