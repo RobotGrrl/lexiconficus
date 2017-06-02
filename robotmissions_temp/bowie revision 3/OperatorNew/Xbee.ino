@@ -5,24 +5,35 @@ void xbeeSend(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8
   // *out_stream << action << cmd << key << "," << val << delim;
   
   sprintf(message_tx,"%c%c%d,%d,%c%d,%d%c", action, cmd, key, val, cmd2, key2, val2, delim);
-  ZBTxRequest zbtx = ZBTxRequest(addr_controller, (uint8_t *)message_tx, strlen(message_tx));
+  ZBTxRequest zbtx = ZBTxRequest(addr_robot, (uint8_t *)message_tx, strlen(message_tx));
   zbtx.setFrameId('0');
   xbee.send(zbtx);
 
+  if (xbee.readPacket(5)) {
+    if (xbee.getResponse().getApiId() == ZB_TX_STATUS_RESPONSE) {
+      xbee.getResponse().getZBTxStatusResponse(txStatus);
+      if (txStatus.getDeliveryStatus() == SUCCESS) {
+        msg_tx_count++;
+        if(COMM_DEBUG) Serial.print(msg_tx_count);
+        if(COMM_DEBUG) Serial.println(" msg sent");
+      } else {
+        msg_tx_err++;
+        if(COMM_DEBUG) Serial.print(msg_tx_err);
+        if(COMM_DEBUG) Serial.println(" msg did not send, encountered an error");
+      }
+    }
+  }
+  
+  
 }
 
 bool xbeeRead() {
-
-  Serial << "A";
+  
   xbee.readPacket();
-  Serial << "B";
 
   if (xbee.getResponse().isAvailable()) { // we got something
-    Serial << "C";
     if (xbee.getResponse().getApiId() == ZB_RX_RESPONSE) { // got an rx packet
-      Serial << "D";
       xbee.getResponse().getZBRxResponse(rx);
-      Serial << "E";
 
       XBeeAddress64 senderLongAddress = rx.getRemoteAddress64();
       if(COMM_DEBUG) {
@@ -43,16 +54,13 @@ bool xbeeRead() {
           message_rx[i] = (char)rx.getData()[i];
           if(COMM_DEBUG) Serial.write(message_rx[i]);
         }
-        Serial << "F";
       }
       if(COMM_DEBUG) Serial.println();
-      Serial << "G";
       msg_rx_count++;
       return true;
     }
   }
 
-  Serial << "H";
   return false;
   
 }

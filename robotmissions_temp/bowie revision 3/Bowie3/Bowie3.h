@@ -27,10 +27,10 @@
 // motor pins
 #define MOTORA_SPEED 23
 #define MOTORB_SPEED 22
-#define MOTORA_CTRL1 16
-#define MOTORA_CTRL2 17
-#define MOTORB_CTRL1 12
-#define MOTORB_CTRL2 11
+#define MOTORA_CTRL1 16 // BR
+#define MOTORA_CTRL2 17 // FR
+#define MOTORB_CTRL1 12 // FL
+#define MOTORB_CTRL2 11 // BL
 
 // servo pins
 #define SERVO_ARM1 3
@@ -55,7 +55,7 @@
 #define BRIGHT_LED_FRONT_RIGHT 21
 #define BRIGHT_LED_BACK_LEFT 35
 #define BRIGHT_LED_BACK_RIGHT 36
-#define COMM_LED 2
+#define COMM_LED 13 //2
 
 // gpio pins
 #define GPIO_PIN1 A18
@@ -65,17 +65,28 @@
 #define GPIO_PIN5 A16
 
 // motor directions
-#define MOTOR_DIR_FWD false
-#define MOTOR_DIR_REV true
+#define MOTOR_DIR_FWD true
+#define MOTOR_DIR_REV false
 
 // servo values
-#define ARM_MAX 130
-#define ARM_HOME 100
-#define ARM_MIN 30
+#define ARM_MIN 900 // down
+#define ARM_HOME 1200 // middle
+#define ARM_MAX 2300 // up
 
-#define CLAW_MIN 1300
-#define CLAW_HOME 1100
-#define CLAW_MAX 500
+#define END_MIN 900 // up
+#define END_PARALLEL_TOP 2300 // parallel to ground when arm is raised, raised a bit to keep debris in
+#define END_PARALLEL_BOTTOM 1100 // parallel to ground when arm is lowered
+#define END_HOME 1400 // parallel to arm, good for digging
+#define END_MAX 1800 // down
+
+#define TILT_MIN 700 // tilted (emptying)
+#define TILT_MAX 1600 // flush
+
+#define LID_MIN 1000 // open
+#define LID_MAX 2000 // closed
+
+#define SERVO_MAX_US 2500
+#define SERVO_MIN_US 500
 
 // super bright led values
 #define MAX_BRIGHTNESS 255
@@ -139,6 +150,18 @@ class Bowie {
     void insertNextMsg(Msg m);
     void chooseNextMessage();
 
+    // servos
+    Servo arm;
+    Servo arm2;
+    Servo end;
+    Servo tilt;
+    Servo lid;
+    Servo extra;
+    void moveArm(int armPos);
+    int getArmPos();
+    int clawParallelVal(int arm_Val);
+    void moveScoop(int targetArmuS, int targetClawuS);
+
   private:
 
     // states
@@ -154,14 +177,6 @@ class Bowie {
     Msg msg_queue[MSG_QUEUE_SIZE];
     unsigned long last_rx;
     uint8_t unlikely_count = 0;
-
-    // servos
-    Servo arm;
-    Servo arm2;
-    Servo end;
-    Servo hopper_pivot;
-    Servo hopper_lid;
-    Servo extra;
 
     // gpio
     bool gpio_pin1_input;
@@ -193,6 +208,9 @@ class Bowie {
     uint16_t gpio_pin3_val;
     uint16_t gpio_pin4_val;
     uint16_t gpio_pin5_val;
+
+    // servos
+    int arm_position;
 
     // init methods
     void initMotors();

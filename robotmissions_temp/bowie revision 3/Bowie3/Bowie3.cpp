@@ -48,7 +48,7 @@ void Bowie::init() {
   initLeds();
   initMotors();
   initServos();
-  //initSensors();
+  initSensors();
   
   //initGPIO(1, 1);
   //initGPIO(2, 1);
@@ -59,34 +59,6 @@ void Bowie::init() {
 }
 
 void Bowie::update() {
-
-
-  // while(1<3) {
-
-  //   for(int i=ARM_MIN; i<ARM_MAX; i++) {
-  //     arm.write(i);
-  //     //arm2.write(180-i);
-  //     delay(10);
-  //   }
-
-  //   for(int i=ARM_MAX; i>ARM_MIN; i--) {
-  //     arm.write(i);
-  //     //arm2.write(180-i);
-  //     delay(10);
-  //   }
-
-  //   for(int i=CLAW_MAX; i<CLAW_MIN; i++) {
-  //     claw.writeMicroseconds(i);
-  //     delay(10);
-  //   }
-
-  //   for(int i=CLAW_MIN; i>CLAW_MAX; i--) {
-  //     claw.writeMicroseconds(i);
-  //     delay(10);
-  //   } 
-
-  // }
-
 
   // specific things to do if remote operation is enabled
   if(REMOTE_OP_ENABLED) {
@@ -108,6 +80,7 @@ void Bowie::update() {
 
 
   // update all the sensors
+  /*
   sonar_val_left = analogRead(SONAR_LEFT);
   sonar_val_right = analogRead(SONAR_RIGHT);
   force_sensor_val_left = analogRead(FORCE_SENSOR_LEFT);
@@ -117,6 +90,7 @@ void Bowie::update() {
   if(gpio_pin3_input) gpio_pin3_val = analogRead(GPIO_PIN3);
   if(gpio_pin4_input) gpio_pin4_val = analogRead(GPIO_PIN4);
   if(gpio_pin5_input) gpio_pin5_val = analogRead(GPIO_PIN5);
+  */
 
   // update the gyroscope sensor (L3GD20)
   if(GYRO_ENABLED) {
@@ -309,6 +283,7 @@ Msg Bowie::popNextMsg() {
 }
 
 void Bowie::addNextMsg(uint8_t priority, char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim) {
+  Serial.print("adding next message");
   if(msgs_in_queue > MSG_QUEUE_SIZE-1) {
     if(COMM_DEBUG) {
       Serial.print(F("Cannot add msg to queue, number of messages in queue: "));
@@ -328,6 +303,7 @@ void Bowie::addNextMsg(uint8_t priority, char action, char cmd, uint8_t key, uin
 }
 
 void Bowie::addNextMsg(Msg m) {
+  Serial.print("adding next message");
   if(msgs_in_queue > MSG_QUEUE_SIZE-1) {
     if(COMM_DEBUG) {
       Serial.print(F("Cannot add msg to queue, number of messages in queue: "));
@@ -340,7 +316,7 @@ void Bowie::addNextMsg(Msg m) {
 
 void Bowie::insertNextMsg(Msg m) {
 
-  Serial << "insert ";
+  Serial.print("inserting next message");
 
   if(msgs_in_queue == 0) {
     if(OP_DEBUG) Serial << "Adding it to index 0" << endl;
@@ -425,6 +401,7 @@ void Bowie::control(char action, char cmd, uint8_t key, uint16_t val, char cmd2,
 
   // we've seen this happen *sometimes*, and it is highly unlikely that this would be an
   // intentional command. let's make sure they mean this at least 2 times before listening
+  
   if(val == 255 && val2 == 255 && cmd == 'L' && cmd2 == 'R') {
     unlikely_count++;
     if(unlikely_count <= 2) return;
@@ -436,14 +413,15 @@ void Bowie::control(char action, char cmd, uint8_t key, uint16_t val, char cmd2,
 
     for(int i=0; i<2; i++) {
 
+      /*
       if(packets[i].cmd == 'L') { // left motor
         if(packets[i].val > 255) packets[i].key = 99; // something weird here, set key to skip
         if(packets[i].key == 1) { // fwd
-          analogWrite(BRIGHT_LED_LEFT, MAX_BRIGHTNESS);
+          analogWrite(BRIGHT_LED_FRONT_LEFT, MAX_BRIGHTNESS);
           motor_setDir(0, MOTOR_DIR_FWD);
           motor_setSpeed(0, val);
         } else if(packets[i].key == 0) { // bwd
-          analogWrite(BRIGHT_LED_LEFT, MIN_BRIGHTNESS);
+          analogWrite(BRIGHT_LED_FRONT_LEFT, MIN_BRIGHTNESS);
           motor_setDir(0, MOTOR_DIR_REV);
           motor_setSpeed(0, val);
         }
@@ -452,175 +430,44 @@ void Bowie::control(char action, char cmd, uint8_t key, uint16_t val, char cmd2,
       if(packets[i].cmd == 'R') { // right motor
         if(packets[i].val > 255) packets[i].key = 99; // something weird here, set key to skip
         if(packets[i].key == 1) { // fwd
-          analogWrite(BRIGHT_LED_RIGHT, MAX_BRIGHTNESS);
+          analogWrite(BRIGHT_LED_FRONT_RIGHT, MAX_BRIGHTNESS);
           motor_setDir(1, MOTOR_DIR_FWD);
           motor_setSpeed(1, val);
         } else if(packets[i].key == 0) { // bwd
-          analogWrite(BRIGHT_LED_RIGHT, MIN_BRIGHTNESS);
+          analogWrite(BRIGHT_LED_FRONT_RIGHT, MIN_BRIGHTNESS);
           motor_setDir(1, MOTOR_DIR_REV);
           motor_setSpeed(1, val);
         }
       }
+      */
 
       if(packets[i].cmd == 'P') { // red button
-        if(packets[i].val == 1) {
+        if(packets[i].val == 1) { // sends drive joystick cmds on operator side
         }
       }
 
       if(packets[i].cmd == 'Y') { // yellow button
-        if(packets[i].val == 1) { // arm down
-          
-          arm.write(ARM_HOME);
-          arm2.write(180-ARM_HOME);
-          delay(50);
-
-          for(int i=ARM_HOME; i>ARM_MIN; i--) {
-            arm.write(i);
-            arm2.write(180-i);
-            delay(10);
-          }
-
-          arm.write(ARM_MIN);
-          arm2.write(180-ARM_MIN);
-
-        } else if(packets[i].val == 0) { // back to home
-
-          arm.write(ARM_MIN);
-          arm2.write(180-ARM_MIN);
-          delay(50);
-
-          for(int i=ARM_MIN; i<ARM_HOME; i++) {
-            arm.write(i);
-            arm2.write(180-i);
-            delay(10);
-          }
-
-          arm.write(ARM_HOME);
-          arm2.write(180-ARM_HOME);
-
-        }
-      }
-
-      if(packets[i].cmd == 'B') { // blue button
-        if(packets[i].val == 1) { // arm up
-          
-          arm.write(ARM_HOME);
-          arm2.write(180-ARM_HOME);
-          delay(50);
-
-          for(int i=ARM_HOME; i<ARM_MAX; i++) {
-            arm.write(i);
-            arm2.write(180-i);
-            delay(10);
-          }
-
-          arm.write(ARM_MAX);
-          arm2.write(180-ARM_MAX);
-
-        } else if(packets[i].val == 0) { // arm home
-
-          arm.write(ARM_MAX);
-          arm2.write(180-ARM_MAX);
-          delay(50);
-
-          for(int i=ARM_MAX; i>ARM_HOME; i--) {
-            arm.write(i);
-            arm2.write(180-i);
-            delay(10);
-          }
-
-          arm.write(ARM_HOME);
-          arm2.write(180-ARM_HOME);
-
-        }
-      }
-
-      if(packets[i].cmd == 'W') { // white button
-        if(packets[i].val == 1) {
-          analogWrite(BRIGHT_LED_RIGHT, MAX_BRIGHTNESS);
-          analogWrite(BRIGHT_LED_LEFT, MAX_BRIGHTNESS);
-          delay(500);
-          analogWrite(BRIGHT_LED_RIGHT, MIN_BRIGHTNESS);
-          analogWrite(BRIGHT_LED_LEFT, MIN_BRIGHTNESS);
-          delay(500);
+        if(packets[i].val == 1) { // sends arm joystick cmds on operator side
         }
       }
 
       if(packets[i].cmd == 'G') { // green button
-        if(packets[i].val == 1) { // scoop up
-         
-          claw.writeMicroseconds(CLAW_HOME);
-          delay(50);
+        if(packets[i].val == 1) { // collect (fast)
+        }
+      }
 
-          for(int i=CLAW_HOME; i>CLAW_MAX; i--) {
-            claw.writeMicroseconds(i);
-            delay(1);
-          }
+      if(packets[i].cmd == 'W') { // white button
+        if(packets[i].val == 1) { // deposit
+        }
+      }
 
-          claw.writeMicroseconds(CLAW_MAX);
-
-        } else if(packets[i].val == 0) { // scoop home
-
-          claw.writeMicroseconds(CLAW_MAX);
-          delay(50);
-
-          for(int i=CLAW_MAX; i<CLAW_HOME; i++) {
-            claw.writeMicroseconds(i);
-            delay(1);
-          }
-
-          claw.writeMicroseconds(CLAW_HOME);
-
+      if(packets[i].cmd == 'B') { // blue button
+        if(packets[i].val == 1) { // collect (slow)
         }
       }
 
       if(packets[i].cmd == 'N') { // black button
-        if(packets[i].val == 1) { // scoop down
-         
-          claw.writeMicroseconds(CLAW_HOME);
-          delay(50);
-
-          for(int i=CLAW_HOME; i<CLAW_MIN; i++) {
-            claw.writeMicroseconds(i);
-            delay(1);
-          }
-
-          claw.writeMicroseconds(CLAW_MIN);
-
-        } else if(packets[i].val == 0) { // scoop to home
-
-          claw.writeMicroseconds(CLAW_MIN);
-          delay(50);
-
-          for(int i=CLAW_MIN; i>CLAW_HOME; i--) {
-            claw.writeMicroseconds(i);
-            delay(1);
-          }
-
-          claw.writeMicroseconds(CLAW_HOME);
-
-        }
-      }
-
-      if(packets[i].cmd == 'Q') {
-        if(packets[i].val == 0) {
-          if(packets[i].key == 0) {
-            digitalWrite(BRIGHT_LED_LEFT, LOW);
-          } else if(packets[i].key == 1) {
-            digitalWrite(BRIGHT_LED_RIGHT, LOW);
-          }
-        } else if(packets[i].val == 255) {
-          if(packets[i].key == 0) {
-            digitalWrite(BRIGHT_LED_LEFT, HIGH);
-          } else if(packets[i].key == 1) {
-            digitalWrite(BRIGHT_LED_RIGHT, HIGH);
-          }
-        } else {
-          if(packets[i].key == 0) {
-            analogWrite(BRIGHT_LED_LEFT, val);
-          } else if(packets[i].key == 1) {
-            analogWrite(BRIGHT_LED_RIGHT, val);
-          }
+        if(packets[i].val == 1) { // dance
         }
       }
 
@@ -635,11 +482,11 @@ void Bowie::control(char action, char cmd, uint8_t key, uint16_t val, char cmd2,
       if(packets[i].cmd == 'L') { // left motor
         if(packets[i].val > 255) packets[i].key = 99; // something weird here, set key to skip
         if(packets[i].key == 1) { // fwd
-          analogWrite(BRIGHT_LED_LEFT, MAX_BRIGHTNESS);
+          analogWrite(BRIGHT_LED_FRONT_LEFT, MAX_BRIGHTNESS);
           motor_setDir(0, MOTOR_DIR_FWD);
           motor_setSpeed(0, val);
         } else if(packets[i].key == 0) { // bwd
-          analogWrite(BRIGHT_LED_LEFT, MIN_BRIGHTNESS);
+          analogWrite(BRIGHT_LED_FRONT_LEFT, MIN_BRIGHTNESS);
           motor_setDir(0, MOTOR_DIR_REV);
           motor_setSpeed(0, val);
         }
@@ -648,31 +495,50 @@ void Bowie::control(char action, char cmd, uint8_t key, uint16_t val, char cmd2,
       if(packets[i].cmd == 'R') { // right motor
         if(packets[i].val > 255) packets[i].key = 99; // something weird here, set key to skip
         if(packets[i].key == 1) { // fwd
-          digitalWrite(BRIGHT_LED_RIGHT, HIGH);
+          digitalWrite(BRIGHT_LED_FRONT_RIGHT, HIGH);
           motor_setDir(1, MOTOR_DIR_FWD);
           motor_setSpeed(1, val);
         } else if(packets[i].key == 0) { // bwd
-          digitalWrite(BRIGHT_LED_RIGHT, LOW);
+          digitalWrite(BRIGHT_LED_FRONT_RIGHT, LOW);
           motor_setDir(1, MOTOR_DIR_REV);
           motor_setSpeed(1, val);
         }
       }
+      
+      if(packets[i].cmd == 'S') { // arm (data from 0-100)
+        int the_pos = (int)map(val, 0, 100, ARM_MIN, ARM_MAX);
+        int temp_pos = arm_position;
 
-      if(packets[i].cmd == 'S') { // arm (data from 0-45)
-        int the_pos = (int)map(val, 0, 45, ARM_MIN, ARM_MAX);
+        if(abs(the_pos - temp_pos) >= 10) {
+          if(the_pos > temp_pos) { // going up
+            for(int i=temp_pos; i<the_pos; i++) {
+              moveArm(i);
+              end.writeMicroseconds(clawParallelVal(i));
+              delay(5);
+            }
+          } else if(the_pos < temp_pos) { // going down
+            for(int i=temp_pos; i>the_pos; i--) {
+              moveArm(i);
+              end.writeMicroseconds(clawParallelVal(i));
+              delay(5);
+            }
+          }
+        } else {
+          moveArm(the_pos);
+          delay(5);
+        }
 
-        arm.write(the_pos);
-        arm2.write(180-the_pos);
-
-        Serial << "\narm angle: " << the_pos << endl;
+        Serial << "\narm angle: " << arm_position << endl;
       }
 
+      /*
       if(packets[i].cmd == 'C') { // claw / scoop
-        int the_pos = (int)map(val, 0, 45, CLAW_MIN, CLAW_MAX);
-        claw.writeMicroseconds(the_pos);
+        int the_pos = (int)map(val, 0, 45, END_MIN, END_MAX);
+        end.writeMicroseconds(the_pos);
 
         Serial << "\nclaw angle: " << the_pos << endl;
       }
+      */
 
     }
   } // -- end of '@' action specifier
@@ -710,13 +576,9 @@ void Bowie::initServos() {
   arm.attach(SERVO_ARM1);
   arm2.attach(SERVO_ARM2);
   end.attach(SERVO_END_EFFECTOR);
-  hopper_pivot.attach(SERVO_HOPPER_PIVOT);
-  hopper_lid.attach(SERVO_HOPPER_LID);
+  tilt.attach(SERVO_HOPPER_PIVOT);
+  lid.attach(SERVO_HOPPER_LID);
   extra.attach(SERVO_EXTRA);
-
-  //arm.write(180-ARM_HOME);
-  //arm2.write(ARM_HOME);
-  //claw.writeMicroseconds(CLAW_HOME);
 }
 
 void Bowie::initSensors() {
@@ -800,11 +662,11 @@ void Bowie::turnOnLights() {
 void Bowie::motor_setDir(uint8_t motorNum, bool dir) {
   if(0 == motorNum) {
     if(dir) {
-      digitalWrite(MOTORA_CTRL1, HIGH);
-      digitalWrite(MOTORA_CTRL2, LOW);        
-    } else {
       digitalWrite(MOTORA_CTRL1, LOW);
-      digitalWrite(MOTORA_CTRL2, HIGH);
+      digitalWrite(MOTORA_CTRL2, HIGH);        
+    } else {
+      digitalWrite(MOTORA_CTRL1, HIGH);
+      digitalWrite(MOTORA_CTRL2, LOW);
     }
   } else if(1 == motorNum) {
     if(dir) {
@@ -849,6 +711,112 @@ void Bowie::leftBork() {
   pinMode(MOTORA_SPEED, OUTPUT);
   analogWrite(MOTORA_SPEED, 0);
 }
+
+
+// -----
+
+void Bowie::moveArm(int armPos) {
+  arm.writeMicroseconds(armPos);
+  arm2.writeMicroseconds(SERVO_MAX_US - armPos + SERVO_MIN_US);
+  arm_position = armPos;
+}
+
+int Bowie::getArmPos() {
+  return arm_position;
+}
+
+
+// ---------
+// this code is from Micah Black, during Random Hacks of Kindness in Ottawa 2017
+
+//get a parallel claw value
+int Bowie::clawParallelVal(int arm_Val){
+  return (int)constrain( map(arm_Val, ARM_MIN, ARM_MAX, END_PARALLEL_BOTTOM, END_PARALLEL_TOP) , END_PARALLEL_BOTTOM, END_PARALLEL_TOP);
+} //constrain to make sure that it does not result in a value less than 800 - could make the servo rotate backwards.
+
+//this is a combination of the two indivual movement functions
+//next step - make the servos reach their endpoints at the same time
+//could also add controling it by degrees - if target is <= 180, map to uS, then continue
+//to add - keep claw parallel if only moving the arm
+//to add - if the end value is parallel for the claw, move the arm and keep the claw parallel
+void Bowie::moveScoop(int targetArmuS, int targetClawuS){ //arm first, claw second
+  
+  /*
+
+  //claw values
+  targetClawuS = constrain(targetClawuS, CLAW_MAX, CLAW_MIN); //claw max is smaller
+  int ClawDiff = targetClawuS - current_Claw_Val;
+  int ClawDirection;
+  int ClawStartuS = current_Claw_Val;
+  
+  int ClawuSfromStart;
+  int ClawuSfromEnd;
+  float ClawuSfromPoint;
+  
+  int ClawIncrement;
+  
+  //arm values
+  targetArmuS = constrain(targetArmuS, ARM_MIN, ARM_MAX);
+  int ArmDiff = targetArmuS - current_Arm_Val;
+  int ArmDirection;
+  int ArmstartuS = current_Arm_Val;
+  
+  int ArmuSfromStart;
+  int ArmuSfromEnd;
+  float ArmuSfromPoint;
+  
+  int ArmIncrement;
+  
+  //Claw Direction
+  if (ClawDiff == 0)
+    ClawDirection = 0;
+  else if (ClawDiff < 0) //if target is less than current, go backwards
+    ClawDirection  = -1;
+  else if (ClawDiff > 0)
+    ClawDirection = 1; //if target is greater than 0, go forwards (increase servo value)
+  else 
+    ClawDirection = 0;
+  
+  //Arm Direction
+  if (ArmDiff == 0)
+    ArmDirection = 0;
+  else if (ArmDiff < 0) //if target is less than current, go backwards
+    ArmDirection  = -1;
+  else if (ArmDiff > 0)
+    ArmDirection = 1; //if target is greater than 0, go forwards (increase servo value)
+  else
+    ArmDirection = 0;
+  
+  
+  while((current_Arm_Val != targetArmuS) || (current_Claw_Val != targetClawuS)){ //must put both into this loop
+    ArmuSfromStart = current_Arm_Val - ArmstartuS;
+    ArmuSfromEnd = targetArmuS - current_Arm_Val;
+    ArmuSfromStart = abs(ArmuSfromStart); //abs must be comuted on a number, any math should be done outside the function
+    ArmuSfromEnd = abs(ArmuSfromEnd);
+    ArmuSfromPoint = (float)min(ArmuSfromStart, ArmuSfromEnd);
+    
+    ClawuSfromStart = current_Claw_Val - ClawStartuS;
+    ClawuSfromEnd = targetClawuS - current_Claw_Val;
+    ClawuSfromStart = abs(ClawuSfromStart); //abs mClawuSt be comuted on a number, any math should be done outside the function
+    ClawuSfromEnd = abs(ClawuSfromEnd);
+    ClawuSfromPoint = (float)min(ClawuSfromStart, ClawuSfromEnd);
+    
+    ClawIncrement = (int)constrain((ClawuSfromPoint / MAX_SERVO_RANGE), 1, 15); //9 is the max servo travel in uS during a 5ms delay
+    current_Claw_Val += ClawIncrement * ClawDirection; //forwards or backwards
+    
+    ArmIncrement = (int)constrain((ArmuSfromPoint / MAX_SERVO_RANGE), 1, 15); //9 is the max servo travel in uS during a 5ms delay
+    current_Arm_Val += ArmIncrement * ArmDirection; //forwards or backwards
+    
+    arm.writeMicroseconds(current_Arm_Val);
+    arm2.writeMicroseconds(2200-current_Arm_Val +800);
+    claw.writeMicroseconds(current_Claw_Val);
+    delay(1);
+  }
+
+  */
+
+}
+
 
 
 
