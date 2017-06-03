@@ -186,10 +186,11 @@ void Operator::joystickDriveControl() {
 
   bool speed_adj = false;
 
-  if(joy_y >= (HOME_Y-20) && joy_y <= (HOME_Y+20)
-     && joy_x >= (HOME_X-20) && joy_x <= (HOME_X+20)) {
+  if(joy_y >= (HOME_Y-30) && joy_y <= (HOME_Y+30)
+     && joy_x >= (HOME_X-30) && joy_x <= (HOME_X+30)) {
     
     motor_speed = 0;
+    //turn_speed = 0;
 
     // stand still
     m.priority = 3;
@@ -246,7 +247,7 @@ void Operator::joystickDriveControl() {
 
     if(OP_DEBUG) Serial << " hard left" << endl;
 
-    Serial << "turn_speed: " << turn_speed << endl;
+    Serial << "turn_speed: " << turn_speed << "motor_speed: " << motor_speed << endl;
   
   } else if(joy_x <= (MIN_X+150) && ( joy_y >= (HOME_Y-30) && joy_y <= (HOME_Y+30) )) {
 
@@ -290,7 +291,7 @@ void Operator::joystickDriveControl() {
 
     if(OP_DEBUG) Serial << " hard right" << endl;
 
-    Serial << "turn_speed: " << turn_speed << endl;
+    Serial << "turn_speed: " << turn_speed << "motor_speed: " << motor_speed << endl;
 
   } else {
 

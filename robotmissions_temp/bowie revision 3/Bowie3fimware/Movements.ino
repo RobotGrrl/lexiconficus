@@ -234,6 +234,8 @@ void scoopSequenceSlowB() {
 
   int temp_arm_pos = bowie.getArmPos();
 
+  if(temp_arm_pos < ARM_HOME) { // only dig when arm is down
+
   // wiggle while digging down
     for(int j=0; j<5; j++) {
       Serial << "Going to END_HOME+100";
@@ -286,6 +288,8 @@ void scoopSequenceSlowB() {
     bowie.motor_setSpeed(1, 0);
     Serial << " done" << endl;
     delay(10);
+
+  }
 
     // lift arm with scoop parallel to ground
     Serial << "Going to ARM_MAX";
@@ -350,7 +354,9 @@ void scoopSequenceSlowB() {
 void scoopSequenceFastB() {
 
   int temp_arm_pos = bowie.getArmPos();
-  
+
+  if(temp_arm_pos < ARM_HOME) { // only dig when arm is down
+    
     // wiggle while digging down
     for(int j=0; j<5; j++) {
       Serial << "Going to END_HOME+100";
@@ -403,6 +409,8 @@ void scoopSequenceFastB() {
     bowie.motor_setSpeed(1, 0);
     Serial << " done" << endl;
     delay(10);
+
+  }
 
     // lift arm with scoop parallel to ground
     Serial << "Going to ARM_MAX";
