@@ -146,11 +146,11 @@ void scoopSequenceFast() {
     // drive forward a bit
     Serial << "Going to MOTORS FWD 192";
     bowie.motor_setDir(0, MOTOR_DIR_FWD);
-    bowie.motor_setSpeed(0, 192);
+    bowie.motor_setSpeed(0, 255);
     bowie.motor_setDir(1, MOTOR_DIR_FWD);
-    bowie.motor_setSpeed(1, 192);
+    bowie.motor_setSpeed(1, 255);
     Serial << " done" << endl;
-    delay(100);
+    delay(10000);
 
     // stop motors!
     Serial << "Going to MOTORS FWD 0";
@@ -247,7 +247,7 @@ void scoopSequenceSlowB() {
       delay(80);
 
       Serial << "Going to END_HOME";
-      for(int i=END_HOME+100; i>END_HOME; i-=20) {
+      for(int i=END_HOME+100; i>END_HOME+500; i-=20) {
         bowie.end.writeMicroseconds( i );
         delay(5);
       }
@@ -257,7 +257,7 @@ void scoopSequenceSlowB() {
 
     // then move scoop parallel to ground
     Serial << "Going to END_PARALLEL_BOTTOM";
-    for(int i=END_HOME; i>END_PARALLEL_BOTTOM; i-=50) {
+    for(int i=END_HOME+5  00; i>END_PARALLEL_BOTTOM; i-=50) {
       bowie.end.writeMicroseconds( i );
       delay(5);
     }
@@ -267,11 +267,11 @@ void scoopSequenceSlowB() {
     // drive forward a bit
     Serial << "Going to MOTORS FWD 192";
     bowie.motor_setDir(0, MOTOR_DIR_FWD);
-    bowie.motor_setSpeed(0, 192);
+    bowie.motor_setSpeed(0, 255);
     bowie.motor_setDir(1, MOTOR_DIR_FWD);
-    bowie.motor_setSpeed(1, 192);
+    bowie.motor_setSpeed(1, 255);
     Serial << " done" << endl;
-    delay(100);
+    delay(5000);
 
     // stop motors!
     Serial << "Going to MOTORS FWD 0";
@@ -368,7 +368,7 @@ void scoopSequenceFastB() {
       delay(80);
 
       Serial << "Going to END_HOME";
-      for(int i=END_HOME+100; i>END_HOME; i-=20) {
+      for(int i=END_HOME+100; i>END_HOME+500; i-=20) {
         bowie.end.writeMicroseconds( i );
         delay(5);
       }
@@ -378,7 +378,7 @@ void scoopSequenceFastB() {
 
     // then move scoop parallel to ground
     Serial << "Going to END_PARALLEL_BOTTOM";
-    for(int i=END_HOME; i>END_PARALLEL_BOTTOM; i-=50) {
+    for(int i=END_HOME+500; i>END_PARALLEL_BOTTOM; i-=50) {
       bowie.end.writeMicroseconds( i );
       delay(5);
     }
@@ -388,11 +388,11 @@ void scoopSequenceFastB() {
     // drive forward a bit
     Serial << "Going to MOTORS FWD 192";
     bowie.motor_setDir(0, MOTOR_DIR_FWD);
-    bowie.motor_setSpeed(0, 192);
+    bowie.motor_setSpeed(0, 255);
     bowie.motor_setDir(1, MOTOR_DIR_FWD);
-    bowie.motor_setSpeed(1, 192);
+    bowie.motor_setSpeed(1, 255);
     Serial << " done" << endl;
-    delay(100);
+    delay(5000);
 
     // stop motors!
     Serial << "Going to MOTORS FWD 0";

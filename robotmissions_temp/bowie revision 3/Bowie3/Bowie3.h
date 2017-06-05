@@ -69,11 +69,11 @@
 #define MOTOR_DIR_REV false
 
 // servo values
-#define ARM_MIN 900 // down
+#define ARM_MIN 700 // down
 #define ARM_HOME 1200 // middle
 #define ARM_MAX 2300 // up
 
-#define END_MIN 900 // up
+#define END_MIN 700 // up
 #define END_PARALLEL_TOP 2300 // parallel to ground when arm is raised, raised a bit to keep debris in
 #define END_PARALLEL_BOTTOM 1100 // parallel to ground when arm is lowered
 #define END_HOME 1400 // parallel to arm, good for digging
