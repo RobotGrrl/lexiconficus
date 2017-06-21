@@ -64,9 +64,15 @@
 #define GPIO_PIN4 A17
 #define GPIO_PIN5 A16
 
+// force sensor pins
+#define FSR_TOP_L A20 // unsure
+#define FSR_TOP_R A17 // yes
+#define FSR_BOT_L A18 // yes
+#define FSR_BOT_R A19 // unsure
+
 // motor directions
-#define MOTOR_DIR_FWD true
-#define MOTOR_DIR_REV false
+#define MOTOR_DIR_FWD false
+#define MOTOR_DIR_REV true
 
 // servo values
 #define ARM_MIN 700 // down
@@ -160,6 +166,7 @@ class Bowie {
     void moveArm(int armPos);
     int getArmPos();
     int clawParallelVal(int arm_Val);
+    int clawParallelValBounds(int arm_Val, int armMin, int armMax, int endMin, int endMax);
     void moveScoop(int targetArmuS, int targetClawuS);
 
   private:

@@ -585,6 +585,11 @@ void Bowie::initSensors() {
   pinMode(CURRENT_SERVO_SENS, INPUT);
   pinMode(CURRENT_MOTOR_SENS, INPUT);
 
+  pinMode(FSR_TOP_L, INPUT);
+  pinMode(FSR_TOP_R, INPUT);
+  pinMode(FSR_BOT_L, INPUT);
+  pinMode(FSR_BOT_R, INPUT);
+
   /*
   pinMode(FORCE_SENSOR_LEFT, INPUT);
   pinMode(FORCE_SENSOR_RIGHT, INPUT);
@@ -734,17 +739,24 @@ int Bowie::clawParallelVal(int arm_Val){
   return (int)constrain( map(arm_Val, ARM_MIN, ARM_MAX, END_PARALLEL_BOTTOM, END_PARALLEL_TOP) , END_PARALLEL_BOTTOM, END_PARALLEL_TOP);
 } //constrain to make sure that it does not result in a value less than 800 - could make the servo rotate backwards.
 
+//get a parallel claw value
+int Bowie::clawParallelValBounds(int arm_Val, int armMin, int armMax, int endMin, int endMax){
+  return (int)constrain( map(arm_Val, armMin, armMax, endMin, endMax) , endMin, endMax);
+} //constrain to make sure that it does not result in a value less than 800 - could make the servo rotate backwards.
+
+
 //this is a combination of the two indivual movement functions
 //next step - make the servos reach their endpoints at the same time
 //could also add controling it by degrees - if target is <= 180, map to uS, then continue
 //to add - keep claw parallel if only moving the arm
 //to add - if the end value is parallel for the claw, move the arm and keep the claw parallel
 void Bowie::moveScoop(int targetArmuS, int targetClawuS){ //arm first, claw second
-  
-  /*
 
   //claw values
-  targetClawuS = constrain(targetClawuS, CLAW_MAX, CLAW_MIN); //claw max is smaller
+  
+  int current_Claw_Val = 1800;
+
+  targetClawuS = constrain(targetClawuS, END_MAX, END_MIN); //claw max is smaller
   int ClawDiff = targetClawuS - current_Claw_Val;
   int ClawDirection;
   int ClawStartuS = current_Claw_Val;
@@ -756,6 +768,7 @@ void Bowie::moveScoop(int targetArmuS, int targetClawuS){ //arm first, claw seco
   int ClawIncrement;
   
   //arm values
+  int current_Arm_Val = getArmPos();
   targetArmuS = constrain(targetArmuS, ARM_MIN, ARM_MAX);
   int ArmDiff = targetArmuS - current_Arm_Val;
   int ArmDirection;
@@ -801,19 +814,18 @@ void Bowie::moveScoop(int targetArmuS, int targetClawuS){ //arm first, claw seco
     ClawuSfromEnd = abs(ClawuSfromEnd);
     ClawuSfromPoint = (float)min(ClawuSfromStart, ClawuSfromEnd);
     
-    ClawIncrement = (int)constrain((ClawuSfromPoint / MAX_SERVO_RANGE), 1, 15); //9 is the max servo travel in uS during a 5ms delay
+    ClawIncrement = (int)constrain((ClawuSfromPoint / SERVO_MAX_US), 1, 15); //9 is the max servo travel in uS during a 5ms delay
     current_Claw_Val += ClawIncrement * ClawDirection; //forwards or backwards
     
-    ArmIncrement = (int)constrain((ArmuSfromPoint / MAX_SERVO_RANGE), 1, 15); //9 is the max servo travel in uS during a 5ms delay
+    ArmIncrement = (int)constrain((ArmuSfromPoint / SERVO_MAX_US), 1, 15); //9 is the max servo travel in uS during a 5ms delay
     current_Arm_Val += ArmIncrement * ArmDirection; //forwards or backwards
     
     arm.writeMicroseconds(current_Arm_Val);
-    arm2.writeMicroseconds(2200-current_Arm_Val +800);
-    claw.writeMicroseconds(current_Claw_Val);
+    arm2.writeMicroseconds(SERVO_MAX_US-current_Arm_Val+SERVO_MIN_US);
+    end.writeMicroseconds(current_Claw_Val);
     delay(1);
   }
-
-  */
+  
 
 }
 

@@ -1,0 +1,24 @@
+Going to END_HOME+100... done 25ms
+Going to END_HOME+500... done 0ms
+Going to END_HOME+100... done 25ms
+Going to END_HOME+500... done 0ms
+Going to END_HOME+100... done 25ms
+Going to END_HOME+500... done 0ms
+Going to END_HOME+100... done 25ms
+Going to END_HOME+500... done 0ms
+Going to END_HOME+100... done 25ms
+Going to END_HOME+500... done 0ms
+Going to MOTORS FWD 255... done 0ms
+Going to MOTORS FWD 0... done 255ms
+Going to END_PARALLEL_BOTTOM... done 90ms
+Going to MOTORS FWD 255... done 0ms
+Going to MOTORS FWD 0... done 255ms
+Going to END_PARALLEL_BOTTOM-500... done 125ms
+Going to ARM_HOME... done 138ms
+Going to ARM_MAX... done 660ms
+Going to LID_MIN... done 100ms
+Going to END_MIN... done 600ms
+Going to END_PARALLEL_TOP... done 161ms
+Going to LID_MAX... done 100ms
+Going to ARM_MIN or temp_arm_pos... done 933ms
+--------- Sequence complete in 4982 ms 

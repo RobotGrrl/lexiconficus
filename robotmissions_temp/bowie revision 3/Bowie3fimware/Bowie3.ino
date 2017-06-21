@@ -100,16 +100,12 @@ void setup() {
   homePositions();
   delay(1000);
 
-  /*
   while(1<3) {
 
     scoopSequenceFast();
-    delay(2000);
-    deposit();
-    delay(2000);
+    delay(5000);
     
   }
-  */
 
 }
 
@@ -181,7 +177,7 @@ void received_action(char action, char cmd, uint8_t key, uint16_t val, char cmd2
     if(cmd == 'G') {
       if(val == 1) {
         if(!did_scoop) {
-          scoopSequenceFastB();
+          scoopSequenceFast();
           did_scoop = true;
         }
       } else if(val == 0) {
@@ -190,7 +186,7 @@ void received_action(char action, char cmd, uint8_t key, uint16_t val, char cmd2
     } else if(cmd2 == 'G') {
       if(val2 == 1) {
         if(!did_scoop) {
-          scoopSequenceFastB();
+          scoopSequenceFast();
           did_scoop = true;
         }
       } else if(val2 == 0) {
@@ -225,7 +221,7 @@ void received_action(char action, char cmd, uint8_t key, uint16_t val, char cmd2
     if(cmd == 'B') {
       if(val == 1) {
         if(!did_scoop) {
-          scoopSequenceSlowB();
+          scoopSequenceSlow();
           did_scoop = true;
         }
       } else if(val == 0) {
@@ -234,7 +230,7 @@ void received_action(char action, char cmd, uint8_t key, uint16_t val, char cmd2
     } else if(cmd2 == 'B') {
       if(val2 == 1) {
         if(!did_scoop) {
-          scoopSequenceSlowB();
+          scoopSequenceSlow();
           did_scoop = true;
         }
       } else if(val2 == 0) {
