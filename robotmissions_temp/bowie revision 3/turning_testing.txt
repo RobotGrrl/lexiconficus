@@ -1,0 +1,27 @@
+turning testing
+
+1. fwd 255 rev 255
+- this is still the best for turning in place on dry sand
+
+2. fwd 255 rev 160
+- looks like it puts stress on some of the wheels
+
+3. fwd 160 rev 255
+- able to turn a bit easier than #2 but not as good as #1
+
+4. f 255 f 160
+- large arc
+
+5. f 255 f 100
+- smaller arc
+- easier to dig itself into holes
+
+6. f 200 r 200
+- "seems" less stress than #1
+
+7. f 160 r 160
+- wow! this looks like it works better because the wheels "slide" on the surface of sand while pivoting
+- takes much slower though
+
+8. f 180 r 180
+- ??? teensy is no longer working

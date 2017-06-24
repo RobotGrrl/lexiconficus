@@ -1,0 +1,3 @@
+signs of robot battery depleted
+- arm starts twitching, can't hold itself up
+- voltage: 4.7V

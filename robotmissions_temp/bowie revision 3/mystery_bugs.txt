@@ -1,0 +1,9 @@
+mystery bugs
+
+operator:
+
+why do the messages only start sending & receiving when the drive mode is enabled? (red button)
+
+clicking on & off the yellow button multiple times will cause the code to freeze up, and arm_pos magically increases to a different number 65625
+
+on the 6th button press of the yellow button, it will magically go to drive control and start printing "stand still". at this point it freezes up
