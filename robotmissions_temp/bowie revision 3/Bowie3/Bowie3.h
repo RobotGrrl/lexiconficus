@@ -75,13 +75,14 @@
 #define MOTOR_DIR_REV true
 
 // servo values
-#define ARM_MIN 700 // down
-#define ARM_HOME 1200 // middle
-#define ARM_MAX 2300 // up
+#define ARM_MIN 800 // down 700
+#define ARM_HOME 1400 // middle 1200 orig
+#define ARM_MAX 2300 // up, 90 deg perpenducular to base
+#define ARM_PARK 2400 // leaning against hopper a bit
 
 #define END_MIN 700 // up
 #define END_PARALLEL_TOP 2300 // parallel to ground when arm is raised, raised a bit to keep debris in
-#define END_PARALLEL_BOTTOM 1100 // parallel to ground when arm is lowered
+#define END_PARALLEL_BOTTOM 1100 // parallel to ground when arm is lowered 1100
 #define END_HOME 1400 // parallel to arm, good for digging
 #define END_MAX 1800 // down
 
@@ -95,8 +96,8 @@
 #define SERVO_MIN_US 500
 
 // super bright led values
-#define MAX_BRIGHTNESS 255
-#define MIN_BRIGHTNESS 100
+#define MAX_BRIGHTNESS 10
+#define MIN_BRIGHTNESS 10
 
 // messages
 #define MSG_QUEUE_SIZE 3
@@ -164,11 +165,31 @@ class Bowie {
     Servo lid;
     Servo extra;
     void moveArm(int armPos);
+    void moveArm(int armPos, int step, int del);
+    void parkArm();
+    void unparkArm();
     int getArmPos();
-    int clawParallelVal(int arm_Val);
-    int clawParallelValBounds(int arm_Val, int armMin, int armMax, int endMin, int endMax);
-    void moveScoop(int targetArmuS, int targetClawuS);
 
+    void moveEnd(int endPos);
+    void moveEnd(int endPos, int step, int del);
+    void parkEnd();
+    void unparkEnd();
+    int getEndPos();
+
+    void moveHopper(int hopperPos);
+    void moveHopper(int hopperPos, int step, int del);
+    void parkHopper();
+    void unparkHopper();
+    int getHopperPos();
+
+    void moveLid(int lidPos);
+    void moveLid(int lidPos, int step, int del);
+    void parkLid();
+    void unparkLid();
+    int getLidPos();
+
+    void moveArmAndEnd(int armPos, int step, int del, int armMin, int armMax, int endMin, int endMax);
+    
   private:
 
     // states
@@ -218,6 +239,16 @@ class Bowie {
 
     // servos
     int arm_position;
+    int end_position;
+    int hopper_position;
+    int lid_position;
+    bool arm_parked;
+    bool end_parked;
+    bool hopper_parked;
+    bool lid_parked;
+    int clawParallelVal(int arm_Val);
+    int clawParallelValBounds(int arm_Val, int armMin, int armMax, int endMin, int endMax);
+    void moveScoop(int targetArmuS, int targetClawuS);
 
     // init methods
     void initMotors();

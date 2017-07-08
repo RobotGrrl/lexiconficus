@@ -40,6 +40,15 @@ Bowie::Bowie() {
   MAG_ENABLED = false;
   ACCEL_ENABLED = false;
   BMP_ENABLED = false;
+
+  arm_position = ARM_HOME;
+  end_position = END_HOME;
+  hopper_position = TILT_MAX;
+  lid_position = LID_MAX;
+  arm_parked = false;
+  end_parked = false;
+  hopper_parked = false;
+  lid_parked = false;
 }
 
 void Bowie::init() {
@@ -506,31 +515,34 @@ void Bowie::control(char action, char cmd, uint8_t key, uint16_t val, char cmd2,
       }
       
       if(packets[i].cmd == 'S') { // arm (data from 0-100)
+        
         int the_pos = (int)map(val, 0, 100, ARM_MIN, ARM_MAX);
         int temp_pos = arm_position;
-
+        
         if(abs(the_pos - temp_pos) >= 10) {
           if(the_pos > temp_pos) { // going up
-            for(int i=temp_pos; i<the_pos; i++) {
+            for(int i=temp_pos; i<the_pos; i+=1) {
               moveArm(i);
               end.writeMicroseconds(clawParallelVal(i));
-              delay(5);
+              delay(3);
             }
           } else if(the_pos < temp_pos) { // going down
-            for(int i=temp_pos; i>the_pos; i--) {
+            for(int i=temp_pos; i>the_pos; i-=1) {
               moveArm(i);
               end.writeMicroseconds(clawParallelVal(i));
-              delay(5);
+              delay(3);
             }
           }
+          
         } else {
           moveArm(the_pos);
-          delay(5);
+          end.writeMicroseconds(clawParallelVal(the_pos));
+          delay(1);
         }
-
+        
         Serial << "\narm angle: " << arm_position << endl;
       }
-
+      
       /*
       if(packets[i].cmd == 'C') { // claw / scoop
         int the_pos = (int)map(val, 0, 45, END_MIN, END_MAX);
@@ -652,10 +664,10 @@ void Bowie::initGPIO(uint8_t p, uint8_t state) {
 // ---- LEDs
 
 void Bowie::turnOnLights() {
-  digitalWrite(BRIGHT_LED_FRONT_LEFT, HIGH);
-  digitalWrite(BRIGHT_LED_FRONT_RIGHT, HIGH);
-  digitalWrite(BRIGHT_LED_BACK_LEFT, HIGH);
-  digitalWrite(BRIGHT_LED_BACK_RIGHT, HIGH);
+  analogWrite(BRIGHT_LED_FRONT_LEFT, MAX_BRIGHTNESS);
+  analogWrite(BRIGHT_LED_FRONT_RIGHT, MAX_BRIGHTNESS);
+  analogWrite(BRIGHT_LED_BACK_LEFT, MAX_BRIGHTNESS);
+  analogWrite(BRIGHT_LED_BACK_RIGHT, MAX_BRIGHTNESS);
 }
 
 
@@ -718,18 +730,387 @@ void Bowie::leftBork() {
 }
 
 
-// -----
-
+// - Arm
 void Bowie::moveArm(int armPos) {
-  arm.writeMicroseconds(armPos);
-  arm2.writeMicroseconds(SERVO_MAX_US - armPos + SERVO_MIN_US);
+  bool did_move_hopper = false;
+  int hopper_original_pos = getHopperPos();
+  
+  unparkArm();
+  
+  if(getHopperPos() == TILT_MIN) { // check if the hopper is up
+    moveHopper(TILT_MAX); // move it flush if not
+    did_move_hopper = true;
+  }
+
+  if(getArmPos() > armPos) { // headed towards ARM_MIN
+    for(int i=getArmPos(); i>armPos; i--) {
+      arm.writeMicroseconds(armPos);
+      arm2.writeMicroseconds(SERVO_MAX_US - armPos + SERVO_MIN_US);
+      delay(3);
+    }
+  } else if(getArmPos() <= armPos) { // headed towards ARM_MAX
+    for(int i=getArmPos(); i<armPos; i++) {
+      arm.writeMicroseconds(armPos);
+      arm2.writeMicroseconds(SERVO_MAX_US - armPos + SERVO_MIN_US);
+      delay(3); 
+    }
+  }
+
+  if(did_move_hopper) { // move hopper back to original position
+    moveHopper(hopper_original_pos);
+  }
+
   arm_position = armPos;
+}
+
+void Bowie::moveArm(int armPos, int step, int del) {
+  bool did_move_hopper = false;
+  int hopper_original_pos = getHopperPos();
+  
+  unparkArm();
+  
+  if(getHopperPos() == TILT_MIN) { // check if the hopper is up
+    moveHopper(TILT_MAX); // move it flush if not
+    did_move_hopper = true;
+  }
+
+  if(getArmPos() > armPos) { // headed towards ARM_MIN
+    for(int i=getArmPos(); i>armPos; i-=step) {
+      arm.writeMicroseconds(armPos);
+      arm2.writeMicroseconds(SERVO_MAX_US - armPos + SERVO_MIN_US);
+      delay(del);
+    }
+  } else if(getArmPos() <= armPos) { // headed towards ARM_MAX
+    for(int i=getArmPos(); i<armPos; i+=step) {
+      arm.writeMicroseconds(armPos);
+      arm2.writeMicroseconds(SERVO_MAX_US - armPos + SERVO_MIN_US);
+      delay(del); 
+    }
+  }
+
+  if(did_move_hopper) { // move hopper back to original position
+    moveHopper(hopper_original_pos);
+  }
+
+  arm_position = armPos;
+}
+
+void Bowie::parkArm() {
+  if(arm_parked) return;
+  moveArm(ARM_PARK);
+  arm.detach();
+  arm2.detach();
+  arm_parked = true;
+}
+
+void Bowie::unparkArm() {
+  if(!arm_parked) return;
+  arm.attach(SERVO_ARM1);
+  arm2.attach(SERVO_ARM2);
+  arm_parked = false;
+  moveArm(getArmPos());
 }
 
 int Bowie::getArmPos() {
   return arm_position;
 }
 
+// - End
+void Bowie::moveEnd(int endPos) {
+
+  if(getArmPos() == ARM_MIN && endPos < END_MAX) { // check if the arm is down and if the end is going past being down
+    Serial << "!!! Cannot move end-effector here when arm down" << endl;
+    return;
+  }
+
+  unparkEnd();
+
+  if(getEndPos() > endPos) { // going towards END_MIN
+    for(int i=getEndPos(); i>endPos; i--) {
+      end.writeMicroseconds(endPos);
+      delay(3);
+    }
+  } else if(getEndPos() <= endPos) { // going towards END_MAX
+    for(int i=getEndPos(); i<endPos; i++) {
+      end.writeMicroseconds(endPos);
+      delay(3);
+    }
+  }
+
+  end_position = endPos;
+}
+
+void Bowie::moveEnd(int endPos, int step, int del) {
+
+  if(getArmPos() == ARM_MIN && endPos < END_MAX) { // check if the arm is down and if the end is going past being down
+    Serial << "!!! Cannot move end-effector here when arm down" << endl;
+    return;
+  }
+
+  unparkEnd();
+
+  if(getEndPos() > endPos) { // going towards END_MIN
+    for(int i=getEndPos(); i>endPos; i-=step) {
+      end.writeMicroseconds(endPos);
+      delay(del);
+    }
+  } else if(getEndPos() <= endPos) { // going towards END_MAX
+    for(int i=getEndPos(); i<endPos; i+=step) {
+      end.writeMicroseconds(endPos);
+      delay(del);
+    }
+  }
+
+  end_position = endPos;
+}
+
+void Bowie::parkEnd() {
+  if(end_parked) return;
+  moveEnd(END_PARALLEL_TOP);
+  end.detach();
+  end_parked = true;
+}
+
+void Bowie::unparkEnd() {
+  if(!end_parked) return;
+  end.attach(SERVO_END_EFFECTOR);
+  end_parked = false;
+  moveEnd(END_PARALLEL_TOP);
+}
+
+int Bowie::getEndPos() {
+  return end_position;
+}
+
+// - Hopper
+void Bowie::moveHopper(int hopperPos) {
+  bool did_move_lid = false;
+  int lid_original_pos = getLidPos();
+  bool did_move_arm = false;
+  int arm_original_pos = getArmPos();
+
+  unparkHopper();
+
+  if(getLidPos() != LID_MIN) { // check if the lid is not open
+    moveLid(LID_MIN); // move the lid open
+    did_move_lid = true;
+  }
+  if(getArmPos() >= ARM_MAX) { // check if the arm is parked or max
+    gotoArmPos(ARM_MAX-200); // slightly move the arm out of the way
+    did_move_arm = true;
+  }
+  
+  if(getHopperPos() > hopperPos) { // towards TILT_MIN
+    for(int i=getHopperPos(); i>hopperPos; i--) {
+      tilt.writeMicroseconds(i);
+      delay(3);
+    }
+  } else if(getHopperPos() <= hopperPos) { // towards TILT_MAX
+    for(int i=getHopperPos(); i<hopperPos; i++) {
+      tilt.writeMicroseconds(i);
+      delay(3);
+    }
+  }
+
+  if(did_move_lid) {
+    moveLid(lid_original_pos);
+  }
+
+  if(did_move_arm) {
+    moveArm(arm_original_pos);
+  }
+
+  hopper_position = hopperPos;
+}
+
+void Bowie::moveHopper(int hopperPos, int step, int del) {
+  bool did_move_lid = false;
+  int lid_original_pos = getLidPos();
+  bool did_move_arm = false;
+  int arm_original_pos = getArmPos();
+
+  unparkHopper();
+
+  if(getLidPos() != LID_MIN) { // check if the lid is not open
+    moveLid(LID_MIN); // move the lid open
+    did_move_lid = true;
+  }
+  if(getArmPos() >= ARM_MAX) { // check if the arm is parked or max
+    gotoArmPos(ARM_MAX-200); // slightly move the arm out of the way
+    did_move_arm = true;
+  }
+  
+  if(getHopperPos() > hopperPos) { // towards TILT_MIN
+    for(int i=getHopperPos(); i>hopperPos; i-=step) {
+      tilt.writeMicroseconds(i);
+      delay(del);
+    }
+  } else if(getHopperPos() <= hopperPos) { // towards TILT_MAX
+    for(int i=getHopperPos(); i<hopperPos; i+=step) {
+      tilt.writeMicroseconds(i);
+      delay(del);
+    }
+  }
+
+  if(did_move_lid) {
+    moveLid(lid_original_pos);
+  }
+
+  if(did_move_arm) {
+    moveArm(arm_original_pos);
+  }
+
+  hopper_position = hopperPos;
+}
+
+void Bowie::parkHopper() {
+  if(hopper_parked) return;
+  moveHopper(TILT_MAX);
+  tilt.detach();
+  hopper_parked = true;
+}
+
+void Bowie::unparkHopper() {
+  if(!hopper_parked) return;
+  tilt.attach(SERVO_HOPPER_PIVOT);
+  hopper_parked = false;
+  moveHopper(TILT_MAX);
+}
+
+int Bowie::getHopperPos() {
+  return hopper_position;
+}
+
+// - Lid
+void Bowie::moveLid(int lidPos) {
+  bool did_move_arm = false;
+  int arm_original_pos = getArmPos();
+
+  if(getHopperPos() == TILT_MAX) { // check if the hopper is up
+    Serial << "!!! Cannot move lid when hopper is up" << endl;
+    return;
+  }
+
+  unparkLid();
+
+  if(getArmPos() >= ARM_MAX) { // check if the arm is parked or max
+    gotoArmPos(ARM_MAX-200); // slightly move the arm out of the way
+    did_move_arm = true;
+  }
+
+  if(getLidPos() > lidPos) { // going to LID_MIN
+    for(int i=getLidPos(); i>lidPos; i--) {
+      lid.writeMicroseconds(i);
+      delay(3);
+    }
+  } else if(getLidPos() <= lidPos) {
+    for(int i=getLidPos(); i<lidPos; i++) {
+      lid.writeMicroseconds(i);
+      delay(3);
+    }
+  }
+
+  if(did_move_arm) {
+    moveArm(arm_original_pos);
+  }
+
+  lid_position = lidPos;
+}
+
+void Bowie::moveLid(int lidPos, int step, int del) {
+  bool did_move_arm = false;
+  int arm_original_pos = getArmPos();
+
+  if(getHopperPos() == TILT_MAX) { // check if the hopper is up
+    Serial << "!!! Cannot move lid when hopper is up" << endl;
+    return;
+  }
+
+  unparkLid();
+
+  if(getArmPos() >= ARM_MAX) { // check if the arm is parked or max
+    gotoArmPos(ARM_MAX-200); // slightly move the arm out of the way
+    did_move_arm = true;
+  }
+
+  if(getLidPos() > lidPos) { // going to LID_MIN
+    for(int i=getLidPos(); i>lidPos; i-=step) {
+      lid.writeMicroseconds(i);
+      delay(del);
+    }
+  } else if(getLidPos() <= lidPos) {
+    for(int i=getLidPos(); i<lidPos; i+=step) {
+      lid.writeMicroseconds(i);
+      delay(del);
+    }
+  }
+
+  if(did_move_arm) {
+    moveArm(arm_original_pos);
+  }
+
+  lid_position = lidPos;
+}
+
+void Bowie::parkLid() {
+  if(lid_parked) return;
+  moveLid(LID_MIN);
+  lid.detach();
+  lid_parked = true;
+}
+
+void Bowie::unparkLid() {
+  if(!lid_parked) return;
+  lid.attach(SERVO_HOPPER_LID);
+  lid_parked = false;
+  moveLid(LID_MIN);
+}
+
+int Bowie::getLidPos() {
+  return lid_position;
+}
+
+// - Other
+void Bowie::moveArmAndEnd(int armPos, int step, int del, int armMin, int armMax, int endMin, int endMax) {
+  bool did_move_hopper = false;
+  int hopper_original_pos = getHopperPos();
+
+  if(getArmPos() == ARM_MIN && endPos < END_MAX) { // check if the arm is down and if the end is going past being down
+    Serial << "!!! Cannot move end-effector here when arm down" << endl;
+    return;
+  }
+  
+  unparkArm();
+  unparkEnd();
+
+  if(getHopperPos() == TILT_MIN) { // check if the hopper is up
+    moveHopper(TILT_MAX); // move it flush if not
+    did_move_hopper = true;
+  }
+
+  if(getArmPos() > armPos) { // headed towards ARM_MIN
+    for(int i=getArmPos(); i>armPos; i-=step) {
+      arm.writeMicroseconds(i);
+      arm2.writeMicroseconds(SERVO_MAX_US - i + SERVO_MIN_US);
+      end.writeMicroseconds( clawParallelValBounds(i, armMin, armMax, endMin, endMax) );
+      delay(del);
+    }
+  } else if(getArmPos() <= armPos) { // headed towards ARM_MAX
+    for(int i=getArmPos(); i<armPos; i+=step) {
+      arm.writeMicroseconds(i);
+      arm2.writeMicroseconds(SERVO_MAX_US - i + SERVO_MIN_US);
+      end.writeMicroseconds( clawParallelValBounds(i, armMin, armMax, endMin, endMax) );
+      delay(del); 
+    }
+  }
+
+  if(did_move_hopper) { // move hopper back to original position
+    moveHopper(hopper_original_pos);
+  }
+
+  arm_position = armPos;
+  end_position = endPos;
+}
 
 // ---------
 // this code is from Micah Black, during Random Hacks of Kindness in Ottawa 2017
