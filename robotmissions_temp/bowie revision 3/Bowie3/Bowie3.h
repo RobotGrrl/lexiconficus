@@ -88,6 +88,13 @@
 #define SERVO_MAX_US 2500
 #define SERVO_MIN_US 500
 
+// servo interrupt keys
+#define SERVO_ARM_KEY 1
+#define SERVO_END_KEY 2
+#define SERVO_HOPPER_KEY 3
+#define SERVO_LID_KEY 4
+#define LOGGING_AFTER_KEY 5
+
 // super bright led values
 #define MAX_BRIGHTNESS 10
 #define MIN_BRIGHTNESS 10
@@ -169,6 +176,10 @@ class Bowie {
     Servo tilt;
     Servo lid;
     Servo extra;
+    
+    bool LOG_CURRENT_WHILE_MOVING;
+    void servoInterruption(int key, int val);
+
     void moveArm(int armPos);
     void moveArm(int armPos, int step, int del);
     void parkArm();

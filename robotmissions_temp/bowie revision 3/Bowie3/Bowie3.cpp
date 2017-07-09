@@ -31,6 +31,8 @@ Bowie::Bowie() {
   ACCEL_ENABLED = false;
   BMP_ENABLED = false;
 
+  LOG_CURRENT_WHILE_MOVING = true;
+
   arm_position = ARM_HOME;
   end_position = END_HOME;
   hopper_position = TILT_MAX;
@@ -615,8 +617,8 @@ void Bowie::turnOnLights() {
 void Bowie::updateScoopProbes() {
   scoop_probe_left_val = digitalRead(SCOOP_PROBE_LEFT);
   scoop_probe_right_val = digitalRead(SCOOP_PROBE_RIGHT);
-  Serial << "Scoop probes- L: " << scoop_probe_left_val;
-  Serial << "Scoop probes- R: " << scoop_probe_right_val << endl;
+  //Serial << "Scoop probes- L: " << scoop_probe_left_val;
+  //Serial << "Scoop probes- R: " << scoop_probe_right_val << endl;
 }
 
 bool Bowie::getScoopProbeL() {
@@ -635,8 +637,8 @@ bool Bowie::getScoopProbeR() {
 void Bowie::updateCurrentSensors() {
   current_servo_val = analogRead(CURRENT_SERVO_SENS);
   current_motor_val = analogRead(CURRENT_MOTOR_SENS);
-  Serial << "Current- Servos: " << current_servo_val;
-  Serial << " Motors: " << current_motor_val << endl;
+  //Serial << "Current- Servos: " << current_servo_val;
+  //Serial << " Motors: " << current_motor_val << endl;
 }
 
 uint16_t Bowie::getServoCurrentVal() {
@@ -716,6 +718,23 @@ void Bowie::leftBork() {
   analogWrite(MOTORA_SPEED, 0);
 }
 
+// ---- Servos
+
+void Bowie::servoInterruption(int key, int val) {
+  if(LOG_CURRENT_WHILE_MOVING) {
+    updateCurrentSensors();
+    Serial << "##,";
+    Serial << millis() << ",";
+    if(key == SERVO_ARM_KEY) Serial << "Arm,";
+    if(key == SERVO_END_KEY) Serial << "End,";
+    if(key == SERVO_HOPPER_KEY) Serial << "Hopper,";
+    if(key == SERVO_LID_KEY) Serial << "Lid,";
+    if(key == LOGGING_AFTER_KEY) Serial << "Finished,";
+    Serial << val << ",";
+    Serial << current_servo_val << ",";
+    Serial << current_motor_val << endl;
+  }
+}
 
 // - Arm
 void Bowie::moveArm(int armPos) {
@@ -738,17 +757,20 @@ void Bowie::moveArm(int armPos, int step, int del) {
     for(int i=getArmPos(); i>armPos; i-=step) {
       arm.writeMicroseconds(i);
       arm2.writeMicroseconds(SERVO_MAX_US - i + SERVO_MIN_US);
+      servoInterruption(SERVO_ARM_KEY, i);
       delay(del);
     }
   } else if(getArmPos() <= armPos) { // headed towards ARM_MAX
     for(int i=getArmPos(); i<armPos; i+=step) {
       arm.writeMicroseconds(i);
       arm2.writeMicroseconds(SERVO_MAX_US - i + SERVO_MIN_US);
+      servoInterruption(SERVO_ARM_KEY, i);
       delay(del); 
     }
   }
   arm.writeMicroseconds(armPos);
   arm2.writeMicroseconds(SERVO_MAX_US - armPos + SERVO_MIN_US);
+  servoInterruption(SERVO_ARM_KEY, armPos);
   delay(del);
 
   if(did_move_hopper) { // move hopper back to original position
@@ -796,14 +818,17 @@ void Bowie::moveEnd(int endPos, int step, int del) {
   if(getEndPos() > endPos) { // going towards END_MIN
     for(int i=getEndPos(); i>endPos; i-=step) {
       end.writeMicroseconds(i);
+      servoInterruption(SERVO_END_KEY, i);
       delay(del);
     }
   } else if(getEndPos() <= endPos) { // going towards END_MAX
     for(int i=getEndPos(); i<endPos; i+=step) {
       end.writeMicroseconds(i);
+      servoInterruption(SERVO_END_KEY, i);
       delay(del);
     }
   }
+  servoInterruption(SERVO_END_KEY, endPos);
   end.writeMicroseconds(endPos);
   delay(del);
 
@@ -857,15 +882,18 @@ void Bowie::moveHopper(int hopperPos, int step, int del) {
   if(getHopperPos() > hopperPos) { // towards TILT_MIN
     for(int i=getHopperPos(); i>hopperPos; i-=step) {
       tilt.writeMicroseconds(i);
+      servoInterruption(SERVO_HOPPER_KEY, i);
       delay(del);
     }
   } else if(getHopperPos() <= hopperPos) { // towards TILT_MAX
     for(int i=getHopperPos(); i<hopperPos; i+=step) {
       tilt.writeMicroseconds(i);
+      servoInterruption(SERVO_HOPPER_KEY, i);
       delay(del);
     }
   }
   tilt.writeMicroseconds(hopperPos);
+  servoInterruption(SERVO_HOPPER_KEY, hopperPos);
   delay(del);
 
   if(did_move_lid) {
@@ -924,15 +952,18 @@ void Bowie::moveLid(int lidPos, int step, int del) {
   if(getLidPos() > lidPos) { // going to LID_MIN
     for(int i=getLidPos(); i>lidPos; i-=step) {
       lid.writeMicroseconds(i);
+      servoInterruption(SERVO_LID_KEY, i);
       delay(del);
     }
   } else if(getLidPos() <= lidPos) {
     for(int i=getLidPos(); i<lidPos; i+=step) {
       lid.writeMicroseconds(i);
+      servoInterruption(SERVO_LID_KEY, i);
       delay(del);
     }
   }
   lid.writeMicroseconds(lidPos);
+  servoInterruption(SERVO_LID_KEY, lidPos);
   delay(del);
 
   if(did_move_arm) {
