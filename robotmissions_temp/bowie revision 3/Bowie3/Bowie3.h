@@ -43,11 +43,6 @@
 // sensor pins
 #define CURRENT_SERVO_SENS 15
 #define CURRENT_MOTOR_SENS 14
-
-#define FORCE_SENSOR_LEFT A0
-#define FORCE_SENSOR_RIGHT A1
-#define SONAR_LEFT A10
-#define SONAR_RIGHT A11
   
 // led pins
 #define BOARD_LED 13
@@ -64,11 +59,9 @@
 #define GPIO_PIN4 A17
 #define GPIO_PIN5 A16
 
-// force sensor pins
-#define FSR_TOP_L A20 // unsure
-#define FSR_TOP_R A17 // yes
-#define FSR_BOT_L A18 // yes
-#define FSR_BOT_R A19 // unsure
+// touch probe pins (breakout board pins 37, 38, 39, 36)
+#define SCOOP_PROBE_LEFT A18
+#define SCOOP_PROBE_RIGHT A17
 
 // motor directions
 #define MOTOR_DIR_FWD false
@@ -157,6 +150,18 @@ class Bowie {
     void insertNextMsg(Msg m);
     void chooseNextMessage();
 
+    // scoop probes
+    void updateScoopProbes();
+    bool getScoopProbeL();
+    bool getScoopProbeR();
+
+    // current sensors
+    void updateCurrentSensors();
+    uint16_t getServoCurrentVal();
+    uint16_t getMotorCurrentVal();
+    float getServoCurrent();
+    float getMotorCurrent();
+
     // servos
     Servo arm;
     Servo arm2;
@@ -206,16 +211,7 @@ class Bowie {
     unsigned long last_rx;
     uint8_t unlikely_count = 0;
 
-    // gpio
-    bool gpio_pin1_input;
-    bool gpio_pin2_input;
-    bool gpio_pin3_input;
-    bool gpio_pin4_input;
-    bool gpio_pin5_input;
-
     // sensors
-    uint16_t current_motor;
-    uint16_t current_servo;
     uint16_t gyro_msg_x;
     uint16_t gyro_msg_y;
     uint16_t gyro_msg_z;
@@ -227,15 +223,18 @@ class Bowie {
     uint16_t accel_msg_z;
     uint16_t alt_msg;
     uint16_t temp_msg;
-    uint16_t sonar_val_left;
-    uint16_t sonar_val_right;
-    uint16_t force_sensor_val_left;
-    uint16_t force_sensor_val_right;
-    uint16_t gpio_pin1_val;
-    uint16_t gpio_pin2_val;
-    uint16_t gpio_pin3_val;
-    uint16_t gpio_pin4_val;
-    uint16_t gpio_pin5_val;
+
+    // scoop probes
+    uint8_t scoop_probe_left_val;
+    uint8_t scoop_probe_right_val;
+
+    // current sensors
+    uint16_t current_servo_val;
+    uint16_t current_motor_val;
+    float current_servo;
+    float current_motor;
+    float current_servo_avg;
+    float current_motor_avg;
 
     // servos
     int arm_position;
@@ -255,8 +254,7 @@ class Bowie {
     void initServos();
     void initSensors();
     void initLeds();
-    void initGPIO(uint8_t p, uint8_t state);
-
+    
 };
 
 #endif
