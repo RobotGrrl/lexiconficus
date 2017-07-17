@@ -1,3 +1,57 @@
+void turnSequence(bool dir) {
+  
+    // turn a portion
+    if(dir) { // right
+      bowie.motor_setDir(0, MOTOR_DIR_FWD);
+      bowie.motor_setSpeed(0, 255);
+      bowie.motor_setDir(1, MOTOR_DIR_REV);
+      bowie.motor_setSpeed(1, 255);
+    } else {
+      bowie.motor_setDir(0, MOTOR_DIR_REV);
+      bowie.motor_setSpeed(0, 255);
+      bowie.motor_setDir(1, MOTOR_DIR_FWD);
+      bowie.motor_setSpeed(1, 255);
+    }
+    delay(400);
+    
+
+    // stop a bit
+    bowie.motor_setDir(0, MOTOR_DIR_FWD);
+    bowie.motor_setSpeed(0, 0);
+    bowie.motor_setDir(1, MOTOR_DIR_FWD);
+    bowie.motor_setSpeed(1, 0);
+    delay(50);
+
+    // drive forward a bit
+    bowie.motor_setDir(0, MOTOR_DIR_FWD);
+    bowie.motor_setSpeed(0, 255);
+    bowie.motor_setDir(1, MOTOR_DIR_FWD);
+    bowie.motor_setSpeed(1, 255);
+    delay(300);
+
+    // stop a bit
+    bowie.motor_setDir(0, MOTOR_DIR_FWD);
+    bowie.motor_setSpeed(0, 0);
+    bowie.motor_setDir(1, MOTOR_DIR_FWD);
+    bowie.motor_setSpeed(1, 0);
+    delay(50);
+
+    // drive backward a bit
+    bowie.motor_setDir(0, MOTOR_DIR_REV);
+    bowie.motor_setSpeed(0, 255);
+    bowie.motor_setDir(1, MOTOR_DIR_REV);
+    bowie.motor_setSpeed(1, 255);
+    delay(450);
+
+    // stop a bit
+    bowie.motor_setDir(0, MOTOR_DIR_FWD);
+    bowie.motor_setSpeed(0, 0);
+    bowie.motor_setDir(1, MOTOR_DIR_FWD);
+    bowie.motor_setSpeed(1, 0);
+    delay(50);
+    
+}
+
 void scoopSequenceSlow() {
 
   int temp_arm_pos = bowie.getArmPos();
@@ -5,6 +59,8 @@ void scoopSequenceSlow() {
   long end_ms = 0;
   long total_start_ms = 0;
   long total_end_ms = 0;
+  int ARM_DELAY = 3; // usually 3, with 2 servos working
+  bowie.unparkHopper();
 
   total_start_ms = millis();
   
@@ -12,9 +68,9 @@ void scoopSequenceSlow() {
 
     // wiggle while digging down
     for(int j=0; j<5; j++) {
-      Serial << "Going to END_HOME+100...";
+      Serial << "Going to END_HOME+200...";
       start_ms = millis();
-      for(int i=END_HOME; i<END_HOME+100; i+=20) {
+      for(int i=END_HOME; i<END_HOME+200; i+=20) {
         bowie.end.writeMicroseconds( i );
         delay(5);
       }
@@ -24,7 +80,7 @@ void scoopSequenceSlow() {
 
       Serial << "Going to END_HOME+500...";
       start_ms = millis();
-      for(int i=END_HOME+100; i>END_HOME+500; i-=20) {
+      for(int i=END_HOME+200; i>END_HOME+700; i-=20) {
         bowie.end.writeMicroseconds( i );
         delay(5);
       }
@@ -65,7 +121,7 @@ void scoopSequenceSlow() {
     // then move scoop parallel to ground
     Serial << "Going to END_PARALLEL_BOTTOM...";
     start_ms = millis();
-    for(int i=END_HOME+500; i>END_PARALLEL_BOTTOM-100; i-=50) {
+    for(int i=END_HOME+700; i>END_PARALLEL_BOTTOM-100; i-=50) {
       bowie.end.writeMicroseconds( i );
       delay(5);
     }
@@ -104,39 +160,56 @@ void scoopSequenceSlow() {
 
   }
 
-  // tilt the scoop upwards to avoid losing the items
-  Serial << "Going to END_PARALLEL_BOTTOM-500...";
-  start_ms = millis();
-  for(int i=END_PARALLEL_BOTTOM; i>END_PARALLEL_BOTTOM-500; i-=20) {
-    bowie.end.writeMicroseconds( i );
-    delay(5);
-  }
-  end_ms = millis();
-  Serial << " done " << (end_ms-start_ms) << "ms" << endl;
-  delay(100);
+  if(temp_arm_pos < ARM_HOME) { // only do this if it's below ARM_HOME
+    // tilt the scoop upwards to avoid losing the items
+    Serial << "Going to END_PARALLEL_BOTTOM-500...";
+    start_ms = millis();
+    for(int i=END_PARALLEL_BOTTOM; i>END_PARALLEL_BOTTOM-500; i-=20) {
+      bowie.end.writeMicroseconds( i );
+      delay(5);
+    }
+    end_ms = millis();
+    Serial << " done " << (end_ms-start_ms) << "ms" << endl;
+    delay(100);
 
-  // lift arm with scoop parallel to ground
-  Serial << "Going to ARM_HOME...";
-  start_ms = millis();
-  for(int i=temp_arm_pos; i<ARM_HOME; i++) {
-    bowie.moveArm(i);
-    bowie.end.writeMicroseconds( bowie.clawParallelValBounds( i, temp_arm_pos, ARM_HOME, END_PARALLEL_BOTTOM-500, END_PARALLEL_BOTTOM-200) );
-    delay(3);
-  }
-  end_ms = millis();
-  Serial << " done " << (end_ms-start_ms) << "ms" << endl;
+    // lift arm with scoop parallel to ground
+    Serial << "Going to ARM_HOME...";
+    start_ms = millis();
+    for(int i=temp_arm_pos; i<ARM_HOME; i++) {
+      bowie.moveArm(i);
+      //TODO bowie.end.writeMicroseconds( bowie.clawParallelValBounds( i, temp_arm_pos, ARM_HOME, END_PARALLEL_BOTTOM-500, END_PARALLEL_BOTTOM-200) );
+      delay(ARM_DELAY);
+    }
+    end_ms = millis();
+    Serial << " done " << (end_ms-start_ms) << "ms" << endl;
   
-  // lift arm with scoop parallel to ground
-  Serial << "Going to ARM_MAX...";
-  start_ms = millis();
-  for(int i=ARM_HOME; i<ARM_MAX; i++) {
-    bowie.moveArm(i);
-    bowie.end.writeMicroseconds( bowie.clawParallelValBounds( i, ARM_HOME, ARM_MAX, END_PARALLEL_BOTTOM-200, END_PARALLEL_TOP-100) );
-    delay(3);
+    // lift arm with scoop parallel to ground
+    Serial << "Going to ARM_MAX...";
+    start_ms = millis();
+    for(int i=ARM_HOME; i<ARM_MAX; i++) {
+      bowie.moveArm(i);
+      //TODO bowie.end.writeMicroseconds( bowie.clawParallelValBounds( i, ARM_HOME, ARM_MAX, END_PARALLEL_BOTTOM-200, END_PARALLEL_TOP-100) );
+      delay(ARM_DELAY);
+    }
+    end_ms = millis();
+    Serial << " done " << (end_ms-start_ms) << "ms" << endl;
+    delay(100);
+  
+  } else { // otherwise, lift it to ARM_MAX from where it's at
+
+    // lift arm with scoop parallel to ground
+    Serial << "Going to ARM_MAX...";
+    start_ms = millis();
+    for(int i=temp_arm_pos; i<ARM_MAX; i++) {
+      bowie.moveArm(i);
+      //TODO bowie.end.writeMicroseconds( bowie.clawParallelValBounds( i, ARM_HOME, ARM_MAX, END_PARALLEL_BOTTOM-200, END_PARALLEL_TOP-100) );
+      delay(ARM_DELAY);
+    }
+    end_ms = millis();
+    Serial << " done " << (end_ms-start_ms) << "ms" << endl;
+    delay(100);
+    
   }
-  end_ms = millis();
-  Serial << " done " << (end_ms-start_ms) << "ms" << endl;
-  delay(100);
 
   // open lid
   Serial << "Going to LID_MIN...";
@@ -183,13 +256,22 @@ void scoopSequenceSlow() {
   delay(100);
 
   // lower arm
+  /*
   Serial << "Going to ARM_MIN or temp_arm_pos...";
   start_ms = millis();
   for(int i=ARM_MAX; i>temp_arm_pos; i--) {
     bowie.moveArm(i);
     bowie.end.writeMicroseconds( bowie.clawParallelVal(i) );
-    delay(1);
+    delay(ARM_DELAY);
   }
+  end_ms = millis();
+  Serial << " done " << (end_ms-start_ms) << "ms" << endl;
+  delay(100);
+  */
+
+  Serial << "Parking the arm" << endl;
+  start_ms = millis();
+  bowie.parkArm();
   end_ms = millis();
   Serial << " done " << (end_ms-start_ms) << "ms" << endl;
   delay(100);
@@ -197,6 +279,8 @@ void scoopSequenceSlow() {
   total_end_ms = millis();
 
   Serial << "--------- Sequence complete in " << total_end_ms-total_start_ms << " ms \n\n";
+
+  bowie.parkHopper();
     
 }
 
@@ -208,6 +292,7 @@ void scoopSequenceFast() {
   long end_ms = 0;
   long total_start_ms = 0;
   long total_end_ms = 0;
+  bowie.unparkHopper();
 
   total_start_ms = millis();
   
@@ -305,39 +390,56 @@ void scoopSequenceFast() {
     
   }
 
-  // tilt the scoop upwards to avoid losing the items
-  Serial << "Going to END_PARALLEL_BOTTOM-500...";
-  start_ms = millis();
-  for(int i=END_PARALLEL_BOTTOM; i>END_PARALLEL_BOTTOM-500; i-=20) {
-    bowie.end.writeMicroseconds( i );
-    delay(5);
-  }
-  end_ms = millis();
-  Serial << " done " << (end_ms-start_ms) << "ms" << endl;
-  delay(20);
+  if(temp_arm_pos < ARM_HOME) { // only do this if it's below ARM_HOME
+    // tilt the scoop upwards to avoid losing the items
+    Serial << "Going to END_PARALLEL_BOTTOM-500...";
+    start_ms = millis();
+    for(int i=END_PARALLEL_BOTTOM; i>END_PARALLEL_BOTTOM-500; i-=20) {
+      bowie.end.writeMicroseconds( i );
+      delay(5);
+    }
+    end_ms = millis();
+    Serial << " done " << (end_ms-start_ms) << "ms" << endl;
+    delay(20);
 
-  // lift arm with scoop parallel to ground
-  Serial << "Going to ARM_HOME...";
-  start_ms = millis();
-  for(int i=temp_arm_pos; i<ARM_HOME; i+=10) {
-    bowie.moveArm(i);
-    bowie.end.writeMicroseconds( bowie.clawParallelValBounds( i, temp_arm_pos, ARM_HOME, END_PARALLEL_BOTTOM-500, END_PARALLEL_BOTTOM-200) );
-    delay(3);
+    // lift arm with scoop parallel to ground
+    Serial << "Going to ARM_HOME...";
+    start_ms = millis();
+    for(int i=temp_arm_pos; i<ARM_HOME; i+=10) {
+      bowie.moveArm(i);
+      //TODO bowie.end.writeMicroseconds( bowie.clawParallelValBounds( i, temp_arm_pos, ARM_HOME, END_PARALLEL_BOTTOM-500, END_PARALLEL_BOTTOM-200) );
+      delay(3);
+    }
+    end_ms = millis();
+    Serial << " done " << (end_ms-start_ms) << "ms" << endl;
+    
+    // lift arm with scoop parallel to ground
+    Serial << "Going to ARM_MAX...";
+    start_ms = millis();
+    for(int i=ARM_HOME; i<ARM_MAX; i+=5) {
+      bowie.moveArm(i);
+      //TODO bowie.end.writeMicroseconds( bowie.clawParallelValBounds( i, ARM_HOME, ARM_MAX, END_PARALLEL_BOTTOM-200, END_PARALLEL_TOP-100) );
+      delay(3);
+    }
+    end_ms = millis();
+    Serial << " done " << (end_ms-start_ms) << "ms" << endl;
+    //delay(20);
+
+  } else { // otherwise, lift it to ARM_MAX from where it's at
+
+    // lift arm with scoop parallel to ground
+    Serial << "Going to ARM_MAX...";
+    start_ms = millis();
+    for(int i=temp_arm_pos; i<ARM_MAX; i+=5) {
+      bowie.moveArm(i);
+      //TODO bowie.end.writeMicroseconds( bowie.clawParallelValBounds( i, ARM_HOME, ARM_MAX, END_PARALLEL_BOTTOM-200, END_PARALLEL_TOP-100) );
+      delay(3);
+    }
+    end_ms = millis();
+    Serial << " done " << (end_ms-start_ms) << "ms" << endl;
+    //delay(20);
+    
   }
-  end_ms = millis();
-  Serial << " done " << (end_ms-start_ms) << "ms" << endl;
-  
-  // lift arm with scoop parallel to ground
-  Serial << "Going to ARM_MAX...";
-  start_ms = millis();
-  for(int i=ARM_HOME; i<ARM_MAX; i+=5) {
-    bowie.moveArm(i);
-    bowie.end.writeMicroseconds( bowie.clawParallelValBounds( i, ARM_HOME, ARM_MAX, END_PARALLEL_BOTTOM-200, END_PARALLEL_TOP-100) );
-    delay(3);
-  }
-  end_ms = millis();
-  Serial << " done " << (end_ms-start_ms) << "ms" << endl;
-  //delay(20);
 
   // open lid
   Serial << "Going to LID_MIN...";
@@ -388,7 +490,7 @@ void scoopSequenceFast() {
   start_ms = millis();
   for(int i=ARM_MAX; i>temp_arm_pos; i-=5) {
     bowie.moveArm(i);
-    bowie.end.writeMicroseconds( bowie.clawParallelVal(i) );
+    //TODO bowie.end.writeMicroseconds( bowie.clawParallelVal(i) );
     delay(3);
   }
   end_ms = millis();
@@ -398,18 +500,23 @@ void scoopSequenceFast() {
   total_end_ms = millis();
 
   Serial << "--------- Sequence complete in " << total_end_ms-total_start_ms << " ms \n\n";
+
+  bowie.parkHopper();
     
 }
 
 
 void deposit() {
 
+  bowie.unparkHopper();
+
   // if the arm is up let's move it to home
   int temp_arm = bowie.getArmPos();
   if(temp_arm > 2000) {
     for(int i=temp_arm; i>ARM_HOME; i-=5) {
       bowie.moveArm(i);
-      delay(1);
+      //TODO bowie.end.writeMicroseconds( bowie.clawParallelVal(i) );
+      delay(3);
     }
   }
 
@@ -430,7 +537,7 @@ void deposit() {
   Serial << " done" << endl;
   delay(100);
 
-  delay(2000);
+  delay(1000);
 
   Serial << "Going to TILT_MAX";
   for(int i=TILT_MIN; i<TILT_MAX; i++) {
@@ -453,38 +560,42 @@ void deposit() {
   if(temp_arm > 2000) {
     for(int i=ARM_HOME; i<temp_arm; i+=5) {
       bowie.moveArm(i);
+      //TODO bowie.end.writeMicroseconds( bowie.clawParallelVal(i) );
       delay(1);
     }
   }
+
+  bowie.parkHopper();
   
 }
 
 
 void homePositions() {
-
-  bowie.moveArm(ARM_MIN);
-  bowie.end.writeMicroseconds(END_HOME);
-  bowie.tilt.writeMicroseconds(TILT_MAX);
-  bowie.lid.writeMicroseconds(LID_MAX);
-  
+  // yes it is recommended to be in this order!
+  bowie.moveLid(LID_MAX);
+  bowie.moveHopper(TILT_MAX);
+  bowie.moveArm(ARM_HOME);
+  bowie.moveEnd(END_HOME);
 }
 
 void dance() {
 
+  bowie.unparkHopper();
+
   // -- go forwards
   
   // drive forward a bit
-  Serial << "Going to MOTORS FWD 192";
+  Serial << "Going to MOTORS FWD 255";
   bowie.motor_setDir(0, MOTOR_DIR_FWD);
-  bowie.motor_setSpeed(0, 192);
+  bowie.motor_setSpeed(0, 255);
   bowie.motor_setDir(1, MOTOR_DIR_FWD);
-  bowie.motor_setSpeed(1, 192);
+  bowie.motor_setSpeed(1, 255);
   Serial << " done" << endl;
   delay(200);
 
   // stop motors!
   Serial << "Going to MOTORS FWD 0";
-  for(int i=192; i>0; i-=5) {
+  for(int i=255; i>0; i-=5) {
     bowie.motor_setDir(0, MOTOR_DIR_FWD);
     bowie.motor_setSpeed(0, i);
     bowie.motor_setDir(1, MOTOR_DIR_FWD);
@@ -554,25 +665,42 @@ void dance() {
   if(temp_arm_dance < ARM_HOME) { // has to go up
     for(int i=temp_arm_dance; i<ARM_HOME; i++) {
       bowie.moveArm(i);  
-      bowie.end.writeMicroseconds(bowie.clawParallelVal(i));
-      delay(1);
+      //TODO bowie.end.writeMicroseconds(bowie.clawParallelVal(i));
+      delay(2);
     }
   } else if(temp_arm_dance > ARM_HOME) { // has to go down
     for(int i=temp_arm_dance; i>ARM_HOME; i--) {
       bowie.moveArm(i);
-      bowie.end.writeMicroseconds(bowie.clawParallelVal(i));
-      delay(1);
+      //TODO bowie.end.writeMicroseconds(bowie.clawParallelVal(i));
+      delay(2);
     }
   }
 
   // now wave
-  int temp_end_pos = bowie.clawParallelVal(ARM_HOME);
+  int temp_end_pos = 0;//TODO bowie.clawParallelVal(ARM_HOME);
   for(int i=0; i<4; i++) {
     bowie.end.writeMicroseconds(temp_end_pos+200);
     delay(250);
     bowie.end.writeMicroseconds(temp_end_pos-200);
     delay(250);
   }
+
+  // move arm back
+  if(temp_arm_dance < ARM_HOME) { // has to move down
+    for(int i=ARM_HOME; i>temp_arm_dance; i--) {
+      bowie.moveArm(i);  
+      //TODO bowie.end.writeMicroseconds(bowie.clawParallelVal(i));
+      delay(2);
+    }
+  } else if(temp_arm_dance > ARM_HOME) { // has to move up
+    for(int i=ARM_HOME; i<temp_arm_dance; i++) {
+      bowie.moveArm(i);  
+      //TODO bowie.end.writeMicroseconds(bowie.clawParallelVal(i));
+      delay(2);
+    }
+  }
+
+  bowie.parkHopper();
 
   // fin. --
   
@@ -581,20 +709,24 @@ void dance() {
 
 void stopDance() {
 
+  Serial << "stop dance does get called " << temp_arm_dance  << endl;
+
+  /*
   // move arm back to position
-  if(ARM_HOME < temp_arm_dance) { // has to go up
-    for(int i=ARM_HOME; i<temp_arm_dance; i++) {
-      bowie.moveArm(i);  
-      bowie.end.writeMicroseconds(bowie.clawParallelVal(i));
-      delay(1);
-    }
-  } else if(ARM_HOME > temp_arm_dance) { // has to go down
+  if(temp_arm_dance < ARM_HOME) { // has to move down
     for(int i=ARM_HOME; i>temp_arm_dance; i--) {
       bowie.moveArm(i);  
       bowie.end.writeMicroseconds(bowie.clawParallelVal(i));
       delay(1);
     }
+  } else if(temp_arm_dance > ARM_HOME) { // has to move up
+    for(int i=ARM_HOME; i<temp_arm_dance; i++) {
+      bowie.moveArm(i);  
+      bowie.end.writeMicroseconds(bowie.clawParallelVal(i));
+      delay(1);
+    }
   }
+  */
   
 }
 

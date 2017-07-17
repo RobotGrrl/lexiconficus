@@ -1,5 +1,6 @@
 void experiment() {
 
+  /*
   int down_pos = 150;
   boolean did_touchdown = false;
   int iter = 0;
@@ -55,6 +56,7 @@ void experiment() {
     }
 
   }
+  */
   
 }
 

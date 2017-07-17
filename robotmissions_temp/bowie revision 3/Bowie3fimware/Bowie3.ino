@@ -65,9 +65,10 @@ void setup() {
   // serial setup
   Serial.begin(9600);
   Serial2.begin(9600);
+  delay(2000);
   xbee.begin(Serial2);
   Serial.println("Bowie the robot");
-
+  
   // bowie setup
   bowie.init();
   bowie.enableRemoteOp();
@@ -96,18 +97,192 @@ void setup() {
    * 12. check angle lid max to be flush with the hopper
    * 13. check angle lid_min to be open (~45 deg from perpendicular to hopper)
    */
-  
+
+  bowie.LOG_CURRENT_WHILE_MOVING = false;
+  Serial << "Homing... " << endl;
   homePositions();
-  delay(1000);
+  Serial << "Parking hopper..." << endl;
+  bowie.parkHopper();
+  Serial << "Parking lid..." << endl;
+  bowie.parkLid();
+  Serial << "Parking arm..." << endl;
+  bowie.parkArm();
+  Serial << "Parking end..." << endl;
+  bowie.parkEnd();
+  Serial << "Ready" << endl;
 
-  while(1<3) {
+  bowie.LOG_CURRENT_WHILE_MOVING = true;
+  calibrateTouchdown();
+  //calibrateTouchdownFast();
+  //bowie.parkArm();
+  //bowie.parkEnd();
+  
+  while(1<0) {
+    bowie.updateCurrentSensors();
+    delay(100);
+  }
+  
+  while(1<0) {
 
-    scoopSequenceFast();
-    delay(5000);
+    // turn a portion
+    bowie.motor_setDir(0, MOTOR_DIR_FWD);
+    bowie.motor_setSpeed(0, 255);
+    bowie.motor_setDir(1, MOTOR_DIR_REV);
+    bowie.motor_setSpeed(1, 255);
+    delay(400);
+
+    // stop a bit
+    bowie.motor_setDir(0, MOTOR_DIR_FWD);
+    bowie.motor_setSpeed(0, 0);
+    bowie.motor_setDir(1, MOTOR_DIR_FWD);
+    bowie.motor_setSpeed(1, 0);
+    delay(50);
+
+    // drive forward a bit
+    bowie.motor_setDir(0, MOTOR_DIR_FWD);
+    bowie.motor_setSpeed(0, 255);
+    bowie.motor_setDir(1, MOTOR_DIR_FWD);
+    bowie.motor_setSpeed(1, 255);
+    delay(300);
+
+    // stop a bit
+    bowie.motor_setDir(0, MOTOR_DIR_FWD);
+    bowie.motor_setSpeed(0, 0);
+    bowie.motor_setDir(1, MOTOR_DIR_FWD);
+    bowie.motor_setSpeed(1, 0);
+    delay(50);
+
+    // drive backward a bit
+    bowie.motor_setDir(0, MOTOR_DIR_REV);
+    bowie.motor_setSpeed(0, 255);
+    bowie.motor_setDir(1, MOTOR_DIR_REV);
+    bowie.motor_setSpeed(1, 255);
+    delay(450);
+
+    // stop a bit
+    bowie.motor_setDir(0, MOTOR_DIR_FWD);
+    bowie.motor_setSpeed(0, 0);
+    bowie.motor_setDir(1, MOTOR_DIR_FWD);
+    bowie.motor_setSpeed(1, 0);
+    delay(50);
     
   }
+  
 
 }
+
+void calibrateTouchdown() {
+
+  bool did_touchdown = false;
+  int count = 0;
+  int new_arm_pos = ARM_HOME-100;
+
+  Serial << "Beginning touchdown calibration" << endl;
+
+  bowie.moveEnd(END_MIN+200);
+  bowie.moveArm(new_arm_pos);
+
+  while(!did_touchdown) {
+
+    for(int i=END_MIN+200; i<END_PARALLEL_BOTTOM; i++) {
+      bowie.moveEnd(i);
+      if(bowie.getScoopProbeL() == 1 && bowie.getScoopProbeR() == 1) {
+        Serial << "Touchdown at " << i << ", " << i-END_PARALLEL_BOTTOM << " from END_PARALLEL_BOTTOM" << endl;
+        did_touchdown = true;
+        break;
+      }
+    }
+
+    for(int i=END_PARALLEL_BOTTOM; i>END_MIN+200; i--) {
+      bowie.moveEnd(i);
+      if(bowie.getScoopProbeL() == 1 && bowie.getScoopProbeR() == 1) {
+        Serial << "Touchdown at " << i << ", " << i-END_PARALLEL_BOTTOM << " from END_PARALLEL_BOTTOM" << endl;
+        did_touchdown = true;
+        break;
+      }
+    }
+
+    if(did_touchdown) {
+      Serial << "Touchdown calibration complete" << endl;
+      for(int i=0; i<20; i++) { // log a bit afterwards to see any changes
+        bowie.servoInterruption(LOGGING_AFTER_KEY, 0);
+        delay(3);
+      }
+      break;
+    }
+
+    count++;
+    new_arm_pos -= (count*50);
+    if(new_arm_pos <= ARM_MIN && did_touchdown == false) {
+      Serial << "Could not find touchdown" << endl;
+      break;
+    } else {
+      Serial << "Moving arm #" << count << endl;
+      bowie.moveArm(new_arm_pos);  
+    }
+    
+  }
+  
+  Serial << "\nDone" << endl;
+  
+}
+
+void calibrateTouchdownFast() {
+
+  bool did_touchdown = false;
+  int count = 0;
+  int new_arm_pos = ARM_HOME-100;
+
+  Serial << "Beginning touchdown calibration" << endl;
+
+  bowie.moveEnd(END_MIN+200);
+  bowie.moveArm(new_arm_pos);
+
+  while(!did_touchdown) {
+
+    for(int i=END_MIN+200; i<END_PARALLEL_BOTTOM; i+=10) {
+      bowie.moveEnd(i, 5, 1);
+      if(bowie.getScoopProbeL() == 1 && bowie.getScoopProbeR() == 1) {
+        Serial << "Touchdown at " << i << ", " << i-END_PARALLEL_BOTTOM << " from END_PARALLEL_BOTTOM" << endl;
+        did_touchdown = true;
+        break;
+      }
+    }
+
+    for(int i=END_PARALLEL_BOTTOM; i>END_MIN+200; i--) {
+      bowie.moveEnd(i, 5, 1);
+      if(bowie.getScoopProbeL() == 1 && bowie.getScoopProbeR() == 1) {
+        Serial << "Touchdown at " << i << ", " << i-END_PARALLEL_BOTTOM << " from END_PARALLEL_BOTTOM" << endl;
+        did_touchdown = true;
+        break;
+      }
+    }
+
+    if(did_touchdown) {
+      Serial << "Touchdown calibration complete" << endl;
+      for(int i=0; i<20; i++) { // log a bit afterwards to see any changes
+        bowie.servoInterruption(LOGGING_AFTER_KEY, 0);
+        delay(3);
+      }
+      break;
+    }
+
+    count++;
+    new_arm_pos -= (count*50);
+    if(new_arm_pos <= ARM_MIN && did_touchdown == false) {
+      Serial << "Could not find touchdown" << endl;
+      break;
+    } else {
+      Serial << "Moving arm #" << count << endl;
+      bowie.moveArm(new_arm_pos, 5, 1);  
+    }
+    
+  }
+  
+  Serial << "\nDone" << endl;
+  
+}
+
 
 void loop() {
 
@@ -163,9 +338,9 @@ void received_action(char action, char cmd, uint8_t key, uint16_t val, char cmd2
   last_rx = current_time;
   Serial << "diff time: " << diff_time << endl;
 
-  if(cmd == '0') {
+  //if(cmd == '0') {
     // something was interrupted
-  }
+  //}
 
   bowie.chooseNextMessage();
   sendNextMsg();
@@ -176,19 +351,21 @@ void received_action(char action, char cmd, uint8_t key, uint16_t val, char cmd2
     // scoop (fast)
     if(cmd == 'G') {
       if(val == 1) {
-        if(!did_scoop) {
-          scoopSequenceFast();
-          did_scoop = true;
-        }
+        turnSequence(true);
+        //if(!did_scoop) {
+        //  scoopSequenceFast();
+        //  did_scoop = true;
+        //}
       } else if(val == 0) {
         did_scoop = false;
       }
     } else if(cmd2 == 'G') {
       if(val2 == 1) {
-        if(!did_scoop) {
-          scoopSequenceFast();
-          did_scoop = true;
-        }
+        turnSequence(true);
+        //if(!did_scoop) {
+        //  scoopSequenceFast();
+        //  did_scoop = true;
+        //}
       } else if(val2 == 0) {
         did_scoop = false;
       }
@@ -220,19 +397,21 @@ void received_action(char action, char cmd, uint8_t key, uint16_t val, char cmd2
     // scoop (slow)
     if(cmd == 'B') {
       if(val == 1) {
-        if(!did_scoop) {
-          scoopSequenceSlow();
-          did_scoop = true;
-        }
+        turnSequence(false);
+        //if(!did_scoop) {
+        //  scoopSequenceSlow();
+        //  did_scoop = true;
+        //}
       } else if(val == 0) {
         did_scoop = false;
       }
     } else if(cmd2 == 'B') {
       if(val2 == 1) {
-        if(!did_scoop) {
-          scoopSequenceSlow();
-          did_scoop = true;
-        }
+        turnSequence(false);
+        //if(!did_scoop) {
+        //  scoopSequenceSlow();
+        //  did_scoop = true;
+        //}
       } else if(val2 == 0) {
         did_scoop = false;
       }
