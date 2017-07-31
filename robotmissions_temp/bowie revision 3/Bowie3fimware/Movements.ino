@@ -60,7 +60,7 @@ void scoopSequenceSlow() {
   long total_start_ms = 0;
   long total_end_ms = 0;
   int ARM_DELAY = 3; // usually 3, with 2 servos working
-  bowie.unparkHopper();
+  //bowie.unparkHopper();
 
   total_start_ms = millis();
   
@@ -161,6 +161,7 @@ void scoopSequenceSlow() {
   }
 
   if(temp_arm_pos < ARM_HOME) { // only do this if it's below ARM_HOME
+
     // tilt the scoop upwards to avoid losing the items
     Serial << "Going to END_PARALLEL_BOTTOM-500...";
     start_ms = millis();
@@ -171,7 +172,7 @@ void scoopSequenceSlow() {
     end_ms = millis();
     Serial << " done " << (end_ms-start_ms) << "ms" << endl;
     delay(100);
-
+    
     // lift arm with scoop parallel to ground
     Serial << "Going to ARM_HOME...";
     start_ms = millis();

@@ -19,19 +19,27 @@ Bowie::Bowie() {
   alt_msg = 0;
   temp_msg = 0;
 
+  // current sensors
   current_servo_val = 0;
   current_motor_val = 0;
   current_servo = 0.0;
   current_motor = 0.0;
   current_servo_avg = 0.0;
   current_motor_avg = 0.0;
+  high_current_detected = false;
+  high_current_start = 0;
+  servo_current_trigger = 0;
+  SERVO_OVER_CURRENT_SHUTDOWN = false;
+  num_over_current_shutdowns = 0;
+  servo_shutdown_start = 0;
 
   GYRO_ENABLED = false;
   MAG_ENABLED = false;
   ACCEL_ENABLED = false;
   BMP_ENABLED = false;
 
-  LOG_CURRENT_WHILE_MOVING = true;
+  LOG_CURRENT_WHILE_MOVING = false;
+  MONITOR_OVER_CURRENT = true;
 
   arm_position = ARM_HOME;
   end_position = END_HOME;
@@ -55,6 +63,8 @@ void Bowie::init() {
 
 void Bowie::update() {
 
+  current_time = millis();
+
   // specific things to do if remote operation is enabled
   if(REMOTE_OP_ENABLED) {
 
@@ -70,6 +80,8 @@ void Bowie::update() {
 
   }
 
+  monitorCurrent();
+  
   // TODO: if a button / sensor gets triggered here, 
   // send it via insertNextMsg();
 
@@ -730,10 +742,181 @@ void Bowie::servoInterruption(int key, int val) {
     if(key == SERVO_HOPPER_KEY) Serial << "Hopper,";
     if(key == SERVO_LID_KEY) Serial << "Lid,";
     if(key == LOGGING_AFTER_KEY) Serial << "Finished,";
+    if(key == SERVO_ARM_AND_END_KEY) Serial << "Arm & End,";
     Serial << val << ",";
     Serial << current_servo_val << ",";
     Serial << current_motor_val << endl;
   }
+
+  if(MONITOR_OVER_CURRENT) {
+    monitorCurrent();
+  }
+
+}
+
+void Bowie::monitorCurrent() {
+
+  updateCurrentSensors();
+
+  current_time = millis();
+
+  // servo monitoring with the raw vals. we need this to be fast!
+
+  Serial << "Monitoring current " << current_servo_val << endl;
+
+  // pre-check mode - done after servos cool off again (or before they heat up)
+  if(!SERVO_OVER_CURRENT_SHUTDOWN) {
+
+    // checking if the val is over the max or below the min - usually it is below the min
+    if(current_servo_val >= SERVO_CURRENT_THRESH_MAX || current_servo_val <= SERVO_CURRENT_THRESH_MIN) {
+
+      Serial << "!!! SERVO OVER CURRENT DETECTED !!!" << endl;
+
+      // resetting our flags if this was first instance
+      if(!high_current_detected) {
+        high_current_start = current_time;
+        servo_current_trigger = 0;
+        high_current_detected = true;
+      }
+
+      // incrementing trigger count on detection
+      if(high_current_detected) {
+        servo_current_trigger++;
+        Serial << "Servo over current trigger count: " << servo_current_trigger << endl;
+      }
+
+    }
+
+    if(high_current_detected) {
+
+      // counting how many times the over current threshold has been triggered
+      // this seems to work better than going with a timed approach
+      if(servo_current_trigger > OVER_CURRENT_TRIG_THRESH) {
+
+        // set the servo shutdown flags
+        if(!SERVO_OVER_CURRENT_SHUTDOWN) servo_shutdown_start = current_time;
+        SERVO_OVER_CURRENT_SHUTDOWN = true;
+
+        Serial << "!!! Servos entering over current shutdown !!! " << servo_shutdown_start << endl;
+        num_over_current_shutdowns++;
+
+      } else { // if not, then we reset it after time
+        if(current_time-high_current_start >= OVER_CURRENT_DELAY) {
+          high_current_detected = false;
+          servo_current_trigger = 0;
+        }
+      }
+
+    }
+
+  }
+
+  // servo shutdown mode
+  if(SERVO_OVER_CURRENT_SHUTDOWN) {
+
+    // has this been multiple over-current instances in a short amount
+    // of time? if so, the robot might be in a bad place. we can try
+    // to reverse & wiggle its motors
+
+    // checking number of times over current has happened
+    if(num_over_current_shutdowns < NUM_OVER_CURRENT_THRESH) {
+
+      // waiting for servo to cool off
+      if(current_time-servo_shutdown_start <= OVER_CURRENT_TIMEOUT) {
+
+        Serial << "waiting " << current_time-servo_shutdown_start << endl;
+
+        arm.detach();
+        arm2.detach();
+        end.detach();
+
+      } else { // now turn it back on
+
+        Serial << "Going to turn on the servos" << endl;
+
+        arm.attach(SERVO_ARM1);
+        arm2.attach(SERVO_ARM2);
+        end.attach(SERVO_END_EFFECTOR);
+
+        // if only there was a way to detect where the servo is presently, 
+        // and then send it slowly back to its original position...
+
+        // reset vars
+        SERVO_OVER_CURRENT_SHUTDOWN = false;
+        high_current_detected = false;
+        servo_current_trigger = 0;
+
+        moveArm(ARM_HOME, 1, 5); // slowly
+        moveEnd(END_HOME, 1, 5);
+      }
+
+    } else { // this is when the robot might be in a bad place
+
+      Serial << "!!! Num over current > thresh, going to move robot !!!" << endl;
+
+      // detach the servos again
+      if(current_time-servo_shutdown_start <= OVER_CURRENT_TIMEOUT) { // waiting for servo to cool off
+        arm.detach();
+        arm2.detach();
+        end.detach();
+      }
+
+      // move the robot
+      // drive backward a bit
+      for(int i=100; i<256; i+=5) {
+        motor_setDir(0, MOTOR_DIR_REV);
+        motor_setSpeed(0, i);
+        motor_setDir(1, MOTOR_DIR_REV);
+        motor_setSpeed(1, i);
+        delay(2);
+      }
+      motor_setDir(0, MOTOR_DIR_REV);
+      motor_setSpeed(0, 255);
+      motor_setDir(1, MOTOR_DIR_REV);
+      motor_setSpeed(1, 255);
+      delay(100);
+      
+      // stop
+      motor_setDir(0, MOTOR_DIR_FWD);
+      motor_setSpeed(0, 0);
+      motor_setDir(1, MOTOR_DIR_FWD);
+      motor_setSpeed(1, 0);
+      delay(50);
+
+      Serial << "Going to turn on the servos" << endl;
+      delay(1000);
+
+      // start the servos
+      arm.attach(SERVO_ARM1);
+      arm2.attach(SERVO_ARM2);
+      end.attach(SERVO_END_EFFECTOR);
+
+      // if only there was a way to detect where the servo is presently, 
+      // and then send it slowly back to its original position...
+
+      // reset vars
+      SERVO_OVER_CURRENT_SHUTDOWN = false;
+      high_current_detected = false;
+      servo_current_trigger = 0;
+
+      // slowly move
+      moveArm(ARM_HOME, 1, 5);
+      moveEnd(END_HOME, 1, 5);
+
+      // reset the counter to 0 after moving
+      num_over_current_shutdowns = 0;
+    }
+   
+  }
+
+  // the num of shutdowns times out after 1 min
+  if(current_time-servo_shutdown_start > NUM_OVER_TIMEOUT) {
+    Serial << "Number of over current shutdowns is cleared" << endl;
+    num_over_current_shutdowns = 0;
+  }
+
+  // todo- dc motor monitoring
+
 }
 
 // - Arm
@@ -742,6 +925,12 @@ void Bowie::moveArm(int armPos) {
 }
 
 void Bowie::moveArm(int armPos, int step, int del) {
+
+  if(SERVO_OVER_CURRENT_SHUTDOWN) {
+    Serial << "!!! Cannot move arm, in servo over current shutdown !!!" << endl;
+    return;
+  }
+
   bool did_move_hopper = false;
   bool was_hopper_parked = hopper_parked;
   int hopper_original_pos = getHopperPos();
@@ -755,6 +944,7 @@ void Bowie::moveArm(int armPos, int step, int del) {
 
   if(getArmPos() > armPos) { // headed towards ARM_MIN
     for(int i=getArmPos(); i>armPos; i-=step) {
+      //Serial << i << endl;
       arm.writeMicroseconds(i);
       arm2.writeMicroseconds(SERVO_MAX_US - i + SERVO_MIN_US);
       servoInterruption(SERVO_ARM_KEY, i);
@@ -762,6 +952,7 @@ void Bowie::moveArm(int armPos, int step, int del) {
     }
   } else if(getArmPos() <= armPos) { // headed towards ARM_MAX
     for(int i=getArmPos(); i<armPos; i+=step) {
+      //Serial << i << endl;
       arm.writeMicroseconds(i);
       arm2.writeMicroseconds(SERVO_MAX_US - i + SERVO_MIN_US);
       servoInterruption(SERVO_ARM_KEY, i);
@@ -807,6 +998,11 @@ void Bowie::moveEnd(int endPos) {
 }
 
 void Bowie::moveEnd(int endPos, int step, int del) {
+
+  if(SERVO_OVER_CURRENT_SHUTDOWN) {
+    Serial << "!!! Cannot move end, in servo over current shutdown !!!" << endl;
+    return;
+  }
 
   if(getArmPos() == ARM_MIN && endPos < END_MAX) { // check if the arm is down and if the end is going past being down
     Serial << "!!! Cannot move end-effector here when arm down" << endl;
@@ -994,6 +1190,12 @@ int Bowie::getLidPos() {
 
 // - Other
 void Bowie::moveArmAndEnd(int armPos, int step, int del, int armMin, int armMax, int endMin, int endMax) {
+  
+  if(SERVO_OVER_CURRENT_SHUTDOWN) {
+    Serial << "!!! Cannot move arm, in servo over current shutdown !!!" << endl;
+    return;
+  }
+
   bool did_move_hopper = false;
   int hopper_original_pos = getHopperPos();
   int endPos = 0;
@@ -1017,6 +1219,7 @@ void Bowie::moveArmAndEnd(int armPos, int step, int del, int armMin, int armMax,
       arm2.writeMicroseconds(SERVO_MAX_US - i + SERVO_MIN_US);
       endPos = clawParallelValBounds(i, armMin, armMax, endMin, endMax);
       end.writeMicroseconds(endPos);
+      servoInterruption(SERVO_ARM_AND_END_KEY, i);
       delay(del);
     }
   } else if(getArmPos() <= armPos) { // headed towards ARM_MAX
@@ -1025,6 +1228,7 @@ void Bowie::moveArmAndEnd(int armPos, int step, int del, int armMin, int armMax,
       arm2.writeMicroseconds(SERVO_MAX_US - i + SERVO_MIN_US);
       endPos = clawParallelValBounds(i, armMin, armMax, endMin, endMax);
       end.writeMicroseconds(endPos);
+      servoInterruption(SERVO_ARM_AND_END_KEY, i);
       delay(del); 
     }
   }
@@ -1032,6 +1236,7 @@ void Bowie::moveArmAndEnd(int armPos, int step, int del, int armMin, int armMax,
   arm2.writeMicroseconds(SERVO_MAX_US - armPos + SERVO_MIN_US);
   endPos = clawParallelValBounds(armPos, armMin, armMax, endMin, endMax);
   end.writeMicroseconds(endPos);
+  servoInterruption(SERVO_ARM_AND_END_KEY, armPos);
   delay(del);
 
   if(did_move_hopper) { // move hopper back to original position

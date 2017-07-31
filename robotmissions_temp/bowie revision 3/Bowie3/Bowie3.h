@@ -82,8 +82,8 @@
 #define TILT_MIN 700 // tilted (emptying)
 #define TILT_MAX 1600 // flush
 
-#define LID_MIN 1000 // open
-#define LID_MAX 2000 // closed
+#define LID_MIN 850 //1000 // open
+#define LID_MAX 1850 //2000 // closed
 
 #define SERVO_MAX_US 2500
 #define SERVO_MIN_US 500
@@ -94,6 +94,16 @@
 #define SERVO_HOPPER_KEY 3
 #define SERVO_LID_KEY 4
 #define LOGGING_AFTER_KEY 5
+#define SERVO_ARM_AND_END_KEY 6
+
+// over current thresholds
+#define SERVO_CURRENT_THRESH_MAX 800
+#define SERVO_CURRENT_THRESH_MIN 650
+#define OVER_CURRENT_DELAY 200
+#define OVER_CURRENT_TRIG_THRESH 5
+#define OVER_CURRENT_TIMEOUT 2500
+#define NUM_OVER_CURRENT_THRESH 3
+#define NUM_OVER_TIMEOUT 65000
 
 // super bright led values
 #define MAX_BRIGHTNESS 10
@@ -130,6 +140,7 @@ class Bowie {
     // inits and updates
     void init();
     void update();
+    long current_time;
 
     // api
     void control(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim);
@@ -168,6 +179,7 @@ class Bowie {
     uint16_t getMotorCurrentVal();
     float getServoCurrent();
     float getMotorCurrent();
+    void monitorCurrent();
 
     // servos
     Servo arm;
@@ -178,6 +190,7 @@ class Bowie {
     Servo extra;
     
     bool LOG_CURRENT_WHILE_MOVING;
+    bool MONITOR_OVER_CURRENT;
     void servoInterruption(int key, int val);
 
     void moveArm(int armPos);
@@ -246,6 +259,12 @@ class Bowie {
     float current_motor;
     float current_servo_avg;
     float current_motor_avg;
+    bool high_current_detected;
+    long high_current_start;
+    uint16_t servo_current_trigger;
+    bool SERVO_OVER_CURRENT_SHUTDOWN;
+    uint8_t num_over_current_shutdowns;
+    long servo_shutdown_start;
 
     // servos
     int arm_position;
