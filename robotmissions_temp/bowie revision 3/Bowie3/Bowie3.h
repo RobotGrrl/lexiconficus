@@ -68,7 +68,7 @@
 #define MOTOR_DIR_REV true
 
 // servo values
-#define ARM_MIN 800 // down 700
+#define ARM_MIN 700 // down 700
 #define ARM_HOME 1400 // middle 1200 orig
 #define ARM_MAX 2300 // up, 90 deg perpenducular to base
 #define ARM_PARK 2400 // leaning against hopper a bit
@@ -97,10 +97,10 @@
 #define SERVO_ARM_AND_END_KEY 6
 
 // over current thresholds
-#define SERVO_CURRENT_THRESH_MAX 800
-#define SERVO_CURRENT_THRESH_MIN 650
-#define OVER_CURRENT_DELAY 200
-#define OVER_CURRENT_TRIG_THRESH 5
+#define SERVO_CURRENT_THRESH_MAX 880
+#define SERVO_CURRENT_THRESH_MIN 500
+#define OVER_CURRENT_DELAY 2000
+#define OVER_CURRENT_TRIG_THRESH 3
 #define OVER_CURRENT_TIMEOUT 2500
 #define NUM_OVER_CURRENT_THRESH 3
 #define NUM_OVER_TIMEOUT 65000
@@ -265,6 +265,7 @@ class Bowie {
     bool SERVO_OVER_CURRENT_SHUTDOWN;
     uint8_t num_over_current_shutdowns;
     long servo_shutdown_start;
+    uint16_t max_current_reading;
 
     // servos
     int arm_position;

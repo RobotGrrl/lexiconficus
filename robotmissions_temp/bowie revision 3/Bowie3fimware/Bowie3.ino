@@ -101,7 +101,7 @@ void setup() {
   /*
    * notes
    * servo config instructions
-   * 1. position servo arms 90 deg to base upwards to arm_max-200
+   * 1. position servo arms 90 deg to base upwards to ARM_MAX-200
    * 2. check angle with arm_max (should be towards inner portion of base)
    * 3. check angle with arm_home (should be parallel to base)
    * 4. check angle with arm_min (should not be touching the base, pointed downwards)
@@ -118,6 +118,16 @@ void setup() {
 
   while(1<3) {
 
+    bowie.lid.detach();
+    bowie.tilt.detach();
+
+    
+    bowie.moveArm(ARM_MAX);
+    delay(1000);
+    bowie.moveArm(ARM_MIN);
+    delay(1000);
+
+    /*
     Serial << "lid min" << endl;
     bowie.moveLid(LID_MIN);
     delay(1000);
@@ -135,6 +145,7 @@ void setup() {
       bowie.moveArm(i); 
       delay(1); 
     }
+    */
   }
 
   bowie.LOG_CURRENT_WHILE_MOVING = false;

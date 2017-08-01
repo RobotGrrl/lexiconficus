@@ -760,15 +760,29 @@ void Bowie::monitorCurrent() {
 
   current_time = millis();
 
+  // notes on calibrating the values:
+  // SERVO_CURRENT_THRESH_MAX should not be exceeded when the arm moves
+  // regularly from MAX to MIN. there might be the occasional spike,
+  // but servo_current_trigger should not exceed 2 or 3.
+  // OVER_CURRENT_DELAY is how many of these triggers accumulate within
+  // that set time. So if you want the shutdown to occur quickly, this
+  // should be adjusted down. 
+  // OVER_CURRENT_TRIG_THRESH is how many of the triggers will cause the
+  // shutdown, within the delay time. 
+
+  if(current_servo_val > max_current_reading) {
+    max_current_reading = current_servo_val;
+    Serial << "max: " << max_current_reading << endl;
+  }
+
   // servo monitoring with the raw vals. we need this to be fast!
-
-  Serial << "Monitoring current " << current_servo_val << endl;
-
   // pre-check mode - done after servos cool off again (or before they heat up)
   if(!SERVO_OVER_CURRENT_SHUTDOWN) {
 
     // checking if the val is over the max or below the min - usually it is below the min
     if(current_servo_val >= SERVO_CURRENT_THRESH_MAX || current_servo_val <= SERVO_CURRENT_THRESH_MIN) {
+
+      Serial << "Monitoring current " << current_servo_val << endl;
 
       Serial << "!!! SERVO OVER CURRENT DETECTED !!!" << endl;
 
@@ -791,7 +805,7 @@ void Bowie::monitorCurrent() {
 
       // counting how many times the over current threshold has been triggered
       // this seems to work better than going with a timed approach
-      if(servo_current_trigger > OVER_CURRENT_TRIG_THRESH) {
+      if(servo_current_trigger >= OVER_CURRENT_TRIG_THRESH) {
 
         // set the servo shutdown flags
         if(!SERVO_OVER_CURRENT_SHUTDOWN) servo_shutdown_start = current_time;
@@ -802,6 +816,7 @@ void Bowie::monitorCurrent() {
 
       } else { // if not, then we reset it after time
         if(current_time-high_current_start >= OVER_CURRENT_DELAY) {
+          Serial << "reset" << endl;
           high_current_detected = false;
           servo_current_trigger = 0;
         }
@@ -898,19 +913,19 @@ void Bowie::monitorCurrent() {
       SERVO_OVER_CURRENT_SHUTDOWN = false;
       high_current_detected = false;
       servo_current_trigger = 0;
+      // reset the counter to 0 after moving
+      num_over_current_shutdowns = 0;
 
       // slowly move
       moveArm(ARM_HOME, 1, 5);
       moveEnd(END_HOME, 1, 5);
 
-      // reset the counter to 0 after moving
-      num_over_current_shutdowns = 0;
     }
    
   }
 
   // the num of shutdowns times out after 1 min
-  if(current_time-servo_shutdown_start > NUM_OVER_TIMEOUT) {
+  if(current_time-servo_shutdown_start > NUM_OVER_TIMEOUT && num_over_current_shutdowns != 0) {
     Serial << "Number of over current shutdowns is cleared" << endl;
     num_over_current_shutdowns = 0;
   }
@@ -928,6 +943,7 @@ void Bowie::moveArm(int armPos, int step, int del) {
 
   if(SERVO_OVER_CURRENT_SHUTDOWN) {
     Serial << "!!! Cannot move arm, in servo over current shutdown !!!" << endl;
+    monitorCurrent();
     return;
   }
 
@@ -947,29 +963,34 @@ void Bowie::moveArm(int armPos, int step, int del) {
       //Serial << i << endl;
       arm.writeMicroseconds(i);
       arm2.writeMicroseconds(SERVO_MAX_US - i + SERVO_MIN_US);
-      servoInterruption(SERVO_ARM_KEY, i);
+      arm_position = i;      
       delay(del);
+      servoInterruption(SERVO_ARM_KEY, i);
+      if(SERVO_OVER_CURRENT_SHUTDOWN) return; // break out of here so the pos doesn't keep moving
     }
   } else if(getArmPos() <= armPos) { // headed towards ARM_MAX
     for(int i=getArmPos(); i<armPos; i+=step) {
       //Serial << i << endl;
       arm.writeMicroseconds(i);
       arm2.writeMicroseconds(SERVO_MAX_US - i + SERVO_MIN_US);
-      servoInterruption(SERVO_ARM_KEY, i);
+      arm_position = i;
       delay(del); 
+      servoInterruption(SERVO_ARM_KEY, i);
+      if(SERVO_OVER_CURRENT_SHUTDOWN) return; // break out of here so the pos doesn't keep moving
     }
   }
   arm.writeMicroseconds(armPos);
   arm2.writeMicroseconds(SERVO_MAX_US - armPos + SERVO_MIN_US);
-  servoInterruption(SERVO_ARM_KEY, armPos);
+  arm_position = armPos;
   delay(del);
+  servoInterruption(SERVO_ARM_KEY, armPos);
+  if(SERVO_OVER_CURRENT_SHUTDOWN) return; // break out of here so the pos doesn't keep moving
 
   if(did_move_hopper) { // move hopper back to original position
     moveHopper(hopper_original_pos);
     if(was_hopper_parked) parkHopper();
   }
 
-  arm_position = armPos;
 }
 
 void Bowie::parkArm() {
@@ -1001,6 +1022,7 @@ void Bowie::moveEnd(int endPos, int step, int del) {
 
   if(SERVO_OVER_CURRENT_SHUTDOWN) {
     Serial << "!!! Cannot move end, in servo over current shutdown !!!" << endl;
+    monitorCurrent();
     return;
   }
 
@@ -1014,21 +1036,26 @@ void Bowie::moveEnd(int endPos, int step, int del) {
   if(getEndPos() > endPos) { // going towards END_MIN
     for(int i=getEndPos(); i>endPos; i-=step) {
       end.writeMicroseconds(i);
-      servoInterruption(SERVO_END_KEY, i);
+      end_position = i;
       delay(del);
+      servoInterruption(SERVO_END_KEY, i);
+      if(SERVO_OVER_CURRENT_SHUTDOWN) return; // break out of here so the pos doesn't keep moving
     }
   } else if(getEndPos() <= endPos) { // going towards END_MAX
     for(int i=getEndPos(); i<endPos; i+=step) {
       end.writeMicroseconds(i);
-      servoInterruption(SERVO_END_KEY, i);
+      end_position = i;
       delay(del);
+      servoInterruption(SERVO_END_KEY, i);
+      if(SERVO_OVER_CURRENT_SHUTDOWN) return; // break out of here so the pos doesn't keep moving
     }
   }
-  servoInterruption(SERVO_END_KEY, endPos);
+  end_position = endPos;
   end.writeMicroseconds(endPos);
   delay(del);
+  servoInterruption(SERVO_END_KEY, endPos);
+  if(SERVO_OVER_CURRENT_SHUTDOWN) return; // break out of here so the pos doesn't keep moving
 
-  end_position = endPos;
 }
 
 void Bowie::parkEnd() {
@@ -1078,19 +1105,25 @@ void Bowie::moveHopper(int hopperPos, int step, int del) {
   if(getHopperPos() > hopperPos) { // towards TILT_MIN
     for(int i=getHopperPos(); i>hopperPos; i-=step) {
       tilt.writeMicroseconds(i);
-      servoInterruption(SERVO_HOPPER_KEY, i);
+      hopper_position = i;
       delay(del);
+      servoInterruption(SERVO_HOPPER_KEY, i);
+      if(SERVO_OVER_CURRENT_SHUTDOWN) return; // break out of here so the pos doesn't keep moving
     }
   } else if(getHopperPos() <= hopperPos) { // towards TILT_MAX
     for(int i=getHopperPos(); i<hopperPos; i+=step) {
       tilt.writeMicroseconds(i);
-      servoInterruption(SERVO_HOPPER_KEY, i);
+      hopper_position = i;
       delay(del);
+      servoInterruption(SERVO_HOPPER_KEY, i);
+      if(SERVO_OVER_CURRENT_SHUTDOWN) return; // break out of here so the pos doesn't keep moving
     }
   }
   tilt.writeMicroseconds(hopperPos);
-  servoInterruption(SERVO_HOPPER_KEY, hopperPos);
+  hopper_position = hopperPos;
   delay(del);
+  servoInterruption(SERVO_HOPPER_KEY, hopperPos);
+  if(SERVO_OVER_CURRENT_SHUTDOWN) return; // break out of here so the pos doesn't keep moving
 
   if(did_move_lid) {
     moveLid(lid_original_pos);
@@ -1102,7 +1135,6 @@ void Bowie::moveHopper(int hopperPos, int step, int del) {
     if(was_arm_parked) parkArm();
   }
 
-  hopper_position = hopperPos;
 }
 
 void Bowie::parkHopper() {
@@ -1148,26 +1180,31 @@ void Bowie::moveLid(int lidPos, int step, int del) {
   if(getLidPos() > lidPos) { // going to LID_MIN
     for(int i=getLidPos(); i>lidPos; i-=step) {
       lid.writeMicroseconds(i);
-      servoInterruption(SERVO_LID_KEY, i);
+      lid_position = i;
       delay(del);
+      servoInterruption(SERVO_LID_KEY, i);
+      if(SERVO_OVER_CURRENT_SHUTDOWN) return; // break out of here so the pos doesn't keep moving
     }
   } else if(getLidPos() <= lidPos) {
     for(int i=getLidPos(); i<lidPos; i+=step) {
       lid.writeMicroseconds(i);
-      servoInterruption(SERVO_LID_KEY, i);
+      lid_position = i;
       delay(del);
+      servoInterruption(SERVO_LID_KEY, i);
+      if(SERVO_OVER_CURRENT_SHUTDOWN) return; // break out of here so the pos doesn't keep moving
     }
   }
   lid.writeMicroseconds(lidPos);
-  servoInterruption(SERVO_LID_KEY, lidPos);
+  lid_position = lidPos;
   delay(del);
+  servoInterruption(SERVO_LID_KEY, lidPos);
+  if(SERVO_OVER_CURRENT_SHUTDOWN) return; // break out of here so the pos doesn't keep moving
 
   if(did_move_arm) {
     moveArm(arm_original_pos);
     if(was_arm_parked) parkArm();
   }
 
-  lid_position = lidPos;
 }
 
 void Bowie::parkLid() {
@@ -1193,6 +1230,7 @@ void Bowie::moveArmAndEnd(int armPos, int step, int del, int armMin, int armMax,
   
   if(SERVO_OVER_CURRENT_SHUTDOWN) {
     Serial << "!!! Cannot move arm, in servo over current shutdown !!!" << endl;
+    monitorCurrent();
     return;
   }
 
@@ -1219,8 +1257,11 @@ void Bowie::moveArmAndEnd(int armPos, int step, int del, int armMin, int armMax,
       arm2.writeMicroseconds(SERVO_MAX_US - i + SERVO_MIN_US);
       endPos = clawParallelValBounds(i, armMin, armMax, endMin, endMax);
       end.writeMicroseconds(endPos);
-      servoInterruption(SERVO_ARM_AND_END_KEY, i);
+      arm_position = i;
+      end_position = endPos;
       delay(del);
+      servoInterruption(SERVO_ARM_AND_END_KEY, i);
+      if(SERVO_OVER_CURRENT_SHUTDOWN) return; // break out of here so the pos doesn't keep moving
     }
   } else if(getArmPos() <= armPos) { // headed towards ARM_MAX
     for(int i=getArmPos(); i<armPos; i+=step) {
@@ -1228,23 +1269,27 @@ void Bowie::moveArmAndEnd(int armPos, int step, int del, int armMin, int armMax,
       arm2.writeMicroseconds(SERVO_MAX_US - i + SERVO_MIN_US);
       endPos = clawParallelValBounds(i, armMin, armMax, endMin, endMax);
       end.writeMicroseconds(endPos);
-      servoInterruption(SERVO_ARM_AND_END_KEY, i);
+      arm_position = i;
+      end_position = endPos;
       delay(del); 
+      servoInterruption(SERVO_ARM_AND_END_KEY, i);
+      if(SERVO_OVER_CURRENT_SHUTDOWN) return; // break out of here so the pos doesn't keep moving
     }
   }
   arm.writeMicroseconds(armPos);
   arm2.writeMicroseconds(SERVO_MAX_US - armPos + SERVO_MIN_US);
   endPos = clawParallelValBounds(armPos, armMin, armMax, endMin, endMax);
   end.writeMicroseconds(endPos);
-  servoInterruption(SERVO_ARM_AND_END_KEY, armPos);
+  arm_position = armPos;
+  end_position = endPos;
   delay(del);
+  servoInterruption(SERVO_ARM_AND_END_KEY, armPos);
+  if(SERVO_OVER_CURRENT_SHUTDOWN) return; // break out of here so the pos doesn't keep moving
 
   if(did_move_hopper) { // move hopper back to original position
     moveHopper(hopper_original_pos);
   }
 
-  arm_position = armPos;
-  end_position = endPos;
 }
 
 // ---------
