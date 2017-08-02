@@ -16,7 +16,7 @@
 #include "PromulgateBig.h"
 #include "PixyUART.h"
 
-#define PROG_DEBUG true
+#define PROG_DEBUG false
 #define COMM_DEBUG false
 
 // ---- Promulgate
@@ -73,7 +73,7 @@ long last_lock_detect = 0;
 float width_avg = 0.0;
 float height_avg = 0.0;
 #define PIXY_LED_ACTIVE true
-bool COMPUTER_VISION_ENABLED = true;
+bool COMPUTER_VISION_ENABLED = false;
 
 
 void setup() {
@@ -96,7 +96,10 @@ void setup() {
   promulgate.set_debug_stream(&Serial);
 
   // pixy setup
-  pixy.init();
+  // TODO: we need a way to not get stuck in looking for the pixy
+  // (or any other sensor peripherals) if they are not connected,
+  // and if they become disconnected in the field
+  //pixy.init();
 
   /*
    * notes
@@ -116,42 +119,26 @@ void setup() {
    * 13. check angle lid_min to be open (~45 deg from perpendicular to hopper)
    */
 
+  /*
   while(1<3) {
 
     bowie.lid.detach();
     bowie.tilt.detach();
 
-    
-    bowie.moveArm(ARM_MAX);
-    delay(1000);
-    bowie.moveArm(ARM_MIN);
-    delay(1000);
-
-    /*
-    Serial << "lid min" << endl;
-    bowie.moveLid(LID_MIN);
-    delay(1000);
-//    Serial << "lid max" << endl;
-//    bowie.moveLid(LID_MAX);
+//    bowie.moveArm(ARM_MAX);
 //    delay(1000);
+//    bowie.moveArm(ARM_MIN);
+//    delay(1000);
+
+    calibrateTouchdown();
+    scoopSequenceSlow();
     
-    for(int i=ARM_MIN; i<ARM_MAX; i+=3) {
-      Serial << i << endl;
-     bowie.moveArm(i); 
-     delay(1);
-    }
-    for(int i=ARM_MAX; i>ARM_MIN; i-=3) {
-      Serial << i << endl;
-      bowie.moveArm(i); 
-      delay(1); 
-    }
-    */
   }
+  */
 
   bowie.LOG_CURRENT_WHILE_MOVING = false;
-  /*
-  Serial << "Homing... " << endl;
-  homePositions();
+  //Serial << "Homing... " << endl;
+  //homePositions();
   Serial << "Parking hopper..." << endl;
   bowie.parkHopper();
   Serial << "Parking lid..." << endl;
@@ -161,7 +148,15 @@ void setup() {
   Serial << "Parking end..." << endl;
   bowie.parkEnd();  
   Serial << "Ready" << endl;
-  */
+
+//  delay(5000);
+//  scoopSequenceFast2();
+//  
+//  while(1<3) {
+//    scoopSequenceFast2();
+//    delay(15000);
+//  }
+
   
   //calibrateTouchdown();
   //calibrateTouchdownFast();
@@ -173,8 +168,9 @@ void setup() {
 void calibrateTouchdown() {
 
   bool did_touchdown = false;
+  bool last_try = false;
   int count = 0;
-  int new_arm_pos = ARM_HOME-100;
+  int new_arm_pos = ARM_MIN+200;
 
   Serial << "Beginning touchdown calibration" << endl;
 
@@ -183,43 +179,52 @@ void calibrateTouchdown() {
 
   while(!did_touchdown) {
 
-    for(int i=END_MIN+200; i<END_PARALLEL_BOTTOM; i++) {
-      bowie.moveEnd(i);
+    for(int i=END_MIN+200; i<END_PARALLEL_BOTTOM+400; i+=2) {
+      bowie.moveEnd(i, 3, 1);
       if(bowie.getScoopProbeL() == 1 && bowie.getScoopProbeR() == 1) {
+        bowie.END_TOUCHDOWN = i;
         Serial << "Touchdown at " << i << ", " << i-END_PARALLEL_BOTTOM << " from END_PARALLEL_BOTTOM" << endl;
         did_touchdown = true;
         break;
       }
     }
 
-    for(int i=END_PARALLEL_BOTTOM; i>END_MIN+200; i--) {
-      bowie.moveEnd(i);
+    if(did_touchdown) break;
+
+    for(int i=END_PARALLEL_BOTTOM+400; i>END_MIN+200; i-=2) {
+      bowie.moveEnd(i, 3, 1);
       if(bowie.getScoopProbeL() == 1 && bowie.getScoopProbeR() == 1) {
+        bowie.END_TOUCHDOWN = i;
         Serial << "Touchdown at " << i << ", " << i-END_PARALLEL_BOTTOM << " from END_PARALLEL_BOTTOM" << endl;
         did_touchdown = true;
         break;
       }
     }
 
-    if(did_touchdown) {
-      Serial << "Touchdown calibration complete" << endl;
-      for(int i=0; i<20; i++) { // log a bit afterwards to see any changes
-        bowie.servoInterruption(LOGGING_AFTER_KEY, 0);
-        delay(3);
-      }
-      break;
-    }
+    if(did_touchdown) break;
 
     count++;
     new_arm_pos -= (count*50);
-    if(new_arm_pos <= ARM_MIN && did_touchdown == false) {
+    if(new_arm_pos <= ARM_MIN) {
+      new_arm_pos = ARM_MIN;
+      last_try = true;
+    }
+    if(last_try == true && did_touchdown == false) {
       Serial << "Could not find touchdown" << endl;
       break;
     } else {
       Serial << "Moving arm #" << count << endl;
-      bowie.moveArm(new_arm_pos);  
+      bowie.moveArm(new_arm_pos, 3, 1);  
     }
     
+  }
+
+  if(did_touchdown) {
+    Serial << "Touchdown calibration complete" << endl;
+    for(int i=0; i<20; i++) { // log a bit afterwards to see any changes
+      bowie.servoInterruption(LOGGING_AFTER_KEY, 0);
+      delay(3);
+    }
   }
   
   Serial << "\nDone" << endl;
@@ -289,6 +294,10 @@ void loop() {
 
   current_time = millis();
 
+  if(bowie.getScoopProbeL() == 1 && bowie.getScoopProbeR() == 1) {
+    Serial << "TOUCHED" << endl;
+  }
+
   while(xbeeRead()) {
     Serial << "xbee read" << endl;
     for(int i=0; i<rx.getDataLength(); i++) {
@@ -352,33 +361,36 @@ void received_action(char action, char cmd, uint8_t key, uint16_t val, char cmd2
   // user defined actions
   if(action == '#') {
 
-    // scoop (fast)
+    // Green button = touchdown calibrate scoop (fast)
     if(cmd == 'G') {
       if(val == 1) {
-        if(!did_scoop) {
-          scoopSequenceFast();
-          did_scoop = true;
-        }
+        calibrateTouchdown();
+//        if(!did_scoop) {
+//          scoopSequenceFast();
+//          did_scoop = true;
+//        }
       } else if(val == 0) {
-        did_scoop = false;
+//        did_scoop = false;
       }
     } else if(cmd2 == 'G') {
       if(val2 == 1) {
-        if(!did_scoop) {
-          scoopSequenceFast();
-          did_scoop = true;
-        }
+        calibrateTouchdown();
+//        if(!did_scoop) {
+//          scoopSequenceFast();
+//          did_scoop = true;
+//        }
       } else if(val2 == 0) {
-        did_scoop = false;
+        calibrateTouchdown();
+//        did_scoop = false;
       }
     }
 
 
-    // empty
+    // White button = empty
     if(cmd == 'W') {
       if(val == 1) {
         if(!did_empty) {
-          deposit();
+          deposit2();
           did_empty = true;
         }
       } else if(val == 0) {
@@ -387,7 +399,7 @@ void received_action(char action, char cmd, uint8_t key, uint16_t val, char cmd2
     } else if(cmd2 == 'W') {
       if(val2 == 1) {
         if(!did_empty) {
-          deposit();
+          deposit2();
           did_empty = true;
         }
       } else if(val2 == 0) {
@@ -396,11 +408,11 @@ void received_action(char action, char cmd, uint8_t key, uint16_t val, char cmd2
     }
 
 
-    // scoop (slow)
+    // Blue button = scoop fast
     if(cmd == 'B') {
       if(val == 1) {
         if(!did_scoop) {
-          scoopSequenceSlow();
+          scoopSequenceFast2();
           did_scoop = true;
         }
       } else if(val == 0) {
@@ -409,7 +421,7 @@ void received_action(char action, char cmd, uint8_t key, uint16_t val, char cmd2
     } else if(cmd2 == 'B') {
       if(val2 == 1) {
         if(!did_scoop) {
-          scoopSequenceSlow();
+          scoopSequenceFast2();
           did_scoop = true;
         }
       } else if(val2 == 0) {
@@ -417,11 +429,12 @@ void received_action(char action, char cmd, uint8_t key, uint16_t val, char cmd2
       }
     }
 
-    // dance
+    // Black button = dance or computer vision
     if(cmd == 'N') {
       if(val == 1) {
         Serial << "Enabling computer vision" << endl;
         COMPUTER_VISION_ENABLED = true;
+        pixy.init();
       } else if(val == 0) {
         Serial << "Disabling computer vision" << endl;
         COMPUTER_VISION_ENABLED = false;
@@ -430,6 +443,7 @@ void received_action(char action, char cmd, uint8_t key, uint16_t val, char cmd2
       if(val2 == 1) {
         Serial << "Enabling computer vision" << endl;
         COMPUTER_VISION_ENABLED = true;
+        pixy.init();
       } else if(val2 == 0) {
         Serial << "Disabling computer vision" << endl;
         COMPUTER_VISION_ENABLED = false;

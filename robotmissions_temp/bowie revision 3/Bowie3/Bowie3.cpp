@@ -41,10 +41,11 @@ Bowie::Bowie() {
   LOG_CURRENT_WHILE_MOVING = false;
   MONITOR_OVER_CURRENT = true;
 
-  arm_position = ARM_HOME;
-  end_position = END_HOME;
+  arm_position = ARM_PARK;
+  end_position = END_PARALLEL_TOP;
   hopper_position = TILT_MAX;
   lid_position = LID_MAX;
+  END_TOUCHDOWN = END_PARALLEL_BOTTOM;
   arm_parked = false;
   end_parked = false;
   hopper_parked = false;
@@ -522,6 +523,9 @@ void Bowie::control(char action, char cmd, uint8_t key, uint16_t val, char cmd2,
         int the_pos = (int)map(val, 0, 100, ARM_MIN, ARM_MAX);
         int temp_pos = arm_position;
         
+        moveArmAndEnd(the_pos, 1, 1, ARM_MIN, ARM_MAX, END_PARALLEL_BOTTOM, END_PARALLEL_TOP);
+
+        /*
         if(abs(the_pos - temp_pos) >= 10) {
           if(the_pos > temp_pos) { // going up
             for(int i=temp_pos; i<the_pos; i+=1) {
@@ -542,7 +546,8 @@ void Bowie::control(char action, char cmd, uint8_t key, uint16_t val, char cmd2,
           end.writeMicroseconds(clawParallelVal(the_pos));
           delay(1);
         }
-        
+        */
+
         Serial << "\narm angle: " << arm_position << endl;
       }
       
@@ -775,6 +780,8 @@ void Bowie::monitorCurrent() {
     Serial << "max: " << max_current_reading << endl;
   }
 
+  //Serial << "Monitoring current " << current_servo_val << endl;
+
   // servo monitoring with the raw vals. we need this to be fast!
   // pre-check mode - done after servos cool off again (or before they heat up)
   if(!SERVO_OVER_CURRENT_SHUTDOWN) {
@@ -782,7 +789,7 @@ void Bowie::monitorCurrent() {
     // checking if the val is over the max or below the min - usually it is below the min
     if(current_servo_val >= SERVO_CURRENT_THRESH_MAX || current_servo_val <= SERVO_CURRENT_THRESH_MIN) {
 
-      Serial << "Monitoring current " << current_servo_val << endl;
+      //Serial << "Monitoring current " << current_servo_val << endl;
 
       Serial << "!!! SERVO OVER CURRENT DETECTED !!!" << endl;
 
@@ -889,7 +896,7 @@ void Bowie::monitorCurrent() {
       motor_setSpeed(0, 255);
       motor_setDir(1, MOTOR_DIR_REV);
       motor_setSpeed(1, 255);
-      delay(100);
+      delay(1000);
       
       // stop
       motor_setDir(0, MOTOR_DIR_FWD);
@@ -1009,6 +1016,10 @@ void Bowie::unparkArm() {
   moveArm(getArmPos());
 }
 
+bool Bowie::getArmParked() {
+  return arm_parked;
+}
+
 int Bowie::getArmPos() {
   return arm_position;
 }
@@ -1026,7 +1037,9 @@ void Bowie::moveEnd(int endPos, int step, int del) {
     return;
   }
 
-  if(getArmPos() == ARM_MIN && endPos < END_MAX) { // check if the arm is down and if the end is going past being down
+  //if(getArmPos() == ARM_MIN && endPos < END_MAX) { // check if the arm is down and if the end is going past being down
+  // TODO1 fix this later
+  if(getArmPos() == ARM_MIN && endPos > END_PARALLEL_BOTTOM) { // check if the arm is down and if the end is going past being down
     Serial << "!!! Cannot move end-effector here when arm down" << endl;
     return;
   }
@@ -1070,6 +1083,10 @@ void Bowie::unparkEnd() {
   end.attach(SERVO_END_EFFECTOR);
   end_parked = false;
   moveEnd(END_PARALLEL_TOP);
+}
+
+bool Bowie::getEndParked() {
+  return end_parked;
 }
 
 int Bowie::getEndPos() {
@@ -1151,6 +1168,10 @@ void Bowie::unparkHopper() {
   moveHopper(TILT_MAX);
 }
 
+bool Bowie::getHopperParked() {
+  return hopper_parked;
+}
+
 int Bowie::getHopperPos() {
   return hopper_position;
 }
@@ -1219,6 +1240,10 @@ void Bowie::unparkLid() {
   lid.attach(SERVO_HOPPER_LID);
   lid_parked = false;
   moveLid(LID_MAX);
+}
+
+bool Bowie::getLidParked() {
+  return lid_parked;
 }
 
 int Bowie::getLidPos() {

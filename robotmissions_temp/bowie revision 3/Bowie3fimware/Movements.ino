@@ -510,8 +510,12 @@ void scoopSequenceFast() {
 void deposit() {
 
   bowie.unparkHopper();
+  bowie.unparkLid();
+
+  bool was_arm_parked = bowie.getArmParked();
 
   // if the arm is up let's move it to home
+  if(was_arm_parked) bowie.unparkArm();
   int temp_arm = bowie.getArmPos();
   if(temp_arm > 2000) {
     for(int i=temp_arm; i>ARM_HOME; i-=5) {
@@ -567,16 +571,101 @@ void deposit() {
   }
 
   bowie.parkHopper();
+  bowie.parkLid();
+  if(was_arm_parked) bowie.parkArm();
   
 }
 
 
+
+void deposit2() {
+
+  bool was_arm_parked = bowie.getArmParked();
+
+  // if the arm is up let's move it to home
+  if(was_arm_parked) {
+    bowie.unparkEnd();
+    bowie.unparkArm();
+  }
+  int temp_arm = bowie.getArmPos();
+  int temp_end = bowie.getEndPos();
+  if(temp_arm > 2000) {
+    bowie.moveEnd(END_HOME);
+    bowie.moveArm(ARM_HOME);
+  }
+
+  bowie.unparkHopper();
+  bowie.unparkLid();
+
+  // open lid
+  Serial << "Going to LID_MIN";
+  bowie.moveLid(LID_MIN, 5, 1);
+  Serial << " done" << endl;
+  delay(10);
+
+  Serial << "Going to TILT_MIN";
+  bowie.moveHopper(TILT_MIN, 2, 1);
+  Serial << " done" << endl;
+  delay(100);
+
+  delay(1000);
+
+  Serial << "Shaking the hopper TILT_MIN+300 to TILT_MIN";
+  for(int i=0; i<3; i++) {
+    bowie.moveHopper(TILT_MIN+300, 1, 2);
+    delay(50);
+    bowie.moveHopper(TILT_MIN, 1, 2);
+    delay(50);
+  }
+  Serial << " done" << endl;
+
+  delay(1000);
+
+  Serial << "Going to TILT_MAX";
+  bowie.moveHopper(TILT_MAX, 2, 1);
+  Serial << " done" << endl;
+  delay(100);
+
+  Serial << "Positioning closed just in case TILT_MAX-200 to TILT_MAX";
+  for(int i=0; i<2; i++) {
+    bowie.moveHopper(TILT_MAX-200, 1, 2);
+    delay(50);
+    bowie.moveHopper(TILT_MAX, 1, 2);
+    delay(50);
+  }
+  Serial << " done" << endl;
+
+  bowie.parkHopper();
+
+  // close lid
+  Serial << "Going to LID_MAX";
+  bowie.moveLid(LID_MAX, 5, 1);
+  Serial << " done" << endl;
+  delay(10);
+
+  bowie.parkLid();
+
+  // moving the arm back
+  if(temp_arm > 2000) {
+    bowie.moveEnd(temp_end);
+    bowie.moveArm(temp_arm);
+  }
+
+  if(was_arm_parked) {
+    bowie.parkEnd();
+    bowie.parkArm();
+  }
+  
+}
+
+
+
 void homePositions() {
   // yes it is recommended to be in this order!
-  bowie.moveLid(LID_MAX);
-  bowie.moveHopper(TILT_MAX);
-  bowie.moveArm(ARM_HOME);
-  bowie.moveEnd(END_HOME);
+  bowie.moveLid(LID_MAX, 1, 7);
+  bowie.moveHopper(TILT_MAX, 1, 7);
+  bowie.moveArm(ARM_HOME, 1, 7);
+  bowie.moveEnd(END_HOME, 1, 7);
 }
 
 void dance() {

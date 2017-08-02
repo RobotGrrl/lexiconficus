@@ -68,7 +68,7 @@
 #define MOTOR_DIR_REV true
 
 // servo values
-#define ARM_MIN 700 // down 700
+#define ARM_MIN 600 // down 700
 #define ARM_HOME 1400 // middle 1200 orig
 #define ARM_MAX 2300 // up, 90 deg perpenducular to base
 #define ARM_PARK 2400 // leaning against hopper a bit
@@ -93,14 +93,14 @@
 #define SERVO_END_KEY 2
 #define SERVO_HOPPER_KEY 3
 #define SERVO_LID_KEY 4
-#define LOGGING_AFTER_KEY 5
-#define SERVO_ARM_AND_END_KEY 6
+#define SERVO_ARM_AND_END_KEY 5
+ #define LOGGING_AFTER_KEY 99
 
 // over current thresholds
 #define SERVO_CURRENT_THRESH_MAX 880
-#define SERVO_CURRENT_THRESH_MIN 500
+#define SERVO_CURRENT_THRESH_MIN 450
 #define OVER_CURRENT_DELAY 2000
-#define OVER_CURRENT_TRIG_THRESH 3
+#define OVER_CURRENT_TRIG_THRESH 5
 #define OVER_CURRENT_TIMEOUT 2500
 #define NUM_OVER_CURRENT_THRESH 3
 #define NUM_OVER_TIMEOUT 65000
@@ -189,6 +189,7 @@ class Bowie {
     Servo lid;
     Servo extra;
     
+    uint16_t END_TOUCHDOWN;
     bool LOG_CURRENT_WHILE_MOVING;
     bool MONITOR_OVER_CURRENT;
     void servoInterruption(int key, int val);
@@ -197,24 +198,28 @@ class Bowie {
     void moveArm(int armPos, int step, int del);
     void parkArm();
     void unparkArm();
+    bool getArmParked();
     int getArmPos();
 
     void moveEnd(int endPos);
     void moveEnd(int endPos, int step, int del);
     void parkEnd();
     void unparkEnd();
+    bool getEndParked();
     int getEndPos();
 
     void moveHopper(int hopperPos);
     void moveHopper(int hopperPos, int step, int del);
     void parkHopper();
     void unparkHopper();
+    bool getHopperParked();
     int getHopperPos();
 
     void moveLid(int lidPos);
     void moveLid(int lidPos, int step, int del);
     void parkLid();
     void unparkLid();
+    bool getLidParked();
     int getLidPos();
 
     void moveArmAndEnd(int armPos, int step, int del, int armMin, int armMax, int endMin, int endMax);
