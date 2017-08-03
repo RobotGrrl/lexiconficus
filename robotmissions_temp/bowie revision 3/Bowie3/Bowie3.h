@@ -98,12 +98,15 @@
 
 // over current thresholds
 #define SERVO_CURRENT_THRESH_MAX 880
-#define SERVO_CURRENT_THRESH_MIN 450
+#define SERVO_CURRENT_THRESH_MIN 400//480
 #define OVER_CURRENT_DELAY 2000
-#define OVER_CURRENT_TRIG_THRESH 5
+#define OVER_CURRENT_TRIG_THRESH 3
 #define OVER_CURRENT_TIMEOUT 2500
 #define NUM_OVER_CURRENT_THRESH 3
 #define NUM_OVER_TIMEOUT 65000
+
+// current averages
+#define AVG_WINDOW 100
 
 // super bright led values
 #define MAX_BRIGHTNESS 10
@@ -151,6 +154,7 @@ class Bowie {
 
     // leds
     void turnOnLights();
+    void turnOffLights();
 
     // motor control
     void motor_setDir(uint8_t motorNum, bool dir);
@@ -268,6 +272,8 @@ class Bowie {
     float current_motor;
     float current_servo_avg;
     float current_motor_avg;
+    int current_servo_avg_bucket;
+    int current_avg_count;
     bool high_current_detected;
     long high_current_start;
     uint16_t servo_current_trigger;

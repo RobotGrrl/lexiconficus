@@ -10,6 +10,8 @@ void scoopSequenceFast2() {
   bool was_hopper_parked = bowie.getHopperParked();
   bool was_lid_parked = bowie.getLidParked();
 
+  
+  
   // -- calibrate the touchdown location
   // send end pos before arm
   bowie.moveEnd(END_MIN+200, 1, 1);
@@ -51,6 +53,8 @@ void scoopSequenceFast2() {
   // --
   
   if(DEBUGGING_ANIMATION) delay(3000);
+  
+  
 
   if(was_hopper_parked) bowie.unparkHopper();
   if(was_lid_parked) bowie.unparkLid();

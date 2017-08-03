@@ -35,6 +35,8 @@ Bowie::Bowie() {
   current_motor = 0.0;
   current_servo_avg = 0.0;
   current_motor_avg = 0.0;
+  current_servo_avg_bucket = 0;
+  current_avg_count = 0;
   high_current_detected = false;
   high_current_start = 0;
   servo_current_trigger = 0;
@@ -684,6 +686,13 @@ void Bowie::turnOnLights() {
   analogWrite(BRIGHT_LED_BACK_RIGHT, MAX_BRIGHTNESS);
 }
 
+void Bowie::turnOffLights() {
+  analogWrite(BRIGHT_LED_FRONT_LEFT, MIN_BRIGHTNESS);
+  analogWrite(BRIGHT_LED_FRONT_RIGHT, MIN_BRIGHTNESS);
+  analogWrite(BRIGHT_LED_BACK_LEFT, MIN_BRIGHTNESS);
+  analogWrite(BRIGHT_LED_BACK_RIGHT, MIN_BRIGHTNESS);
+}
+
 
 // ---- Scoop Probes
 
@@ -931,6 +940,15 @@ void Bowie::monitorCurrent() {
 
   updateCurrentSensors();
 
+  current_servo_avg_bucket += current_servo_val;
+  if(current_avg_count > AVG_WINDOW) {
+    current_servo_avg = (float)current_servo_avg_bucket / (float)(AVG_WINDOW-1);
+    Serial << "Monitoring current " << current_servo_avg << endl;
+    current_servo_avg_bucket = 0;
+    current_avg_count = 0;
+  }
+  current_avg_count++;
+
   current_time = millis();
 
   // notes on calibrating the values:
@@ -948,8 +966,6 @@ void Bowie::monitorCurrent() {
     Serial << "max: " << max_current_reading << endl;
   }
 
-  //Serial << "Monitoring current " << current_servo_val << endl;
-
   // servo monitoring with the raw vals. we need this to be fast!
   // pre-check mode - done after servos cool off again (or before they heat up)
   if(!SERVO_OVER_CURRENT_SHUTDOWN) {
@@ -959,7 +975,7 @@ void Bowie::monitorCurrent() {
 
       //Serial << "Monitoring current " << current_servo_val << endl;
 
-      Serial << "!!! SERVO OVER CURRENT DETECTED !!!" << endl;
+      Serial << "!!! SERVO OVER CURRENT DETECTED !!! " << current_servo_val << endl;
 
       // resetting our flags if this was first instance
       if(!high_current_detected) {

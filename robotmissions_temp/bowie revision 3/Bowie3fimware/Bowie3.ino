@@ -135,10 +135,11 @@ void setup() {
   bowie.parkEnd();  
   Serial << "Ready" << endl;
 
+  
   while(1<3) {
 
-    //bowie.lid.detach();
-    //bowie.tilt.detach();
+    bowie.lid.detach();
+    bowie.tilt.detach();
 //    bowie.arm.detach();
 //    bowie.arm2.detach();
 //    bowie.end.detach();
@@ -146,8 +147,18 @@ void setup() {
     //calibrateTouchdown();
     scoopSequenceFast2();
     delay(15000);
+
+//    bowie.monitorCurrent();
+//    bowie.moveEnd(END_HOME, 1, 3);
+//    bowie.moveArm(ARM_HOME, 1, 3);
+//
+//    bowie.turnOnLights();
+//    delay(100);
+//    bowie.turnOffLights();
+//    delay(100);
     
   }
+  
   
 
 //  delay(5000);
@@ -446,21 +457,27 @@ void received_action(char action, char cmd, uint8_t key, uint16_t val, char cmd2
     // Black button = dance or computer vision
     if(cmd == 'N') {
       if(val == 1) {
-        Serial << "Enabling computer vision" << endl;
-        if(!COMPUTER_VISION_ENABLED) pixy.init();
-        COMPUTER_VISION_ENABLED = true;
+        bowie.moveLid(LID_MIN);
+//        Serial << "Enabling computer vision" << endl;
+//        if(!COMPUTER_VISION_ENABLED) pixy.init();
+//        COMPUTER_VISION_ENABLED = true;
       } else if(val == 0) {
-        Serial << "Disabling computer vision" << endl;
-        COMPUTER_VISION_ENABLED = false;
+        bowie.moveLid(LID_MAX);
+        bowie.parkLid();
+//        Serial << "Disabling computer vision" << endl;
+//        COMPUTER_VISION_ENABLED = false;
       }
     } else if(cmd2 == 'N') {
       if(val2 == 1) {
-        Serial << "Enabling computer vision" << endl;
-        if(!COMPUTER_VISION_ENABLED) pixy.init();
-        COMPUTER_VISION_ENABLED = true;
+        bowie.moveLid(LID_MIN);
+//        Serial << "Enabling computer vision" << endl;
+//        if(!COMPUTER_VISION_ENABLED) pixy.init();
+//        COMPUTER_VISION_ENABLED = true;
       } else if(val2 == 0) {
-        Serial << "Disabling computer vision" << endl;
-        COMPUTER_VISION_ENABLED = false;
+        bowie.moveLid(LID_MAX);
+        bowie.parkLid();
+//        Serial << "Disabling computer vision" << endl;
+//        COMPUTER_VISION_ENABLED = false;
       }
     }
     
