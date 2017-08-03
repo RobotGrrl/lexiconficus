@@ -10,9 +10,45 @@ void scoopSequenceFast2() {
   bool was_hopper_parked = bowie.getHopperParked();
   bool was_lid_parked = bowie.getLidParked();
 
-  // calibrate the touchdown location
-  // TODO: make this a timer for the last touchdown check
+  // -- calibrate the touchdown location
+  // send end pos before arm
+  bowie.moveEnd(END_MIN+200, 1, 1);
+  
+  // lift arm a bit
+  bowie.moveArm(ARM_MIN+200, 1, 3);
+  
+  // move backwards a bit first
+  bowie.motor_setDir(0, MOTOR_DIR_REV);
+  bowie.motor_setSpeed(0, 255);
+  bowie.motor_setDir(1, MOTOR_DIR_REV);
+  bowie.motor_setSpeed(1, 255);
+  delay(250);
+
+  bowie.motor_setDir(0, MOTOR_DIR_REV);
+  bowie.motor_setSpeed(0, 0);
+  bowie.motor_setDir(1, MOTOR_DIR_REV);
+  bowie.motor_setSpeed(1, 0);
+  delay(10);
+  
+  // now calibrate
   calibrateTouchdown();
+
+  // lift arm a bit
+  bowie.moveArm(ARM_MIN+200, 1, 3);
+
+  // move forwards again
+  bowie.motor_setDir(0, MOTOR_DIR_FWD);
+  bowie.motor_setSpeed(0, 255);
+  bowie.motor_setDir(1, MOTOR_DIR_FWD);
+  bowie.motor_setSpeed(1, 255);
+  delay(150);
+
+  bowie.motor_setDir(0, MOTOR_DIR_REV);
+  bowie.motor_setSpeed(0, 0);
+  bowie.motor_setDir(1, MOTOR_DIR_REV);
+  bowie.motor_setSpeed(1, 0);
+  delay(10);
+  // --
   
   if(DEBUGGING_ANIMATION) delay(3000);
 
@@ -20,6 +56,11 @@ void scoopSequenceFast2() {
   if(was_lid_parked) bowie.unparkLid();
   
   total_start_ms = millis();
+
+  // move the arm down a bit
+  bowie.moveArm(ARM_MIN+100, 1, 3);
+
+  if(DEBUGGING_ANIMATION) delay(3000);
 
   // -- digging
 
@@ -43,10 +84,15 @@ void scoopSequenceFast2() {
 
   if(DEBUGGING_ANIMATION) delay(3000);
 
+  // move arm down completely
+  bowie.moveArm(ARM_MIN, 1, 3);
+
+  if(DEBUGGING_ANIMATION) delay(3000);
+
   // go back to ground position
-  Serial << "Going to END_TOUCHDOWN+100...";
+  Serial << "Going to END_TOUCHDOWN...";
   start_ms = millis();
-  bowie.moveEnd(bowie.END_TOUCHDOWN+100, 5, 1);
+  bowie.moveEnd(bowie.END_TOUCHDOWN, 3, 1);
   end_ms = millis();
   Serial << " done " << (end_ms-start_ms) << "ms" << endl;
   
@@ -90,6 +136,11 @@ void scoopSequenceFast2() {
   if(DEBUGGING_ANIMATION) delay(3000);
   
   // -- end digging
+
+  // move arm up a bit
+  bowie.moveArm(ARM_MIN+100, 1, 3);
+
+  if(DEBUGGING_ANIMATION) delay(3000);
 
   // tilt the scoop upwards to avoid losing the items
   Serial << "Going to END_PARALLEL_BOTTOM-500...";
@@ -160,7 +211,18 @@ void scoopSequenceFast2() {
 
   if(DEBUGGING_ANIMATION) delay(3000);
 
+  // park arm
+  Serial << "Parking arm...";
+  start_ms = millis();
+  bowie.parkArm();
+  bowie.parkEnd();  
+  end_ms = millis();
+  Serial << " done " << (end_ms-start_ms) << "ms" << endl;
+
+  if(DEBUGGING_ANIMATION) delay(3000);
+
   // lower arm
+  /*
   Serial << "Going to ARM_MIN or temp_arm_pos...";
   start_ms = millis();
   bowie.moveArmAndEnd(ARM_MIN, 4, 3, ARM_MIN, ARM_MAX, END_PARALLEL_BOTTOM, END_PARALLEL_TOP);
@@ -169,6 +231,7 @@ void scoopSequenceFast2() {
   //delay(20);
 
   if(DEBUGGING_ANIMATION) delay(3000);
+  */
 
   total_end_ms = millis();
 

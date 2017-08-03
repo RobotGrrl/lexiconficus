@@ -3,10 +3,19 @@
 // ---- Inits & Updates
 
 Bowie::Bowie() {
+
+  // states
+  GYRO_ENABLED = false;
+  MAG_ENABLED = false;
+  ACCEL_ENABLED = false;
+  BMP_ENABLED = false;
+  TURN_SEQUENCE_MODE = true;
+
   msgs_in_queue = 0;
   msg_send_index = 0;
   unlikely_count = 0;
 
+  // sensors
   gyro_msg_x = 0;
   gyro_msg_y = 0;
   gyro_msg_z = 0;
@@ -32,15 +41,15 @@ Bowie::Bowie() {
   SERVO_OVER_CURRENT_SHUTDOWN = false;
   num_over_current_shutdowns = 0;
   servo_shutdown_start = 0;
-
-  GYRO_ENABLED = false;
-  MAG_ENABLED = false;
-  ACCEL_ENABLED = false;
-  BMP_ENABLED = false;
-
   LOG_CURRENT_WHILE_MOVING = false;
   MONITOR_OVER_CURRENT = true;
 
+  // driving algorithms
+  turn_sequence_step = 0;
+  restart_step_timer = true;
+  step_start = 0;
+
+  // servos
   arm_position = ARM_PARK;
   end_position = END_PARALLEL_TOP;
   hopper_position = TILT_MAX;
@@ -75,6 +84,10 @@ void Bowie::update() {
       motor_setSpeed(0, 0);
       motor_setDir(1, MOTOR_DIR_REV);
       motor_setSpeed(1, 0);
+      parkArm();
+      parkEnd();
+      parkHopper();
+      parkLid();
     } else {
       digitalWrite(COMM_LED, HIGH);
     }
@@ -296,7 +309,7 @@ Msg Bowie::popNextMsg() {
 }
 
 void Bowie::addNextMsg(uint8_t priority, char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim) {
-  Serial.print("adding next message");
+  //Serial.print("adding next message");
   if(msgs_in_queue > MSG_QUEUE_SIZE-1) {
     if(COMM_DEBUG) {
       Serial.print(F("Cannot add msg to queue, number of messages in queue: "));
@@ -316,7 +329,7 @@ void Bowie::addNextMsg(uint8_t priority, char action, char cmd, uint8_t key, uin
 }
 
 void Bowie::addNextMsg(Msg m) {
-  Serial.print("adding next message");
+  //Serial.print("adding next message");
   if(msgs_in_queue > MSG_QUEUE_SIZE-1) {
     if(COMM_DEBUG) {
       Serial.print(F("Cannot add msg to queue, number of messages in queue: "));
@@ -490,16 +503,44 @@ void Bowie::control(char action, char cmd, uint8_t key, uint16_t val, char cmd2,
 
   if(action == '@') {
 
+    if(TURN_SEQUENCE_MODE) {
+      if(packets[0].cmd == 'L' && packets[0].key == 1 && packets[1].cmd == 'R' && packets[1].key == 0) {
+        // turning right
+        //last_activated_turn_sequence = millis();
+        turnSequence(true);
+        return; // we don't want the default stuff below in this mode
+      } else if(packets[0].cmd == 'L' && packets[0].key == 0 && packets[1].cmd == 'R' && packets[1].key == 1) {
+        // turning left
+        //last_activated_turn_sequence = millis();
+        turnSequence(false);
+        return; // we don't want the default stuff below in this mode
+      }
+    }
+    
+    // stop the motors when zeroed
+    if(packets[0].cmd == 'L' && packets[0].key == 0 && packets[0].val == 0 && packets[1].cmd == 'R' && packets[1].key == 0 && packets[1].val == 0) {
+      motor_setDir(0, MOTOR_DIR_FWD);
+      motor_setSpeed(0, 0);
+      motor_setDir(1, MOTOR_DIR_FWD);
+      motor_setSpeed(1, 0);
+    }
+
+    // if it reaches here, then we know we can reset this flag
+    restart_step_timer = true;
+    turn_sequence_step = 0;
+
     for(int i=0; i<2; i++) {
 
       if(packets[i].cmd == 'L') { // left motor
         if(packets[i].val > 255) packets[i].key = 99; // something weird here, set key to skip
         if(packets[i].key == 1) { // fwd
           analogWrite(BRIGHT_LED_FRONT_LEFT, MAX_BRIGHTNESS);
+          //leftBork();
           motor_setDir(0, MOTOR_DIR_FWD);
           motor_setSpeed(0, val);
         } else if(packets[i].key == 0) { // bwd
           analogWrite(BRIGHT_LED_FRONT_LEFT, MIN_BRIGHTNESS);
+          //leftBork();
           motor_setDir(0, MOTOR_DIR_REV);
           motor_setSpeed(0, val);
         }
@@ -509,10 +550,12 @@ void Bowie::control(char action, char cmd, uint8_t key, uint16_t val, char cmd2,
         if(packets[i].val > 255) packets[i].key = 99; // something weird here, set key to skip
         if(packets[i].key == 1) { // fwd
           digitalWrite(BRIGHT_LED_FRONT_RIGHT, HIGH);
+          //leftBork();
           motor_setDir(1, MOTOR_DIR_FWD);
           motor_setSpeed(1, val);
         } else if(packets[i].key == 0) { // bwd
           digitalWrite(BRIGHT_LED_FRONT_RIGHT, LOW);
+          //leftBork();
           motor_setDir(1, MOTOR_DIR_REV);
           motor_setSpeed(1, val);
         }
@@ -520,10 +563,23 @@ void Bowie::control(char action, char cmd, uint8_t key, uint16_t val, char cmd2,
       
       if(packets[i].cmd == 'S') { // arm (data from 0-100)
         
+        int the_increment = (int)map(val, 0, 100, -20, 20);
+        int temp_pos = getArmPos();
+        int new_pos = temp_pos + the_increment;
+
+        if(new_pos > ARM_HOME) { // going up
+          moveArmAndEnd(new_pos, 3, 1, ARM_HOME, ARM_MAX, END_HOME, END_PARALLEL_TOP);
+        } else if(new_pos < ARM_HOME) { // going down
+          moveArmAndEnd(new_pos, 3, 1, ARM_HOME, ARM_MIN, END_HOME, END_PARALLEL_BOTTOM);
+        }
+
+        // previous code
+        /*
         int the_pos = (int)map(val, 0, 100, ARM_MIN, ARM_MAX);
         int temp_pos = arm_position;
         
         moveArmAndEnd(the_pos, 1, 1, ARM_MIN, ARM_MAX, END_PARALLEL_BOTTOM, END_PARALLEL_TOP);
+        */
 
         /*
         if(abs(the_pos - temp_pos) >= 10) {
@@ -735,6 +791,118 @@ void Bowie::leftBork() {
   analogWrite(MOTORA_SPEED, 0);
 }
 
+// ---- Driving Algorithms
+
+void Bowie::turnSequence(bool dir) { // true = right, false = left
+
+  current_time = millis();
+  uint8_t max_steps = 5;
+
+  // start the step timer whenever its a new sequence or flag set
+  if(restart_step_timer == true) {
+    step_start = current_time;
+    restart_step_timer = false;
+  }
+
+  // reset the count
+  if(turn_sequence_step > max_steps) {
+    turn_sequence_step = 0;
+  }
+
+  Serial << "Turn sequence step " << turn_sequence_step << endl;
+
+  // all the steps, at the end of each step, counter is incremented
+  // and flag is set to restart the timer
+  switch(turn_sequence_step) {
+    case 0:
+      if(current_time-step_start < 400) {
+        // turn a portion
+        Serial << "Turning" << endl;
+        if(dir) { // right
+          motor_setDir(0, MOTOR_DIR_FWD);
+          motor_setSpeed(0, 255);
+          motor_setDir(1, MOTOR_DIR_REV);
+          motor_setSpeed(1, 255);
+        } else {
+          motor_setDir(0, MOTOR_DIR_REV);
+          motor_setSpeed(0, 255);
+          motor_setDir(1, MOTOR_DIR_FWD);
+          motor_setSpeed(1, 255);
+        }
+      } else {
+        turn_sequence_step++;
+        restart_step_timer = true;
+      }
+    break;
+    case 1:
+      if(current_time-step_start < 50) {
+        // stop a bit
+        Serial << "Stopping" << endl;
+        motor_setDir(0, MOTOR_DIR_FWD);
+        motor_setSpeed(0, 0);
+        motor_setDir(1, MOTOR_DIR_FWD);
+        motor_setSpeed(1, 0);
+      } else {
+        turn_sequence_step++;
+        restart_step_timer = true;
+      }
+    break;
+    case 2:
+      if(current_time-step_start < 300) {
+        // drive forward a bit
+        Serial << "Driving forward" << endl;
+        motor_setDir(0, MOTOR_DIR_FWD);
+        motor_setSpeed(0, 255);
+        motor_setDir(1, MOTOR_DIR_FWD);
+        motor_setSpeed(1, 255);
+      } else {
+        turn_sequence_step++;
+        restart_step_timer = true;
+      }
+    break;
+    case 3:
+      if(current_time-step_start < 50) {
+        // stop a bit
+        Serial << "Stopping" << endl;
+        motor_setDir(0, MOTOR_DIR_FWD);
+        motor_setSpeed(0, 0);
+        motor_setDir(1, MOTOR_DIR_FWD);
+        motor_setSpeed(1, 0);
+      } else {
+        turn_sequence_step++;
+        restart_step_timer = true;
+      }
+    break;
+    case 4:
+      if(current_time-step_start < 450) {
+        // drive backward a bit
+        Serial << "Driving backward" << endl;
+        motor_setDir(0, MOTOR_DIR_REV);
+        motor_setSpeed(0, 255);
+        motor_setDir(1, MOTOR_DIR_REV);
+        motor_setSpeed(1, 255);
+      } else {
+        turn_sequence_step++;
+        restart_step_timer = true;
+      }
+    break;
+    case 5:
+      if(current_time-step_start < 50) {
+        // stop a bit
+        Serial << "Stopping" << endl;
+        motor_setDir(0, MOTOR_DIR_FWD);
+        motor_setSpeed(0, 0);
+        motor_setDir(1, MOTOR_DIR_FWD);
+        motor_setSpeed(1, 0);
+      } else {
+        turn_sequence_step++;
+        restart_step_timer = true;
+      }
+    break;
+  }
+
+}
+
 // ---- Servos
 
 void Bowie::servoInterruption(int key, int val) {
@@ -896,7 +1064,7 @@ void Bowie::monitorCurrent() {
       motor_setSpeed(0, 255);
       motor_setDir(1, MOTOR_DIR_REV);
       motor_setSpeed(1, 255);
-      delay(1000);
+      delay(800);
       
       // stop
       motor_setDir(0, MOTOR_DIR_FWD);
@@ -906,7 +1074,6 @@ void Bowie::monitorCurrent() {
       delay(50);
 
       Serial << "Going to turn on the servos" << endl;
-      delay(1000);
 
       // start the servos
       arm.attach(SERVO_ARM1);

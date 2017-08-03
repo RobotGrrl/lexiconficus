@@ -1,3 +1,4 @@
+/*
 void turnSequence(bool dir) {
   
     // turn a portion
@@ -51,6 +52,7 @@ void turnSequence(bool dir) {
     delay(50);
     
 }
+*/
 
 void scoopSequenceSlow() {
 

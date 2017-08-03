@@ -68,7 +68,7 @@
 #define MOTOR_DIR_REV true
 
 // servo values
-#define ARM_MIN 600 // down 700
+#define ARM_MIN 500 // down 700
 #define ARM_HOME 1400 // middle 1200 orig
 #define ARM_MAX 2300 // up, 90 deg perpenducular to base
 #define ARM_PARK 2400 // leaning against hopper a bit
@@ -94,7 +94,7 @@
 #define SERVO_HOPPER_KEY 3
 #define SERVO_LID_KEY 4
 #define SERVO_ARM_AND_END_KEY 5
- #define LOGGING_AFTER_KEY 99
+#define LOGGING_AFTER_KEY 99
 
 // over current thresholds
 #define SERVO_CURRENT_THRESH_MAX 880
@@ -181,6 +181,9 @@ class Bowie {
     float getMotorCurrent();
     void monitorCurrent();
 
+    // driving algorithms
+    void turnSequence(bool dir);
+
     // servos
     Servo arm;
     Servo arm2;
@@ -232,6 +235,7 @@ class Bowie {
     bool MAG_ENABLED;
     bool ACCEL_ENABLED;
     bool BMP_ENABLED;
+    bool TURN_SEQUENCE_MODE;
 
     // comms
     uint8_t msgs_in_queue;
@@ -271,6 +275,11 @@ class Bowie {
     uint8_t num_over_current_shutdowns;
     long servo_shutdown_start;
     uint16_t max_current_reading;
+
+    // driving algorithms
+    uint8_t turn_sequence_step;
+    bool restart_step_timer;
+    long step_start;
 
     // servos
     int arm_position;
