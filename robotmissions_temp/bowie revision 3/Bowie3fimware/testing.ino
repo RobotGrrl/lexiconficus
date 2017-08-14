@@ -11,7 +11,7 @@ void scoopSequenceFast2() {
   bool was_lid_parked = bowie.getLidParked();
 
   
-  
+  /*
   // -- calibrate the touchdown location
   // send end pos before arm
   bowie.moveEnd(END_MIN+200, 1, 1);
@@ -53,14 +53,17 @@ void scoopSequenceFast2() {
   // --
   
   if(DEBUGGING_ANIMATION) delay(3000);
-  
-  
+  */
+
+  total_start_ms = millis();
+
+  bowie.moveEnd(bowie.END_TOUCHDOWN, 1, 1);
+
+  if(DEBUGGING_ANIMATION) delay(3000);
 
   if(was_hopper_parked) bowie.unparkHopper();
   if(was_lid_parked) bowie.unparkLid();
   
-  total_start_ms = millis();
-
   // move the arm down a bit
   bowie.moveArm(ARM_MIN+100, 1, 3);
 
@@ -73,14 +76,14 @@ void scoopSequenceFast2() {
   for(int j=0; j<5; j++) {
     Serial << "Going to END_HOME+100...";
     start_ms = millis();
-    bowie.moveEnd(END_HOME+100, 5, 1);
+    bowie.moveEnd(END_HOME+100, 2, 1);
     end_ms = millis();
     Serial << " done " << (end_ms-start_ms) << "ms" << endl;
     delay(80);
 
     Serial << "Going to END_HOME+300...";
     start_ms = millis();
-    bowie.moveEnd(END_HOME+300, 5, 1);
+    bowie.moveEnd(END_HOME+300, 2, 1);
     end_ms = millis();
     Serial << " done " << (end_ms-start_ms) << "ms" << endl;
     delay(80);
@@ -88,21 +91,8 @@ void scoopSequenceFast2() {
 
   if(DEBUGGING_ANIMATION) delay(3000);
 
-  // move arm down completely
-  bowie.moveArm(ARM_MIN, 1, 3);
-
-  if(DEBUGGING_ANIMATION) delay(3000);
-
-  // go back to ground position
-  Serial << "Going to END_TOUCHDOWN...";
-  start_ms = millis();
-  bowie.moveEnd(bowie.END_TOUCHDOWN, 3, 1);
-  end_ms = millis();
-  Serial << " done " << (end_ms-start_ms) << "ms" << endl;
   
-  if(DEBUGGING_ANIMATION) delay(3000);
-
-  // drive forward a bit
+  // drive forward a bit to dig inwards a bit
   Serial << "Going to MOTORS FWD 255...";
   start_ms = millis();
   for(int i=100; i<255; i+=20) {
@@ -139,6 +129,59 @@ void scoopSequenceFast2() {
 
   if(DEBUGGING_ANIMATION) delay(3000);
   
+  // move arm down completely
+  bowie.moveArm(ARM_MIN, 1, 3);
+
+  if(DEBUGGING_ANIMATION) delay(3000);
+
+  // go back to ground position
+  Serial << "Going to END_TOUCHDOWN+100...";
+  start_ms = millis();
+  bowie.OVERRIDE_CHECK = true;
+  bowie.moveEnd(bowie.END_TOUCHDOWN, 2, 1);
+  bowie.OVERRIDE_CHECK = false;
+  end_ms = millis();
+  Serial << " done " << (end_ms-start_ms) << "ms" << endl;
+  
+  if(DEBUGGING_ANIMATION) delay(3000);
+
+  // drive forward a bit
+  Serial << "Going to MOTORS FWD 255...";
+  start_ms = millis();
+  for(int i=100; i<255; i+=20) {
+    bowie.motor_setDir(0, MOTOR_DIR_FWD);
+    bowie.motor_setSpeed(0, i);
+    bowie.motor_setDir(1, MOTOR_DIR_FWD);
+    bowie.motor_setSpeed(1, i);  
+    delay(10);
+  }
+  bowie.motor_setDir(0, MOTOR_DIR_FWD);
+  bowie.motor_setSpeed(0, 255);
+  bowie.motor_setDir(1, MOTOR_DIR_FWD);
+  bowie.motor_setSpeed(1, 255);
+  end_ms = millis();
+  Serial << " done " << (end_ms-start_ms) << "ms" << endl;
+  delay(1000);
+
+  // stop motors!
+  Serial << "Going to MOTORS FWD 0...";
+  start_ms = millis();
+  for(int i=255; i>100; i-=10) {
+    bowie.motor_setDir(0, MOTOR_DIR_FWD);
+    bowie.motor_setSpeed(0, i);
+    bowie.motor_setDir(1, MOTOR_DIR_FWD);
+    bowie.motor_setSpeed(1, i);
+    delay(5);  
+  }
+  bowie.motor_setDir(0, MOTOR_DIR_FWD);
+  bowie.motor_setSpeed(0, 0);
+  bowie.motor_setDir(1, MOTOR_DIR_FWD);
+  bowie.motor_setSpeed(1, 0);
+  end_ms = millis();
+  Serial << " done " << (end_ms-start_ms) << "ms" << endl;
+
+  if(DEBUGGING_ANIMATION) delay(3000);
+  
   // -- end digging
 
   // move arm up a bit
@@ -147,9 +190,9 @@ void scoopSequenceFast2() {
   if(DEBUGGING_ANIMATION) delay(3000);
 
   // tilt the scoop upwards to avoid losing the items
-  Serial << "Going to END_PARALLEL_BOTTOM-500...";
+  Serial << "Going to END_PARALLEL_BOTTOM-700...";
   start_ms = millis();
-  bowie.moveEnd(END_PARALLEL_BOTTOM-500, 5, 1);
+  bowie.moveEnd(END_PARALLEL_BOTTOM-700, 1, 3); // todo - check this again, its less than end min
   end_ms = millis();
   Serial << " done " << (end_ms-start_ms) << "ms" << endl;
   delay(20);
@@ -159,7 +202,7 @@ void scoopSequenceFast2() {
   // lift arm with scoop parallel to ground
   Serial << "Going to ARM_HOME...";
   start_ms = millis();
-  bowie.moveArmAndEnd(ARM_HOME, 5, 3, ARM_MIN, ARM_HOME, END_PARALLEL_BOTTOM-500, END_HOME-200);//END_PARALLEL_BOTTOM-400);
+  bowie.moveArmAndEnd(ARM_HOME, 5, 3, ARM_MIN, ARM_HOME, END_PARALLEL_BOTTOM-700, END_HOME-200);//END_PARALLEL_BOTTOM-400);
   end_ms = millis();
   Serial << " done " << (end_ms-start_ms) << "ms" << endl;
 

@@ -73,7 +73,7 @@ long last_lock_detect = 0;
 float width_avg = 0.0;
 float height_avg = 0.0;
 #define PIXY_LED_ACTIVE true
-bool COMPUTER_VISION_ENABLED = false;
+bool COMPUTER_VISION_ENABLED = true;
 
 
 void setup() {
@@ -99,7 +99,7 @@ void setup() {
   // TODO: we need a way to not get stuck in looking for the pixy
   // (or any other sensor peripherals) if they are not connected,
   // and if they become disconnected in the field
-  //pixy.init();
+  pixy.init();
 
   /*
    * notes
@@ -135,7 +135,7 @@ void setup() {
   bowie.parkEnd();  
   Serial << "Ready" << endl;
 
-  
+  /*
   while(1<3) {
 
     bowie.lid.detach();
@@ -145,9 +145,16 @@ void setup() {
 //    bowie.end.detach();
 
     //calibrateTouchdown();
-    scoopSequenceFast2();
-    delay(15000);
+    preScoop();
+    delay(1000);
 
+    for(int i=0; i<3; i++) {
+      scoopSequenceFast2();
+      delay(3000);
+    }
+
+  
+  
 //    bowie.monitorCurrent();
 //    bowie.moveEnd(END_HOME, 1, 3);
 //    bowie.moveArm(ARM_HOME, 1, 3);
@@ -158,7 +165,7 @@ void setup() {
 //    delay(100);
     
   }
-  
+  */
   
 
 //  delay(5000);
@@ -174,6 +181,54 @@ void setup() {
   //calibrateTouchdownFast();
   //bowie.parkArm();
   //bowie.parkEnd();
+  
+}
+
+void preScoop() {
+
+  bool DEBUGGING_ANIMATION = false;
+  
+  // -- calibrate the touchdown location
+  // send end pos before arm
+  bowie.moveEnd(END_MIN+200, 1, 1);
+  
+  // lift arm a bit
+  bowie.moveArm(ARM_MIN+200, 1, 3);
+  
+  // move backwards a bit first
+  bowie.motor_setDir(0, MOTOR_DIR_REV);
+  bowie.motor_setSpeed(0, 255);
+  bowie.motor_setDir(1, MOTOR_DIR_REV);
+  bowie.motor_setSpeed(1, 255);
+  delay(250);
+
+  bowie.motor_setDir(0, MOTOR_DIR_REV);
+  bowie.motor_setSpeed(0, 0);
+  bowie.motor_setDir(1, MOTOR_DIR_REV);
+  bowie.motor_setSpeed(1, 0);
+  delay(10);
+  
+  // now calibrate
+  calibrateTouchdown();
+
+  // lift arm a bit
+  bowie.moveArm(ARM_MIN+200, 1, 3);
+
+  // move forwards again
+  bowie.motor_setDir(0, MOTOR_DIR_FWD);
+  bowie.motor_setSpeed(0, 255);
+  bowie.motor_setDir(1, MOTOR_DIR_FWD);
+  bowie.motor_setSpeed(1, 255);
+  delay(150);
+
+  bowie.motor_setDir(0, MOTOR_DIR_REV);
+  bowie.motor_setSpeed(0, 0);
+  bowie.motor_setDir(1, MOTOR_DIR_REV);
+  bowie.motor_setSpeed(1, 0);
+  delay(10);
+  // --
+  
+  if(DEBUGGING_ANIMATION) delay(3000);
   
 }
 
@@ -339,7 +394,7 @@ void loop() {
   }
 
   // update robot
-  bowie.update();
+  if(!currently_locked) bowie.update(COMPUTER_VISION_ENABLED);
 
   delay(20);
   
@@ -485,7 +540,7 @@ void received_action(char action, char cmd, uint8_t key, uint16_t val, char cmd2
   }
   
   // robot's control based on the messages
-  bowie.control(action, cmd, key, val, cmd2, key2, val2, delim);
+  if(!currently_locked) bowie.control(action, cmd, key, val, cmd2, key2, val2, delim);
 
 }
 

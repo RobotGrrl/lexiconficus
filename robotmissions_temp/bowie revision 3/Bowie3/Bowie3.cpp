@@ -10,6 +10,7 @@ Bowie::Bowie() {
   ACCEL_ENABLED = false;
   BMP_ENABLED = false;
   TURN_SEQUENCE_MODE = true;
+  OVERRIDE_CHECK = false;
 
   msgs_in_queue = 0;
   msg_send_index = 0;
@@ -73,23 +74,25 @@ void Bowie::init() {
 
 }
 
-void Bowie::update() {
+void Bowie::update(bool force_no_sleep) {
 
   current_time = millis();
 
   // specific things to do if remote operation is enabled
   if(REMOTE_OP_ENABLED) {
 
-    if(millis()-last_rx >= REMOTE_OP_TIMEOUT) {
-      digitalWrite(COMM_LED, LOW);
-      motor_setDir(0, MOTOR_DIR_REV);
-      motor_setSpeed(0, 0);
-      motor_setDir(1, MOTOR_DIR_REV);
-      motor_setSpeed(1, 0);
-      parkArm();
-      parkEnd();
-      parkHopper();
-      parkLid();
+    if(!force_no_sleep) {
+      if(millis()-last_rx >= REMOTE_OP_TIMEOUT) {
+        digitalWrite(COMM_LED, LOW);
+        motor_setDir(0, MOTOR_DIR_REV);
+        motor_setSpeed(0, 0);
+        motor_setDir(1, MOTOR_DIR_REV);
+        motor_setSpeed(1, 0);
+        parkArm();
+        parkEnd();
+        parkHopper();
+        parkLid();
+      }
     } else {
       digitalWrite(COMM_LED, HIGH);
     }
@@ -528,8 +531,7 @@ void Bowie::control(char action, char cmd, uint8_t key, uint16_t val, char cmd2,
     }
 
     // if it reaches here, then we know we can reset this flag
-    restart_step_timer = true;
-    turn_sequence_step = 0;
+    resetTurnSequence();
 
     for(int i=0; i<2; i++) {
 
@@ -565,15 +567,27 @@ void Bowie::control(char action, char cmd, uint8_t key, uint16_t val, char cmd2,
       
       if(packets[i].cmd == 'S') { // arm (data from 0-100)
         
-        int the_increment = (int)map(val, 0, 100, -20, 20);
+        int the_increment = (int)map(val, 0, 100, -30, 30);
         int temp_pos = getArmPos();
         int new_pos = temp_pos + the_increment;
 
         if(new_pos > ARM_HOME) { // going up
-          moveArmAndEnd(new_pos, 3, 1, ARM_HOME, ARM_MAX, END_HOME, END_PARALLEL_TOP);
+          //moveArmAndEnd(new_pos, 3, 1, ARM_HOME, ARM_MAX, END_HOME, END_MIN);
+          moveArm(new_pos, 3, 1);
         } else if(new_pos < ARM_HOME) { // going down
-          moveArmAndEnd(new_pos, 3, 1, ARM_HOME, ARM_MIN, END_HOME, END_PARALLEL_BOTTOM);
+          //moveArmAndEnd(new_pos, 3, 1, ARM_HOME, ARM_MIN, END_PARALLEL_BOTTOM, END_HOME);
+          moveArm(new_pos, 3, 1);
         }
+
+        /*
+        if(new_pos >= (ARM_MAX-100)) {
+          moveEnd(END_MIN);
+        }
+
+        if(new_pos <= (ARM_MIN+100)) {
+          moveEnd(END_PARALLEL_BOTTOM);
+        }
+        */
 
         // previous code
         /*
@@ -912,6 +926,11 @@ void Bowie::turnSequence(bool dir) { // true = right, false = left
 
 }
 
+void Bowie::resetTurnSequence() {
+  restart_step_timer = true;
+  turn_sequence_step = 0;
+}
+
 // ---- Servos
 
 void Bowie::servoInterruption(int key, int val) {
@@ -1220,9 +1239,7 @@ void Bowie::moveEnd(int endPos, int step, int del) {
     return;
   }
 
-  //if(getArmPos() == ARM_MIN && endPos < END_MAX) { // check if the arm is down and if the end is going past being down
-  // TODO1 fix this later
-  if(getArmPos() == ARM_MIN && endPos > END_PARALLEL_BOTTOM) { // check if the arm is down and if the end is going past being down
+  if(getArmPos() == ARM_MIN && endPos > END_PARALLEL_BOTTOM && OVERRIDE_CHECK == false) { // check if the arm is down and if the end is going past being down
     Serial << "!!! Cannot move end-effector here when arm down" << endl;
     return;
   }

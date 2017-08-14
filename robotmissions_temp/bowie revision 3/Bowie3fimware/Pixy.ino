@@ -88,54 +88,51 @@ void checkBlock(Block block) {
       }
     }
 
-    if(currently_locked == true && block.signature == detected_signature) {
+    // note- ignoring white (sig 6)
+    if(currently_locked == true && block.signature == detected_signature && block.signature != 6) {
       if(block.width >= 30 && block.height >= 30) {
-        Serial << "Tracking" << endl;
+        Serial << "Tracking";
         last_lock_detect = current_time;
 
           if(block.signature == 1) {
+            Serial << " [1] PINK" << endl;
             trackingSig1(block);
-          }
-          /*else if(block.signature == 2) {
+          } else if(block.signature == 2) {
+            Serial << " [2] GREEN" << endl;
             trackingSig2(block);
           } else if(block.signature == 3) {
+            Serial << " [3] BLUE" << endl;
             trackingSig3(block);
           } else if(block.signature == 4) {
+            Serial << " [4] ORANGE" << endl;
             trackingSig4(block);
           } else if(block.signature == 5) {
-            trackingSig5(block);
+            Serial << " [5] YELLOW" << endl;
+            //trackingSig5(block);
           } else if(block.signature == 6) {
+            Serial << " [6] WHITE" << endl;
             trackingSig6(block);
           }
-          */
-  
-//        switch(block.signature) {
-//          case 1:
-//          trackingSig1(block);
-//          break;
-//          case 2:
-//          trackingSig2(block);
-//          break;
-//          case 3:
-//          trackingSig3(block);
-//          break;
-//          case 4:
-//          trackingSig4(block);
-//          break;
-//          case 5:
-//          trackingSig5(block);
-//          break;
-//          case 6:
-//          trackingSig6(block);
-//          break;
-//        }
+         
       }
        
     } else if(currently_locked == true) {
+
+      if(current_time-last_lock_detect >= 200) {
+        Serial << "Preventitively stopping the motors" << endl;
+        // make sure to stop the motors
+        bowie.motor_setDir(0, MOTOR_DIR_FWD);
+        bowie.motor_setSpeed(0, 0);
+        bowie.motor_setDir(1, MOTOR_DIR_FWD);
+        bowie.motor_setSpeed(1, 0);
+      }
+      
       if(current_time-last_lock_detect >= 2000) { // we lost the tracking
         Serial << "Lost tracking" << endl;
         if(PIXY_LED_ACTIVE) pixy.setLED(0,0,0);
         currently_locked = false;
+        // reset the vars for turning
+        bowie.resetTurnSequence();
       }
     }
   

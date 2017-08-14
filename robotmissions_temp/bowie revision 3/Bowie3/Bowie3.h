@@ -142,7 +142,7 @@ class Bowie {
 
     // inits and updates
     void init();
-    void update();
+    void update(bool force_no_sleep);
     long current_time;
 
     // api
@@ -187,6 +187,7 @@ class Bowie {
 
     // driving algorithms
     void turnSequence(bool dir);
+    void resetTurnSequence();
 
     // servos
     Servo arm;
@@ -199,6 +200,7 @@ class Bowie {
     uint16_t END_TOUCHDOWN;
     bool LOG_CURRENT_WHILE_MOVING;
     bool MONITOR_OVER_CURRENT;
+    bool OVERRIDE_CHECK;
     void servoInterruption(int key, int val);
 
     void moveArm(int armPos);
