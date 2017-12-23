@@ -11,6 +11,9 @@
 
 #include <Streaming.h>
 
+#define CURRENT_SERVO_SENS 15
+#define CURRENT_MOTOR_SENS 14
+
 // set this to true if you want to
 // constantly monitor and protect for over current
 bool MONITOR_OVER_CURRENT = true;
@@ -40,17 +43,17 @@ int OVER_CURRENT_TIMEOUT = 2500;
 // this much time
 long NUM_OVER_TIMEOUT = 65000;
 
-// current reading
-#define CURRENT_SERVO_SENS 15
-#define CURRENT_MOTOR_SENS 14
+// pin of our current sensor
 int CURRENT_SENSOR_PIN = 15;
-uint16_t current_val;
+
+// current reading
+uint16_t current_val = 0;
 int AVG_WINDOW = 100;
-float current_val_avg;
-int current_val_avg_bucket;
-int current_avg_count;
-uint16_t max_current_reading;
-uint16_t min_current_reading;
+float current_val_avg = 0.0;
+int current_val_avg_bucket = 0;
+int current_avg_count = 0;
+uint16_t max_current_reading = 0;
+uint16_t min_current_reading = 0;
 
 // current monitoring
 bool high_current_detected = false;
@@ -68,7 +71,7 @@ long current_time = 0;
 void setup() {
   Serial.begin(9600);
   delay(1000);
-  currentSensorInit();
+  initCurrentSensors();
 }
 
 void loop() {
@@ -82,7 +85,7 @@ void loop() {
 }
 
 
-void currentSensorInit() {
+void initCurrentSensors() {
   pinMode(CURRENT_SENSOR_PIN, INPUT);
 }
 
