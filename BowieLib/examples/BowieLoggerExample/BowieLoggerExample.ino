@@ -3,11 +3,20 @@
 BowieLogger bowielogger = BowieLogger();
 
 void setup() {
-  
+  Serial.begin(9600);
 
+  initTime(); // should always be first
+
+  bowielogger.setLoggingLed(13);
+  bowielogger.initLogging();
+  
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
+
+  updateLogSensorData();
+  bowielogger.updateLogging();
 
 }
+
+

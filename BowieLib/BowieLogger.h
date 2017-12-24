@@ -48,17 +48,12 @@
 #ifndef _BOWIELOGGER_H_
 #define _BOWIELOGGER_H_
 
+#define DEBUG_PRINTS true
 
 // --
 // if you have more or less data, modify these three variables below
 
-String log_headers[] = { "Time", "Motor A Speed", "Motor A Dir", "Motor B Speed", 
-                          "Motor B Dir", "Motor Current Sensor", "Servo Pos - Arm L",
-                          "Servo Pos - Arm R", "Servo Pos - End", "Servo Pos - Hopper",
-                          "Servo Pos - Lid", "Servo Pos - Extra", "Servo Current Sensor",
-                          "LED - Front L", "LED - Front R", "LED - Back L", "LED - Back R",
-                          "IMU Pitch", "IMU Roll", "IMU Yaw", "Compass Heading",
-                          "GPS Latitude", "GPS Longitude", "GPS Altitude", "Battery"};
+#define NUM_DATA_POINTS 25
 
 struct LogLine { // 25 points
   time_t sample_time;
@@ -88,8 +83,33 @@ struct LogLine { // 25 points
   uint16_t battery_sensor;
 };
 
-LogLine logdata = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+#define LOG_TIME 0
+#define LOG_MOTOR_A_SPEED 1
+#define LOG_MOTOR_A_DIR 2
+#define LOG_MOTOR_B_SPEED 3
+#define LOG_MOTOR_B_DIR 4
+#define LOG_MOTOR_CURRENT_SENSOR 5
+#define LOG_SERVO_POS_ARM_L 6
+#define LOG_SERVO_POS_ARM_R 7
+#define LOG_SERVO_POS_END 8
+#define LOG_SERVO_POS_HOPPER 9
+
+#define LOG_SERVO_POS_LID 10
+#define LOG_SERVO_POS_EXTRA 11
+#define LOG_SERVO_CURRENT_SENSOR 12
+#define LOG_LED_FRONT_L 13
+#define LOG_LED_FRONT_R 14
+#define LOG_LED_BACK_L 15
+#define LOG_LED_BACK_R 16
+#define LOG_IMU_PITCH 17
+#define LOG_IMU_ROLL 18
+#define LOG_IMU_YAW 19
+
+#define LOG_COMPASS_HEADING 20
+#define LOG_GPS_LATITUDE 21
+#define LOG_GPS_LONGITUDE 22
+#define LOG_GPS_ALTITUDE 23
+#define LOG_BATTERY_SENSOR 24
 
 // --
 
@@ -97,18 +117,70 @@ class BowieLogger {
   
   public:
     BowieLogger();
+
+    void setLoggingLed(int pin);
+    void initLogging();
+    void updateLogging();
     
+    // Logging
+    uint8_t TIMEOUT_MINS;
+    uint8_t TIMEOUT_SECS;
+    uint8_t INTERVAL_SECS;
+
+    LogLine logdata;
+
+    // TimeFuncs
+    void digitalClockDisplay();
+
+    // SdFuncs
+    bool initSd();
+    void getAllFiles();
+    void printDirectory(File dir, int numTabs);
+    uint32_t getSizeUsed();
+    uint32_t getSizeTotal();
+    float getPercentAvailable();
+    void sendEntireFile(String filename, Stream *s);
+
+    // LogFuncs
+    void setLogData_t(int log_item, time_t val);
+    void setLogData_u8(int log_item, uint8_t val);
+    void setLogData_u16(int log_item, uint16_t val);
+    void setLogData_f(int log_item, float val);
+
+  private:
+    // TimeFuncs
+    time_t getTeensy3Time();
+    void printDigits(int digits);
+
+    // LogFuncs
+    void randomLogData();
+    void writeLogData();
+    void closeLogFile();
+    void openLogFile();
+    void logFileTimer();
+    void createLogFile();
+
+    // SdFuncs
+    uint32_t enterNextDir(File dir);
+
+    uint8_t LOG_LED;
+
+    // SD
     Sd2Card card;
     SdVolume volume;
     SdFile root;
-    //const int chipSelect = BUILTIN_SDCARD; 
+    const int chipSelect = BUILTIN_SDCARD; 
 
-
-  private:
-    void initTime();
-    void digitalClockDisplay();
-    time_t getTeensy3Time();
-    void printDigits(int digits);
+    // Logging
+    String log_headers[NUM_DATA_POINTS];
+    bool LOGGING;
+    File logging_dir;
+    File logging_file;
+    String logging_path;
+    time_t log_file_started;
+    time_t log_file_timeout;
+    time_t log_interval;
+    long last_time_check;
 
 };
 
