@@ -120,8 +120,9 @@ class BowieLogger {
 
     void setLoggingLed(int pin);
     void initLogging();
+    void initTime();
     void updateLogging();
-    
+
     // Logging
     uint8_t TIMEOUT_MINS;
     uint8_t TIMEOUT_SECS;
@@ -149,8 +150,8 @@ class BowieLogger {
 
   private:
     // TimeFuncs
-    time_t getTeensy3Time();
     void printDigits(int digits);
+    static time_t getTeensy3Time();
 
     // LogFuncs
     void randomLogData();

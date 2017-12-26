@@ -1,0 +1,31 @@
+Robot Missions Bowie Robot Firmware API
+     
+Operator -> Robot
+-----------------
+# L = left motor
+# R = right motor
+# S = arm
+# C = claw
+# P = red button
+# G = green button
+# Y = yellow button
+# B = blue button
+# W = white button
+# N = black button
+# Q = super bright leds
+# J = joystick button
+# M = mode switch
+$ X = id
+
+Robot -> Operator
+-----------------
+A = accelerometer
+O = gyroscope
+F = force sensors
+U = sonar sensors
+M = magnetometer
+H = altitude
+I = gpio
+T = temperature
+$ W = id
+
