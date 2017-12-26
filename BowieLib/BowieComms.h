@@ -31,6 +31,7 @@
 
 #define PROG_DEBUG true
 #define COMM_DEBUG false
+#define OP_DEBUG false
 
 // Operator controllers
 #define MAX_CONTROLLERS 10
@@ -114,7 +115,7 @@ class BowieComms {
 
     // Promulgate
     void sendNextMsg();
-    static void received_action(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim);
+    //static void received_action(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim);
     static void transmit_complete();
 
     // Xbee

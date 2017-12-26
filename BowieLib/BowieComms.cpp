@@ -351,6 +351,7 @@ void BowieComms::sendNextMsg() {
   xbeeSend(m.action, m.cmd, m.key, m.val, m.cmd2, m.key2, m.val2, m.delim);
 }
 
+/*
 void BowieComms::received_action(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim) {
 
   Cmd c1 = { '0', 0, 0 };
@@ -398,6 +399,7 @@ void BowieComms::received_action(char action, char cmd, uint8_t key, uint16_t va
   Serial << "COMMS- Roundtrip latency (ms): " << diff_time << " Msg count: " << msg_rx_count << endl;
 
 }
+*/
 
 void BowieComms::transmit_complete() {
 
@@ -421,6 +423,7 @@ void BowieComms::chooseNextMessage() {
 
   Msg m = {0, '^', '0', 0, 0, '0', 0, 0, '!'};
 
+  /*
   switch(msg_send_index) {
     case 0:
       // accelerometer X & accelerometer Y
@@ -538,9 +541,10 @@ void BowieComms::chooseNextMessage() {
       m.val2 = 0;//temp_msg;
     break;
   }
+  */
 
-  addNextMsg(m);
-
+  //addNextMsg(m);
+  
   msg_send_index++;
   if(msg_send_index > 9) msg_send_index = 0;
 
