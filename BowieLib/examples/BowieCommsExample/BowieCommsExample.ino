@@ -20,6 +20,19 @@ void setup() {
 void loop() {
   bowiecomms.updateComms();
 
+  if(Serial.available() > 0) {
+    char c = Serial.read();
+    if(c == 'A') {
+      // Uncomment the below if you want to do a 'bruteforce' send
+      // - which would bypass the message queue, though could have
+      // unintended consequences (eg, if two messages are sent in
+      // rapid succession, none may be delivered).
+      // bowiecomms.xbeeSend('#', 'Q', 1, 128, '#', 'Q', 2, 128);
+    } else if(c == 'B') {
+      //bowiecomms.xbeeSend();
+    }
+  }
+
 }
 
 void commsTimeout() {

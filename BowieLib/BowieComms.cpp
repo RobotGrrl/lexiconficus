@@ -2,9 +2,10 @@
 
 BowieComms::BowieComms() {
   
+  // Instance of the class for the callbacks from Promulgate
   bcInstance = this;
 
-  // start xbee's serial
+  // Start xbee's serial
   Serial2.begin(9600);
   xbee.begin(Serial2);
 
@@ -38,11 +39,12 @@ BowieComms::BowieComms() {
   last_rx = 0;
   last_tx = 0;
 
+  // Xbee Operator Controllers
   XBeeAddress64 addr_all_controllers[MAX_CONTROLLERS];
   num_addrs = 0;
   ind_addr_sent = 0;
   for(int i=0; i<MAX_CONTROLLERS; i++) {
-    addr_all_controllers[i] = XBeeAddress64(0x00000000, 0x0000ffff);
+    addr_all_controllers[i] = XBeeAddress64(0, 0);
     addr_remote_controllers[i] = 0;
     failed_send_count[i] = 0;
     last_rx_all[i] = 0;
@@ -57,6 +59,10 @@ BowieComms::BowieComms() {
   msg_send_index = 0;
   last_rx_comms = 0;
   unlikely_count = 0;
+  for(int i=0; i<MAX_PERIODIC_MESSAGES; i++) {
+    periodic_messages[i] = msg_none;
+  }
+  msg_send_items = 0;
 
 }
 
@@ -74,9 +80,12 @@ void BowieComms::updateComms() {
   xbeeBlink();
   xbeeWatchdog();
 
-  if(current_time-last_tx >= 1000) {
-    // why would this happen? let's prevent a timeout
-    Serial << "Timeout?" << endl;
+  // Sending a heartbeat (with the robot's ID) if we haven't heard recently.
+  // This is important, because the robot only sends if it receives an action
+  // from the controller. So if we don't hear, we will actively try to re-establish
+  // the comms by sending this.
+  if(current_time-last_tx >= HEARTBEAT_MS) {
+    Serial << "Sending a heartbeat" << endl;
     xbeeSend('$', 'W', 1, ROBOT_ID, 'W', 1, ROBOT_ID, '!' );
     last_tx = current_time;
   }
@@ -106,20 +115,36 @@ void BowieComms::setCommLed(uint8_t pin) {
   COMM_LED = pin;
 }
 
+unsigned long BowieComms::getCommLatency() {
+  return diff_time;
+}
 
 
 /*
 
-  Xbee Comms
+---- Xbee Comms ----
 
 */
 
-// this is a friend function
+void BowieComms::xbeeSend(Msg m) {
+
+  sprintf(message_tx,"%c%c%d,%d,%c%d,%d%c", m.action, m.pck1.cmd, m.pck1.key, m.pck1.val, m.pck2.cmd, m.pck2.key, m.pck2.val, m.delim);
+  
+  for(int i=0; i<num_addrs; i++) {
+    if(addr_all_controllers[i].getMsb() != 0 && addr_all_controllers[i].getLsb() != 0) {
+      Serial << "Xbee TX: " << message_tx << endl;
+      ZBTxRequest zbtx = ZBTxRequest(addr_all_controllers[i], (uint8_t *)message_tx, strlen(message_tx));
+      zbtx.setFrameId('0');
+      xbee.send(zbtx); 
+      ind_addr_sent = i;
+      last_tx = current_time;
+    }
+  }
+ 
+}
+
 void BowieComms::xbeeSend(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim) {
 
-  // Promulgate format:
-  // *out_stream << action << cmd << key << "," << val << delim;
-  
   sprintf(message_tx,"%c%c%d,%d,%c%d,%d%c", action, cmd, key, val, cmd2, key2, val2, delim);
   
   for(int i=0; i<num_addrs; i++) {
@@ -156,8 +181,8 @@ void BowieComms::addXbeeToList(XBeeAddress64 newAddr) {
     addr_all_controllers[num_addrs] = XBeeAddress64(newAddr.getMsb(), newAddr.getLsb());
     num_addrs++;
     // immediately reply with an identifier for the robot
-    //xbeeSendEasy('W');
     xbeeSend('$', 'W', 1, ROBOT_ID, 'W', 1, ROBOT_ID, '!' );
+    // TODO: callback for controller added to list
   }
   
 }
@@ -192,6 +217,7 @@ void BowieComms::xbeeWatchdog() {
           }
           // so that we can properly deincrement the num_addr counter
           num_addrs--;
+          // TODO: callback for controller removed from list
         }
       }
     }
@@ -271,22 +297,13 @@ bool BowieComms::xbeeRead() {
 
 void BowieComms::xbeeBlink() {
   if(current_time-last_led_blink >= 100) {
-    if(current_time-last_rx <= 6000 && current_time > 6000) {
+    if(current_time-last_rx <= 6000 && current_time > 6000) { // the last bit is to make sure it doesn't turn on on startup
       digitalWrite(COMM_LED, led_on);
       led_on = !led_on;
     } else {
       digitalWrite(COMM_LED, LOW);
     }
     last_led_blink = current_time;
-  }
-}
-
-void BowieComms::xbeeVarsInit() {
-  for(int i=0; i<MAX_CONTROLLERS; i++) {
-    addr_all_controllers[i] = XBeeAddress64(0, 0);
-    addr_remote_controllers[i] = 0;
-    failed_send_count[i] = 0;
-    last_rx_all[i] = 0;
   }
 }
 
@@ -314,7 +331,7 @@ void BowieComms::xbeeSendEasy(char c) {
 
 // these routines are just to print the data with
 // leading zeros and allow formatting such that it
-// will be easy to read.
+// will be easy to read. huzzah!
 void BowieComms::print32Bits(uint32_t dw){
   print16Bits(dw >> 16);
   print16Bits(dw & 0xFFFF);
@@ -340,235 +357,84 @@ void BowieComms::print8Bits(byte c){
 }
 
 
-
 /*
 
-Promulgate related
-
+---- Promulgate Related ----
 
 */
 
-
-
-void BowieComms::sendNextMsg() {
-  Msg m = popNextMsg();
-  xbeeSend(m.action, m.cmd, m.key, m.val, m.cmd2, m.key2, m.val2, m.delim);
-}
-
+BowieComms *BowieComms::bcInstance;
 
 void BowieComms::received_action(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim) {
+  Packet p1 = { cmd, key, val };
+  Packet p2 = { cmd2, key2, val2 };
+  Msg m = { 99, action, p1, p2, delim };
 
-  bcInstance->processAction();
+  bcInstance->processAction(m);
+}
 
-  /*
-  Cmd c1 = { '0', 0, 0 };
-  Cmd c2 = { '0', 0, 0 };
-  c1.cmd = cmd;
-  c1.key = key;
-  c1.val = val;
-  c2.cmd = cmd2;
-  c2.key = key2;
-  c2.val = val2;
-  Cmd packets[2] = { c1, c2 };
+void BowieComms::transmit_complete() {
+  bcInstance->transmitDidComplete();
+}
+
+void BowieComms::processAction(Msg m) {
 
   if(PROG_DEBUG) {
-    Serial << "---CALLBACK---" << endl;
-    Serial << "action: " << action << endl;
-    Serial << "command: " << cmd << endl;
-    Serial << "key: " << key << endl;
-    Serial << "val: " << val << endl;
-    Serial << "command2: " << cmd2 << endl;
-    Serial << "key2: " << key2 << endl;
-    Serial << "val2: " << val2 << endl;
-    Serial << "delim: " << delim << endl;
+    Serial << "---PROCESS ACTION---" << endl;
+    Serial << "action: " << m.action << endl;
+    Serial << "command: " << m.pck1.cmd << endl;
+    Serial << "key: " << m.pck1.key << endl;
+    Serial << "val: " << m.pck1.val << endl;
+    Serial << "command: " << m.pck2.cmd << endl;
+    Serial << "key: " << m.pck2.key << endl;
+    Serial << "val: " << m.pck2.val << endl;
+    Serial << "delim: " << m.delim << endl;
   }
 
-  if(action == '$') {
-    for(int i=0; i<2; i++) {
-      if(packets[i].cmd == 'X') {
-        // reply with our id
-        delay(20);
-        xbeeSend('$', 'W', 1, ROBOT_ID, 'W', 1, ROBOT_ID, '!' );
-        break;
-      }
+  // Sending the ID
+  if(m.action == '$') {
+    if(m.pck1.cmd == 'X' || m.pck2.cmd == 'X') {
+      // reply with our id
+      delay(20);
+      xbeeSend('$', 'W', 1, ROBOT_ID, 'W', 1, ROBOT_ID, '!' );
     }
   } else {
     chooseNextMessage();
     sendNextMsg();
   }
   
-  // TODO: send a callback here with the Cmd structs
-  // inside of this callback will call the control function in MegaBowieShoreline
+  // TODO: send a callback here with the data
+  // inside of this callback (in the sketch) will call the control function in MegaBowieShoreline
 
   msg_rx_count++;
   diff_time = current_time-last_rx_msg;
   last_rx_msg = current_time;
   Serial << "COMMS- Roundtrip latency (ms): " << diff_time << " Msg count: " << msg_rx_count << endl;
-  */
 
 }
 
-BowieComms *BowieComms::bcInstance;
-
-void BowieComms::transmit_complete() {
-
+void BowieComms::transmitDidComplete() {
+  // Not really sure what to put here right now, so built in in for the future
 }
 
-
-void BowieComms::processAction() {
-  counter++;
+void BowieComms::sendNextMsg() {
+  Msg m = popNextMsg();
+  xbeeSend(m);
 }
+
 
 
 /*
 
-Sensor priority list (lower # = bigger priority)
-
-0 = none
-1 = force & sonar sensors
-2 = accel & gyro
-3 = gpio
-4 = mag
+---- Messages ----
 
 */
-
-void BowieComms::chooseNextMessage() {
-
-  Msg m = {0, '^', '0', 0, 0, '0', 0, 0, '!'};
-
-  /*
-  switch(msg_send_index) {
-    case 0:
-      // accelerometer X & accelerometer Y
-      m.priority = 2;
-      m.action = '$';
-      m.cmd = 'A';
-      m.key = 1;
-      m.val = accel_msg_x;
-      m.cmd2 = 'A';
-      m.key2 = 2;
-      m.val2 = accel_msg_y;
-    break;
-    case 1:
-      // accelerometer Z & gyro X
-      m.priority = 2;
-      m.action = '$';
-      m.cmd = 'A';
-      m.key = 3;
-      m.val = accel_msg_z;
-      m.cmd2 = 'O';
-      m.key2 = 1;
-      m.val2 = gyro_msg_x;
-    break;
-    case 2:
-      // gyro Y & gyro Z
-      m.priority = 2;
-      m.action = '$';
-      m.cmd = 'O';
-      m.key = 2;
-      m.val = gyro_msg_y;
-      m.cmd2 = 'O';
-      m.key2 = 3;
-      m.val2 = gyro_msg_z;
-    break;
-    case 3:
-      // force sensor L & R
-      // TODO
-      m.priority = 2;
-      m.action = '$';
-      m.cmd = 'F';
-      m.key = 1;
-      m.val = 0;//force_sensor_val_left;
-      m.cmd2 = 'F';
-      m.key2 = 2;
-      m.val2 = 0;//force_sensor_val_right;
-    break;
-    case 4: 
-      // sonar sensor L & R
-      // TODO
-      m.priority = 2;
-      m.action = '$';
-      m.cmd = 'U';
-      m.key = 1;
-      m.val = 0;//sonar_val_left;
-      m.cmd2 = 'U';
-      m.key2 = 2;
-      m.val2 = 0;//sonar_val_right;
-    break;
-    case 5:
-      // magnetometer X & Y
-      m.priority = 2;
-      m.action = '$';
-      m.cmd = 'M';
-      m.key = 1;
-      m.val = mag_msg_x;
-      m.cmd2 = 'M';
-      m.key2 = 2;
-      m.val2 = mag_msg_y;
-    break;
-    case 6:
-      // magnetometer Z & altitude
-      m.priority = 2;
-      m.action = '$';
-      m.cmd = 'M';
-      m.key = 3;
-      m.val = mag_msg_z;
-      m.cmd2 = 'H';
-      m.key2 = 1;
-      m.val2 = alt_msg;
-    break;
-    case 7:
-      // gpio 1 & 2
-      // TODO
-      m.priority = 2;
-      m.action = '$';
-      m.cmd = 'I';
-      m.key = 1;
-      m.val = 0;//gpio_pin1_val;
-      m.cmd2 = 'I';
-      m.key2 = 2;
-      m.val2 = 0;//gpio_pin2_val;
-    break;
-    case 8:
-      // gpio 3 & 4
-      // TODO
-      m.priority = 2;
-      m.action = '$';
-      m.cmd = 'I';
-      m.key = 3;
-      m.val = 0;//gpio_pin3_val;
-      m.cmd2 = 'I';
-      m.key2 = 4;
-      m.val2 = 0;//gpio_pin4_val;
-    break;
-    case 9:
-      // gpio 5 & temperature
-      // TODO
-      m.priority = 2;
-      m.action = '$';
-      m.cmd = 'I';
-      m.key = 5;
-      m.val = 0;//gpio_pin5_val;
-      m.cmd2 = 'T';
-      m.key2 = 1;
-      m.val2 = 0;//temp_msg;
-    break;
-  }
-  */
-
-  //addNextMsg(m);
-  
-  msg_send_index++;
-  if(msg_send_index > 9) msg_send_index = 0;
-
-}
-
-// ---- Messages
 
 uint8_t BowieComms::getMsgQueueLength() {
   return msgs_in_queue;
 }
 
+// Retrieve the next message, and move the other messages behind it up
 Msg BowieComms::popNextMsg() {
   struct Msg m = msg_queue[0];
 
@@ -590,16 +456,20 @@ void BowieComms::addNextMsg(uint8_t priority, char action, char cmd, uint8_t key
   }
   msg_queue[msgs_in_queue].priority = priority;
   msg_queue[msgs_in_queue].action = action;
-  msg_queue[msgs_in_queue].cmd = cmd;
-  msg_queue[msgs_in_queue].key = key;
-  msg_queue[msgs_in_queue].val = val;
-  msg_queue[msgs_in_queue].cmd2 = cmd2;
-  msg_queue[msgs_in_queue].key2 = key2;
-  msg_queue[msgs_in_queue].val2 = val2;
+  msg_queue[msgs_in_queue].pck1.cmd = cmd;
+  msg_queue[msgs_in_queue].pck1.key = key;
+  msg_queue[msgs_in_queue].pck1.val = val;
+  msg_queue[msgs_in_queue].pck2.cmd = cmd2;
+  msg_queue[msgs_in_queue].pck2.key = key2;
+  msg_queue[msgs_in_queue].pck2.val = val2;
   msg_queue[msgs_in_queue].delim = delim;
   msgs_in_queue++;
 }
 
+// If the queue is full, we don't add to it. We err this way because by the time
+// the rest of the queue has been sent, chances are when we reach the message
+// that was attempted to be added — it would be out of date already. With the cycle
+// of sensor sends, there will be new data along its way shortly.
 void BowieComms::addNextMsg(Msg m) {
   //Serial.print("adding next message");
   if(msgs_in_queue > MSG_QUEUE_SIZE-1) {
@@ -612,6 +482,12 @@ void BowieComms::addNextMsg(Msg m) {
   msgs_in_queue++;
 }
 
+// If the message to be inserted is more priority than the other messages in the queue, 
+// then it will insert it at that index, and move the other messages back. This means the
+// last message in the queue will be lost.
+// If the message is the same priority, and has the same commands (for both packets in 
+// the message), then it will replace it. 
+// As a failsafe, if it can't be inserted, the message is at least added.
 void BowieComms::insertNextMsg(Msg m) {
 
   Serial.print("inserting next message");
@@ -624,15 +500,20 @@ void BowieComms::insertNextMsg(Msg m) {
   }
 
   bool completed = false;
+  uint8_t insert_index = 0;
 
   for(int i=0; i<msgs_in_queue; i++) {
-    if(m.priority < msg_queue[i].priority) { // overwrite messages that have a greater priority number (meaning they are less of a priority)
-      if(OP_DEBUG) Serial << "A: Replacing " << i << " (" << msg_queue[i].priority << ") with new msg (" << m.priority << ")" << endl;
-      msg_queue[i] = m;
+    if(m.priority < msg_queue[i].priority) { // insert messages that have a greater priority number (meaning they are less of a priority)
+      insert_index = i;
+      for(int j=msgs_in_queue-1; j>insert_index; j--) {
+        msg_queue[j] = msg_queue[j-1];
+      }
+      if(OP_DEBUG) Serial << "A: Inserting " << i << " (" << msg_queue[i].priority << ") at index: " << insert_index << endl;
+      msg_queue[insert_index] = m;
       completed = true;
       break;
     } else if(m.priority == msg_queue[i].priority) { // if it's the same priority, and the same commands, overwrite with the newest version
-      if(m.cmd == msg_queue[i].cmd && m.cmd2 == msg_queue[i].cmd2) {
+      if(m.pck1.cmd == msg_queue[i].pck1.cmd && m.pck2.cmd == msg_queue[i].pck2.cmd) {
         if(OP_DEBUG) Serial << "B: Replacing " << i << " (" << msg_queue[i].priority << ") with new msg (" << m.priority << ")" << endl;
         msg_queue[i] = m;
         completed = true;
@@ -647,4 +528,47 @@ void BowieComms::insertNextMsg(Msg m) {
 
 }
 
+void BowieComms::chooseNextMessage() {
 
+  addNextMsg(periodic_messages[msg_send_index]);
+  
+  msg_send_index++;
+  if(msg_send_index > msg_send_items) msg_send_index = 0;
+
+}
+
+void BowieComms::addPeriodicMessage(Msg m) {
+  if(msg_send_items < MAX_PERIODIC_MESSAGES) { // only add if there's enough room
+    periodic_messages[msg_send_items] = m;
+    msg_send_items++;
+  }
+}
+
+void BowieComms::removePeriodicMessage(uint8_t remove_ind) {
+  if(remove_ind != 99) {
+    for(int j=remove_ind; j<msg_send_items-1; j++) {
+      periodic_messages[j] = periodic_messages[j+1];
+    }
+    msg_send_items--;
+    if(msg_send_items < 0) msg_send_items = 0;
+  }
+}
+
+void BowieComms::removePeriodicMessage(Msg m) {
+  uint8_t remove_ind = 99;
+  for(int i=0; i<msg_send_items; i++) {
+    Msg temp = periodic_messages[i];
+    if(temp.pck1.cmd == m.pck1.cmd && temp.pck2.cmd == m.pck2.cmd) { // they both match
+      remove_ind = i;
+    }
+  }
+
+  if(remove_ind != 99) {
+    for(int j=remove_ind; j<msg_send_items-1; j++) {
+      periodic_messages[j] = periodic_messages[j+1];
+    }
+    msg_send_items--;
+    if(msg_send_items < 0) msg_send_items = 0;
+  }
+
+}

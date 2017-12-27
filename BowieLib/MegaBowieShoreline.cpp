@@ -6,6 +6,7 @@ MegaBowieShoreline::MegaBowieShoreline() {
 
 void MegaBowieShoreline::control(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim) {
   
+  /*
   last_rx_comms = millis();
 
   Cmd c1 = { '0', 0, 0 };
@@ -45,5 +46,6 @@ void MegaBowieShoreline::control(char action, char cmd, uint8_t key, uint16_t va
 
     }
   } // -- end of '#' action specifier
+  */
 
 }

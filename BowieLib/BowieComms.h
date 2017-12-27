@@ -43,29 +43,30 @@
 // Messages
 #define MSG_QUEUE_SIZE 3
 #define REMOTE_OP_TIMEOUT 300
+#define MAX_PERIODIC_MESSAGES 10
+
+// Vars
+#define HEARTBEAT_MS 1000
+
+struct Packet {
+  char cmd;
+  uint8_t key;
+  uint16_t val;
+};
 
 struct Msg {
   uint8_t priority;
   char action;
-  char cmd;
-  uint8_t key;
-  uint16_t val;
-  char cmd2;
-  uint8_t key2;
-  uint16_t val2;
+  Packet pck1;
+  Packet pck2;
   char delim;
-};
-
-struct Cmd {
-  char cmd;
-  uint8_t key;
-  uint16_t val;
 };
 
 class BowieComms {
 
   static BowieComms *bcInstance;
   static void received_action(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim);
+  static void transmit_complete();
 
   public:
 
@@ -75,6 +76,7 @@ class BowieComms {
     void initComms();
     void updateComms();
     void setCommLed(uint8_t pin);
+    unsigned long getCommLatency();
 
     // Callbacks
     void set_comms_timeout_callback( void (*commsTimeoutCallback)() );
@@ -99,6 +101,7 @@ class BowieComms {
     unsigned long last_rx;
     unsigned long last_tx;
 
+    // Xbee Operator Controllers
     XBeeAddress64 addr_all_controllers[MAX_CONTROLLERS];
     uint8_t num_addrs;
     uint8_t ind_addr_sent;
@@ -110,27 +113,30 @@ class BowieComms {
     bool led_on;
     long last_retry_time;
 
-    // API
-    void control(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim);
+    // Promulgate
+    void sendNextMsg();
+    void processAction(Msg m);
+    void transmitDidComplete();
 
     // Messages
-    Msg msg_none = { 9, '^', '0', 0, 0, '0', 0, 0, '!' };
+    Packet pck_none = { '0', 0, 0 };
+    Msg msg_none = { 9, '^', pck_none, pck_none, '!' };
+    Msg periodic_messages[MAX_PERIODIC_MESSAGES];
+    uint8_t msg_send_items;
     uint8_t getMsgQueueLength();
     Msg popNextMsg();
     void addNextMsg(uint8_t priority, char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim);
     void addNextMsg(Msg m);
     void insertNextMsg(Msg m);
     void chooseNextMessage();
+    void addPeriodicMessage(Msg m);
+    void removePeriodicMessage(uint8_t remove_ind);
+    void removePeriodicMessage(Msg m);
 
-    // Promulgate
-    void sendNextMsg();
     
-    static void transmit_complete();
-
-    // Woop
-    void processAction();
 
     // Xbee
+    void xbeeSend(Msg m);
     void xbeeSend(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim);
     void xbeeSendEasy(char c);
 
@@ -155,7 +161,6 @@ class BowieComms {
     void xbeeWatchdog();
     bool xbeeRead();
     void xbeeBlink();
-    void xbeeVarsInit();
     void print32Bits(uint32_t dw);
     void print16Bits(uint16_t w);
     void print8Bits(byte c);
