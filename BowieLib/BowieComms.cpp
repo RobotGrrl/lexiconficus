@@ -1,6 +1,9 @@
 #include "BowieComms.h"
 
 BowieComms::BowieComms() {
+  
+  bcInstance = this;
+
   // start xbee's serial
   Serial2.begin(9600);
   xbee.begin(Serial2);
@@ -111,6 +114,7 @@ void BowieComms::setCommLed(uint8_t pin) {
 
 */
 
+// this is a friend function
 void BowieComms::xbeeSend(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim) {
 
   // Promulgate format:
@@ -351,9 +355,12 @@ void BowieComms::sendNextMsg() {
   xbeeSend(m.action, m.cmd, m.key, m.val, m.cmd2, m.key2, m.val2, m.delim);
 }
 
-/*
+
 void BowieComms::received_action(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim) {
 
+  bcInstance->processAction();
+
+  /*
   Cmd c1 = { '0', 0, 0 };
   Cmd c2 = { '0', 0, 0 };
   c1.cmd = cmd;
@@ -397,14 +404,20 @@ void BowieComms::received_action(char action, char cmd, uint8_t key, uint16_t va
   diff_time = current_time-last_rx_msg;
   last_rx_msg = current_time;
   Serial << "COMMS- Roundtrip latency (ms): " << diff_time << " Msg count: " << msg_rx_count << endl;
+  */
 
 }
-*/
+
+BowieComms *BowieComms::bcInstance;
 
 void BowieComms::transmit_complete() {
 
 }
 
+
+void BowieComms::processAction() {
+  counter++;
+}
 
 
 /*

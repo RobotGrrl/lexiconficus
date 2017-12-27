@@ -17,6 +17,10 @@
  * MIT license, check LICENSE for more information
  * All text above must be included in any redistribution
  *
+ * Special thanks to this forum post: 
+ * http://forum.arduino.cc/index.php?topic=311968.msg2164769#msg2164769
+ * For the example of how to get a callback to reach a non-static function
+ * by using a variable of the class instance.
  */
 
 #include "Arduino.h"
@@ -60,7 +64,12 @@ struct Cmd {
 
 class BowieComms {
 
+  static BowieComms *bcInstance;
+  static void received_action(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim);
+
   public:
+
+    int counter;
 
     BowieComms();
     void initComms();
@@ -115,8 +124,11 @@ class BowieComms {
 
     // Promulgate
     void sendNextMsg();
-    //static void received_action(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim);
+    
     static void transmit_complete();
+
+    // Woop
+    void processAction();
 
     // Xbee
     void xbeeSend(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim);
