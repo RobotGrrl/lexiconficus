@@ -80,6 +80,9 @@ class BowieComms {
 
     // Callbacks
     void set_comms_timeout_callback( void (*commsTimeoutCallback)() );
+    void set_controller_added_callback( void (*controllerAddedCallback)() );
+    void set_controller_removed_callback( void (*controllerRemovedCallback)() );
+    void set_received_action_callback( void (*receivedActionCallback)(Msg m) );
 
     // Promulgate
     Promulgate promulgate;
@@ -125,11 +128,12 @@ class BowieComms {
     uint8_t msg_send_items;
     uint8_t getMsgQueueLength();
     Msg popNextMsg();
-    void addNextMsg(uint8_t priority, char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim);
-    void addNextMsg(Msg m);
-    void insertNextMsg(Msg m);
+    void addMsg(uint8_t priority, char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim);
+    void addMsg(Msg m);
+    void insertMsg(Msg m);
     void chooseNextMessage();
     void addPeriodicMessage(Msg m);
+    void updatePeriodicMessage(Msg m);
     void removePeriodicMessage(uint8_t remove_ind);
     void removePeriodicMessage(Msg m);
 
@@ -144,6 +148,9 @@ class BowieComms {
 
     // Callbacks
     void (*_commsTimeoutCallback)();
+    void (*_controllerAddedCallback)();
+    void (*_controllerRemovedCallback)();
+    void (*_receivedActionCallback)(Msg m);
 
     // Custom
     uint8_t COMM_LED;

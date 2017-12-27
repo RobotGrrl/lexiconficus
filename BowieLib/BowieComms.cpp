@@ -70,6 +70,18 @@ void BowieComms::set_comms_timeout_callback( void (*commsTimeoutCallback)() ) {
   _commsTimeoutCallback = commsTimeoutCallback;
 }
 
+void BowieComms::set_controller_added_callback( void (*controllerAddedCallback)() ) {
+  _controllerAddedCallback = controllerAddedCallback;
+}
+
+void BowieComms::set_controller_removed_callback( void (*controllerRemovedCallback)() ) {
+  _controllerRemovedCallback = controllerRemovedCallback;
+}
+
+void BowieComms::set_received_action_callback( void (*receivedActionCallback)(Msg m) ) {
+  _receivedActionCallback = receivedActionCallback;
+}
+
 void BowieComms::initComms() {
   pinMode(COMM_LED, OUTPUT);
 }
@@ -182,7 +194,7 @@ void BowieComms::addXbeeToList(XBeeAddress64 newAddr) {
     num_addrs++;
     // immediately reply with an identifier for the robot
     xbeeSend('$', 'W', 1, ROBOT_ID, 'W', 1, ROBOT_ID, '!' );
-    // TODO: callback for controller added to list
+    _controllerAddedCallback();
   }
   
 }
@@ -217,7 +229,7 @@ void BowieComms::xbeeWatchdog() {
           }
           // so that we can properly deincrement the num_addr counter
           num_addrs--;
-          // TODO: callback for controller removed from list
+          _controllerRemovedCallback();
         }
       }
     }
@@ -403,8 +415,7 @@ void BowieComms::processAction(Msg m) {
     sendNextMsg();
   }
   
-  // TODO: send a callback here with the data
-  // inside of this callback (in the sketch) will call the control function in MegaBowieShoreline
+  _receivedActionCallback(m);
 
   msg_rx_count++;
   diff_time = current_time-last_rx_msg;
@@ -446,7 +457,7 @@ Msg BowieComms::popNextMsg() {
   return m;
 }
 
-void BowieComms::addNextMsg(uint8_t priority, char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim) {
+void BowieComms::addMsg(uint8_t priority, char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim) {
   //Serial.print("adding next message");
   if(msgs_in_queue > MSG_QUEUE_SIZE-1) {
     if(COMM_DEBUG) {
@@ -470,7 +481,7 @@ void BowieComms::addNextMsg(uint8_t priority, char action, char cmd, uint8_t key
 // the rest of the queue has been sent, chances are when we reach the message
 // that was attempted to be added — it would be out of date already. With the cycle
 // of sensor sends, there will be new data along its way shortly.
-void BowieComms::addNextMsg(Msg m) {
+void BowieComms::addMsg(Msg m) {
   //Serial.print("adding next message");
   if(msgs_in_queue > MSG_QUEUE_SIZE-1) {
     if(COMM_DEBUG) {
@@ -488,14 +499,14 @@ void BowieComms::addNextMsg(Msg m) {
 // If the message is the same priority, and has the same commands (for both packets in 
 // the message), then it will replace it. 
 // As a failsafe, if it can't be inserted, the message is at least added.
-void BowieComms::insertNextMsg(Msg m) {
+void BowieComms::insertMsg(Msg m) {
 
   Serial.print("inserting next message");
 
   if(msgs_in_queue == 0) {
     if(OP_DEBUG) Serial << "Adding it to index 0" << endl;
     msg_queue[0] = m;
-    msgs_in_queue++;   
+    msgs_in_queue++;
     return;
   }
 
@@ -523,14 +534,14 @@ void BowieComms::insertNextMsg(Msg m) {
   }
 
   if(!completed) { // if we can't insert it, at least add it
-    addNextMsg(m);
+    addMsg(m);
   }
 
 }
 
 void BowieComms::chooseNextMessage() {
 
-  addNextMsg(periodic_messages[msg_send_index]);
+  addMsg(periodic_messages[msg_send_index]);
   
   msg_send_index++;
   if(msg_send_index > msg_send_items) msg_send_index = 0;
@@ -541,6 +552,15 @@ void BowieComms::addPeriodicMessage(Msg m) {
   if(msg_send_items < MAX_PERIODIC_MESSAGES) { // only add if there's enough room
     periodic_messages[msg_send_items] = m;
     msg_send_items++;
+  }
+}
+
+void BowieComms::updatePeriodicMessage(Msg m) {
+  for(int i=0; i<msg_send_items; i++) {
+    Msg temp = periodic_messages[i];
+    if(temp.pck1.cmd == m.pck1.cmd && temp.pck2.cmd == m.pck2.cmd) { // they both match
+      periodic_messages[i] = m;
+    }
   }
 }
 
@@ -560,6 +580,7 @@ void BowieComms::removePeriodicMessage(Msg m) {
     Msg temp = periodic_messages[i];
     if(temp.pck1.cmd == m.pck1.cmd && temp.pck2.cmd == m.pck2.cmd) { // they both match
       remove_ind = i;
+      break;
     }
   }
 

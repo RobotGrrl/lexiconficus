@@ -27,6 +27,7 @@ M = magnetometer
 H = altitude
 I = gpio
 T = temperature
+@ Z = reserved for testing
 $ W = id
 
 
