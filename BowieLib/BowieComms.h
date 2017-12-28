@@ -70,8 +70,6 @@ class BowieComms {
 
   public:
 
-    int counter;
-
     BowieComms();
     void initComms();
     void updateComms();
