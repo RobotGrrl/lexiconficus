@@ -75,3 +75,11 @@ Log File Column Headers (by default)
   log_headers[24] = "Battery";
   log_headers[25] = "Comm Latency";
 
+------------
+
+Serial1 = On-board computer (Pi)
+Serial2 = Xbee
+Serial3 = GPS
+Serial4 = Pixy
+Serial5 = BT
+Serial6 = Obstacle avoidance arduino

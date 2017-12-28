@@ -25,6 +25,7 @@ void BowieLogger::setLogData_u16(int log_item, uint16_t val) {
   if(log_item == LOG_SERVO_POS_EXTRA) logdata.servo_pos_extra = val;
   if(log_item == LOG_SERVO_CURRENT_SENSOR) logdata.servo_current_sensor = val;
   if(log_item == LOG_BATTERY_SENSOR) logdata.battery_sensor = val;
+  if(log_item == LOG_COMM_LATENCY) logdata.comm_latency = val;
 }
 
 void BowieLogger::setLogData_f(int log_item, float val) {
@@ -64,6 +65,7 @@ void BowieLogger::randomLogData() {
   logdata.gps_longitude = (float)random(70, 75);
   logdata.gps_altitude = (float)random(0, 10);
   logdata.battery_sensor = (int)random(0, 1024);
+  logdata.comm_latency = (int)random(50, 200);
 }
 
 void BowieLogger::writeLogData() {
@@ -150,6 +152,9 @@ void BowieLogger::writeLogData() {
   logging_file.print(",");
 
   logging_file.print(logdata.battery_sensor);
+  logging_file.print(",");
+
+  logging_file.print(logdata.comm_latency);
   
   logging_file.print("\r\n");
 
