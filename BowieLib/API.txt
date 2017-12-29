@@ -83,3 +83,16 @@ Serial3 = GPS
 Serial4 = Pixy
 Serial5 = BT
 Serial6 = Obstacle avoidance arduino
+
+---------------
+
+// servo interrupt keys
+#define SERVO_ARM_KEY 1
+#define SERVO_END_KEY 2
+#define SERVO_HOPPER_KEY 3
+#define SERVO_LID_KEY 4
+#define SERVO_EXTRA_KEY 5
+#define LOGGING_AFTER_KEY 99
+
+
+
