@@ -24,6 +24,11 @@
 
 #include "BowieArm.h"
 #include "BowieCurrentSensor.h"
+#include "BowieDrive.h"
+#include "BowieHopper.h"
+#include "BowieLights.h"
+#include "BowieLogger.h"
+#include "BowieScoop.h"
 
 #ifndef _MEGABOWIESHORELINE_H_
 #define _MEGABOWIESHORELINE_H_
@@ -75,9 +80,27 @@ struct Msg {
   char delim;
 };
 
-
 #define REMOTE_OP_TIMEOUT 300
 
+#ifndef SERVO_ARM_KEY
+#define SERVO_ARM_KEY 1
+#endif
+
+#ifndef SERVO_END_KEY
+#define SERVO_END_KEY 2
+#endif
+
+#ifndef SERVO_HOPPER_KEY
+#define SERVO_HOPPER_KEY 3
+#endif
+
+#ifndef SERVO_LID_KEY
+#define SERVO_LID_KEY 4
+#endif
+
+#ifndef SERVO_EXTRA_KEY
+#define SERVO_EXTRA_KEY 5
+#endif
 
 
 class MegaBowieShoreline {
@@ -88,9 +111,13 @@ class MegaBowieShoreline {
 
     // Components
     BowieArm bowiearm;
-    BowieCurrentSensor servoCurrent = BowieCurrentSensor();
-    BowieCurrentSensor motorCurrent = BowieCurrentSensor();
-
+    BowieCurrentSensor servoCurrent;
+    BowieCurrentSensor motorCurrent;
+    BowieDrive bowiedrive;
+    BowieHopper bowiehopper;
+    BowieLights bowielights;
+    BowieLogger bowielogger;
+    BowieScoop bowiescoop;
 
     // Control
     void update(bool force_no_sleep);
@@ -120,7 +147,7 @@ class MegaBowieShoreline {
     long current_time;
     long last_ctrl;
 
-    // Current
+    // Current Callbacks
     static void waitingToCoolDown_ServosCallback(bool first);
     static void reactivateAfterCoolDown_ServosCallback();
     static void overCurrentThreshold_ServosCallback(bool first);
@@ -128,12 +155,16 @@ class MegaBowieShoreline {
     static void reactivateAfterCoolDown_MotorsCallback();
     static void overCurrentThreshold_MotorsCallback(bool first);
 
+    // Current
     void waitingToCoolDown_Servos(bool first);
     void reactivateAfterCoolDown_Servos();
     void overCurrentThreshold_Servos(bool first);
     void waitingToCoolDown_Motors(bool first);
     void reactivateAfterCoolDown_Motors();
     void overCurrentThreshold_Motors(bool first);
+
+    // Update logging sensors
+    void updateLogSensorData();
 
 };
 

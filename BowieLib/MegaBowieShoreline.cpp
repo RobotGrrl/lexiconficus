@@ -14,6 +14,7 @@ void MegaBowieShoreline::begin() {
   
   // Arm
   bowiearm = BowieArm();
+
   bowiearm.setArm1ServoPin(SERVO_ARM1);
   bowiearm.setArm2ServoPin(SERVO_ARM2);
   bowiearm.setServoInterruptCallback(servoInterrupt);
@@ -36,6 +37,55 @@ void MegaBowieShoreline::begin() {
   motorCurrent.set_waitingToCoolDown_callback(waitingToCoolDown_MotorsCallback);
   motorCurrent.set_reactivateAfterCoolDown_callback(reactivateAfterCoolDown_MotorsCallback);
   motorCurrent.set_overCurrentThreshold_callback(overCurrentThreshold_MotorsCallback);
+
+  // Drive
+  bowiedrive = BowieDrive();
+
+  bowiedrive.setMotorASpeedPin(MOTORA_SPEED);
+  bowiedrive.setMotorBSpeedPin(MOTORB_SPEED);
+  bowiedrive.setMotorACtrl1Pin(MOTORA_CTRL1);
+  bowiedrive.setMotorACtrl2Pin(MOTORA_CTRL2);
+  bowiedrive.setMotorBCtrl1Pin(MOTORB_CTRL1);
+  bowiedrive.setMotorBCtrl2Pin(MOTORB_CTRL2);
+
+  // Hopper
+  bowiehopper = BowieHopper();
+
+  bowiehopper.setServoHopperPivotPin(SERVO_HOPPER_PIVOT);
+  bowiehopper.setServoHopperLidPin(SERVO_HOPPER_LID);
+
+  bowiehopper.setServoInterruptCallback(servoInterrupt);
+
+  bowiehopper.initServos();
+
+  // Lights
+  bowielights = BowieLights();
+
+  bowielights.setFrontLeftPin(BRIGHT_LED_FRONT_LEFT);
+  bowielights.setFrontRightPin(BRIGHT_LED_FRONT_RIGHT);
+  bowielights.setBackLeftPin(BRIGHT_LED_BACK_LEFT);
+  bowielights.setBackRightPin(BRIGHT_LED_BACK_RIGHT);
+
+  bowielights.initLeds();
+
+  // Logger
+  bowielogger = BowieLogger();
+
+  bowielogger.initTime();
+
+  bowielogger.setLoggingLed(13);
+  bowielogger.initLogging();
+
+  // Scoop
+  bowiescoop = BowieScoop();
+
+  bowiescoop.setServoScoopPin(SERVO_END_EFFECTOR);
+  bowiescoop.setProbeLPin(SCOOP_PROBE_LEFT);
+  bowiescoop.setProbeRPin(SCOOP_PROBE_RIGHT);
+
+  bowiescoop.setServoInterruptCallback(servoInterrupt);
+
+  bowiescoop.initServos();
 
 }
 
@@ -99,6 +149,9 @@ void MegaBowieShoreline::update(bool force_no_sleep) {
 
   servoCurrent.updateCurrentSensor();
   motorCurrent.updateCurrentSensor();
+
+  updateLogSensorData();
+  bowielogger.updateLogging();
 
   // todo: monitoring current and logging
   
@@ -283,6 +336,12 @@ void MegaBowieShoreline::servoInterrupt(int key, int val) {
     break;
   }
 
+}
+
+void MegaBowieShoreline::updateLogSensorData() {
+  // TODO all of the sensor data here
+
+  bowielogger.setLogData_t(LOG_TIME, now());
 }
 
 

@@ -172,7 +172,7 @@ class BowieLogger {
     Sd2Card card;
     SdVolume volume;
     SdFile root;
-    const int chipSelect = BUILTIN_SDCARD; 
+    int chipSelect = BUILTIN_SDCARD; 
 
     // Logging
     String log_headers[NUM_DATA_POINTS];
