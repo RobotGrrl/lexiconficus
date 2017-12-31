@@ -21,9 +21,8 @@ void setup() {
   bowiecomms.set_comms_timeout_callback(commsTimeout);
   bowiecomms.set_controller_added_callback(controllerAdded);
   bowiecomms.set_controller_removed_callback(controllerRemoved);
-  
 
-  bowiecomms.initComms();
+  bowiecomms.initComms(XBEE_CONN);
 
   bowiecomms.addPeriodicMessage(random_periodic1);
   bowiecomms.addPeriodicMessage(random_periodic2);
@@ -46,7 +45,7 @@ void loop() {
     last_update = current_time;
   }
 
-  if(Serial.available() > 0) {
+  while(Serial.available() > 0) {
     char c = Serial.read();
     if(c == 'A') {
       
@@ -87,7 +86,7 @@ void loop() {
       // - which would bypass the message queue. Could have
       // unintended consequences (eg, if two messages are sent in
       // rapid succession, none may be delivered).
-      bowiecomms.xbeeSend('#', 'Q', 1, 0, '#', 'Q', 2, 0);
+      bowiecomms.connSend('#', 'Q', 1, 0, '#', 'Q', 2, 0);
       
     }
   }

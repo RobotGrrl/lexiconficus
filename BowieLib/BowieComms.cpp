@@ -5,24 +5,14 @@ BowieComms::BowieComms() {
   // Instance of the class for the callbacks from Promulgate
   bcInstance = this;
 
-  // Start xbee's serial
-  Serial2.begin(9600);
-  xbee.begin(Serial2);
-
+  // LED
   COMM_LED = 12;
 
   // Promulgate
-  promulgate = Promulgate(&Serial2, &Serial2);
   current_time = 0;
   diff_time = 0;
   last_rx_msg = 0;
   last_transmit = 0;
-
-  // promulgate setup
-  promulgate.LOG_LEVEL = Promulgate::ERROR_;
-  promulgate.set_rx_callback(received_action);
-  promulgate.set_tx_callback(transmit_complete);
-  promulgate.set_debug_stream(&Serial);
 
   // Xbee
   xbee = XBee();
@@ -82,15 +72,106 @@ void BowieComms::set_received_action_callback( void (*receivedActionCallback)(Ms
   _receivedActionCallback = receivedActionCallback;
 }
 
-void BowieComms::initComms() {
+void BowieComms::initComms(int conn) {
   pinMode(COMM_LED, OUTPUT);
+
+  // found these defs for serial ports here:
+  // https://github.com/PaulStoffregen/cores/tree/master/teensy3
+
+  bool possible = false;
+
+  if(conn == PI_CONN) {
+
+    Serial1.begin(9600);
+    // Promulgate
+    promulgate = Promulgate(&Serial1, &Serial1);
+
+    CONN_TYPE = PI_CONN;
+    possible = true;
+
+  } else if(conn == XBEE_CONN) {
+    
+    // Start xbee's serial
+    Serial2.begin(9600);
+    xbee.begin(Serial2);
+
+    // Promulgate
+    promulgate = Promulgate(&Serial2, &Serial2);
+
+    CONN_TYPE = XBEE_CONN;
+    possible = true;
+
+  } else if(conn == GPS_CONN) {
+
+    Serial3.begin(9600);
+    // Promulgate
+    promulgate = Promulgate(&Serial3, &Serial3);
+
+    CONN_TYPE = GPS_CONN;
+    possible = true;
+
+  } else if(conn == PIXY_CONN) {
+
+    #ifdef HAS_KINETISK_UART3
+
+    Serial4.begin(9600);
+    // Promulgate
+    promulgate = Promulgate(&Serial4, &Serial4);
+
+    CONN_TYPE = PIXY_CONN;
+    possible = true;
+
+    #endif
+
+  } else if(conn == BT_CONN) {
+
+    #ifdef HAS_KINETISK_UART4
+
+    Serial5.begin(9600);
+    // Promulgate
+    promulgate = Promulgate(&Serial5, &Serial5);
+
+    CONN_TYPE = BT_CONN;
+    possible = true;
+
+    #endif
+
+  } else if(conn == ARDUINO_CONN) {
+
+    #if defined(HAS_KINETISK_UART5) || defined (HAS_KINETISK_LPUART0)
+
+    Serial6.begin(9600);
+    // Promulgate
+    promulgate = Promulgate(&Serial6, &Serial6);
+
+    CONN_TYPE = ARDUINO_CONN;
+    possible = true;
+
+    #endif
+
+  }
+
+  if(possible) {
+    Serial.println("Connection set up OK");
+  } else {
+    Serial.println("ERROR SETTING UP CONNECTION - UART DOES NOT EXIST");
+  }
+
+  // promulgate setup
+  promulgate.LOG_LEVEL = Promulgate::ERROR_;
+  promulgate.set_rx_callback(received_action);
+  promulgate.set_tx_callback(transmit_complete);
+  promulgate.set_debug_stream(&Serial);
+
 }
 
 void BowieComms::updateComms() {
 
-  // XBee Comms
-  xbeeBlink();
-  xbeeWatchdog();
+  // Conn Comms
+  connBlink();
+  
+  // Xbee Specific
+  if(CONN_TYPE == XBEE_CONN) xbeeWatchdog();
 
   // Sending a heartbeat (with the robot's ID) if we haven't heard recently.
   // This is important, because the robot only sends if it receives an action
@@ -98,19 +179,12 @@ void BowieComms::updateComms() {
   // the comms by sending this.
   if(current_time-last_tx >= HEARTBEAT_MS) {
     Serial << "Sending a heartbeat" << endl;
-    xbeeSend('$', 'W', 1, ROBOT_ID, 'W', 1, ROBOT_ID, '!' );
+    connSend('$', 'W', 1, ROBOT_ID, 'W', 1, ROBOT_ID, '!' );
     last_tx = current_time;
   }
 
-  while(xbeeRead()) {
-    //Serial << "\n<< ";
-    for(int i=0; i<=rx.getDataLength(); i++) {
-      char c = message_rx[i];
-      promulgate.organize_message(c);
-      Serial << c;
-      if(c == '!' || c == '?' || c == ';') Serial << endl;
-    }
-  }
+  // Reading the data from the Stream
+  connRead();
 
   // comms have timed out
   if(millis()-last_rx_comms >= REMOTE_OP_TIMEOUT) {
@@ -138,40 +212,6 @@ unsigned long BowieComms::getCommLatency() {
 
 */
 
-void BowieComms::xbeeSend(Msg m) {
-
-  sprintf(message_tx,"%c%c%d,%d,%c%d,%d%c", m.action, m.pck1.cmd, m.pck1.key, m.pck1.val, m.pck2.cmd, m.pck2.key, m.pck2.val, m.delim);
-  
-  for(int i=0; i<num_addrs; i++) {
-    if(addr_all_controllers[i].getMsb() != 0 && addr_all_controllers[i].getLsb() != 0) {
-      Serial << "Xbee TX: " << message_tx << endl;
-      ZBTxRequest zbtx = ZBTxRequest(addr_all_controllers[i], (uint8_t *)message_tx, strlen(message_tx));
-      zbtx.setFrameId('0');
-      xbee.send(zbtx); 
-      ind_addr_sent = i;
-      last_tx = current_time;
-    }
-  }
- 
-}
-
-void BowieComms::xbeeSend(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim) {
-
-  sprintf(message_tx,"%c%c%d,%d,%c%d,%d%c", action, cmd, key, val, cmd2, key2, val2, delim);
-  
-  for(int i=0; i<num_addrs; i++) {
-    if(addr_all_controllers[i].getMsb() != 0 && addr_all_controllers[i].getLsb() != 0) {
-      Serial << "Xbee TX: " << message_tx << endl;
-      ZBTxRequest zbtx = ZBTxRequest(addr_all_controllers[i], (uint8_t *)message_tx, strlen(message_tx));
-      zbtx.setFrameId('0');
-      xbee.send(zbtx); 
-      ind_addr_sent = i;
-      last_tx = current_time;
-    }
-  }
- 
-}
-
 void BowieComms::addXbeeToList(XBeeAddress64 newAddr) {
   Serial << "Sender address - High: ";
   print32Bits(newAddr.getMsb());
@@ -193,7 +233,7 @@ void BowieComms::addXbeeToList(XBeeAddress64 newAddr) {
     addr_all_controllers[num_addrs] = XBeeAddress64(newAddr.getMsb(), newAddr.getLsb());
     num_addrs++;
     // immediately reply with an identifier for the robot
-    xbeeSend('$', 'W', 1, ROBOT_ID, 'W', 1, ROBOT_ID, '!' );
+    connSend('$', 'W', 1, ROBOT_ID, 'W', 1, ROBOT_ID, '!' );
     _controllerAddedCallback();
   }
   
@@ -307,40 +347,6 @@ bool BowieComms::xbeeRead() {
   
 }
 
-void BowieComms::xbeeBlink() {
-  if(current_time-last_led_blink >= 100) {
-    if(current_time-last_rx <= 6000 && current_time > 6000) { // the last bit is to make sure it doesn't turn on on startup
-      digitalWrite(COMM_LED, led_on);
-      led_on = !led_on;
-    } else {
-      digitalWrite(COMM_LED, LOW);
-    }
-    last_led_blink = current_time;
-  }
-}
-
-// this is only used in case of debugging
-void BowieComms::xbeeSendEasy(char c) {
-
-  sprintf(message_tx,"%c", c);
-
-  for(int i=0; i<num_addrs; i++) {
-    if(addr_all_controllers[i].getMsb() != 0 && addr_all_controllers[i].getLsb() != 0) {
-      Serial << "[" << i << "] Xbee TX: " << message_tx << " - ";
-      print32Bits(addr_all_controllers[i].getMsb());
-      Serial << " ";
-      print32Bits(addr_all_controllers[i].getLsb());
-      Serial << endl;
-            
-      ZBTxRequest zbtx = ZBTxRequest(addr_all_controllers[i], (uint8_t *)message_tx, strlen(message_tx));
-      zbtx.setFrameId('0');
-      xbee.send(zbtx); 
-      ind_addr_sent = i;
-    }
-  }
-
-}
-
 // these routines are just to print the data with
 // leading zeros and allow formatting such that it
 // will be easy to read. huzzah!
@@ -366,6 +372,260 @@ void BowieComms::print8Bits(byte c){
     Serial.write(nibble + 0x30);
   else
     Serial.write(nibble + 0x37);
+}
+
+
+/*
+
+---- Generic Conn Related ----
+
+*/
+
+void BowieComms::connRead() {
+
+  char c;
+
+  if(CONN_TYPE == PI_CONN) {
+
+    while(Serial1.available()) {
+      c = Serial1.read();
+      promulgate.organize_message(c);
+      Serial << c;
+      if(c == '!' || c == '?' || c == ';') Serial << endl;
+    }
+
+  } else if(CONN_TYPE == XBEE_CONN) {
+
+    while(xbeeRead()) {
+      //Serial << "\n<< ";
+      for(int i=0; i<=rx.getDataLength(); i++) {
+        c = message_rx[i];
+        promulgate.organize_message(c);
+        Serial << c;
+        if(c == '!' || c == '?' || c == ';') Serial << endl;
+      }
+    }
+
+  } else if(CONN_TYPE == GPS_CONN) {
+
+    while(Serial3.available()) {
+      c = Serial3.read();
+      promulgate.organize_message(c);
+      Serial << c;
+      if(c == '!' || c == '?' || c == ';') Serial << endl;
+    }
+
+  } else if(CONN_TYPE == PIXY_CONN) {
+
+    while(Serial4.available()) {
+      c = Serial4.read();
+      promulgate.organize_message(c);
+      Serial << c;
+      if(c == '!' || c == '?' || c == ';') Serial << endl;
+    }
+
+  } else if(CONN_TYPE == BT_CONN) {
+
+    while(Serial5.available()) {
+      c = Serial5.read();
+      promulgate.organize_message(c);
+      Serial << c;
+      if(c == '!' || c == '?' || c == ';') Serial << endl;
+    }
+
+  } else if(CONN_TYPE == ARDUINO_CONN) {
+
+    while(Serial6.available()) {
+      c = Serial6.read();
+      promulgate.organize_message(c);
+      Serial << c;
+      if(c == '!' || c == '?' || c == ';') Serial << endl;
+    }
+
+  }
+
+}
+
+void BowieComms::connBlink() {
+  if(current_time-last_led_blink >= 100) {
+    if(current_time-last_rx <= 6000 && current_time > 6000) { // the last bit is to make sure it doesn't turn on on startup
+      digitalWrite(COMM_LED, led_on);
+      led_on = !led_on;
+    } else {
+      digitalWrite(COMM_LED, LOW);
+    }
+    last_led_blink = current_time;
+  }
+}
+
+void BowieComms::connSend(Msg m) {
+
+  sprintf(message_tx,"%c%c%d,%d,%c%d,%d%c", m.action, m.pck1.cmd, m.pck1.key, m.pck1.val, m.pck2.cmd, m.pck2.key, m.pck2.val, m.delim);
+  
+  Serial << "Conn TX: " << message_tx << endl;
+
+  if(CONN_TYPE == PI_CONN) {
+
+    Serial1.print(message_tx);
+    last_tx = current_time;
+
+  } else if(CONN_TYPE == XBEE_CONN) {
+
+    for(int i=0; i<num_addrs; i++) {
+      if(addr_all_controllers[i].getMsb() != 0 && addr_all_controllers[i].getLsb() != 0) {
+        Serial << "Xbee TX: " << message_tx << endl;
+        ZBTxRequest zbtx = ZBTxRequest(addr_all_controllers[i], (uint8_t *)message_tx, strlen(message_tx));
+        zbtx.setFrameId('0');
+        xbee.send(zbtx); 
+        ind_addr_sent = i;
+        last_tx = current_time;
+      }
+    }
+    last_tx = current_time;
+
+  } else if(CONN_TYPE == GPS_CONN) {
+
+    Serial3.print(message_tx);
+    last_tx = current_time;
+
+  } else if(CONN_TYPE == PIXY_CONN) {
+
+    #ifdef HAS_KINETISK_UART3
+    Serial4.print(message_tx);
+    last_tx = current_time;
+    #endif
+
+  } else if(CONN_TYPE == BT_CONN) {
+
+    #ifdef HAS_KINETISK_UART4
+    Serial5.print(message_tx);
+    last_tx = current_time;
+    #endif
+
+  } else if(CONN_TYPE == ARDUINO_CONN) {
+
+    #if defined(HAS_KINETISK_UART5) || defined (HAS_KINETISK_LPUART0)
+    Serial6.print(message_tx);
+    last_tx = current_time;
+    #endif
+
+  }
+
+}
+
+void BowieComms::connSend(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim) {
+
+  sprintf(message_tx,"%c%c%d,%d,%c%d,%d%c", action, cmd, key, val, cmd2, key2, val2, delim);
+
+  Serial << "Conn TX: " << message_tx << endl;
+
+  if(CONN_TYPE == PI_CONN) {
+
+    Serial1.print(message_tx);
+    last_tx = current_time;
+
+  } else if(CONN_TYPE == XBEE_CONN) {
+
+    for(int i=0; i<num_addrs; i++) {
+      if(addr_all_controllers[i].getMsb() != 0 && addr_all_controllers[i].getLsb() != 0) {
+        Serial << "Xbee TX: " << message_tx << endl;
+        ZBTxRequest zbtx = ZBTxRequest(addr_all_controllers[i], (uint8_t *)message_tx, strlen(message_tx));
+        zbtx.setFrameId('0');
+        xbee.send(zbtx); 
+        ind_addr_sent = i;
+        last_tx = current_time;
+      }
+    }
+    last_tx = current_time;
+
+  } else if(CONN_TYPE == GPS_CONN) {
+
+    Serial3.print(message_tx);
+    last_tx = current_time;
+
+  } else if(CONN_TYPE == PIXY_CONN) {
+
+    #ifdef HAS_KINETISK_UART3
+    Serial4.print(message_tx);
+    last_tx = current_time;
+    #endif
+
+  } else if(CONN_TYPE == BT_CONN) {
+
+    #ifdef HAS_KINETISK_UART4
+    Serial5.print(message_tx);
+    last_tx = current_time;
+    #endif
+
+  } else if(CONN_TYPE == ARDUINO_CONN) {
+
+    #if defined(HAS_KINETISK_UART5) || defined (HAS_KINETISK_LPUART0)
+    Serial6.print(message_tx);
+    last_tx = current_time;
+    #endif
+
+  }
+ 
+}
+
+// this is only used in case of debugging
+void BowieComms::connSendEasy(char c) {
+
+  sprintf(message_tx,"%c", c);
+
+  Serial << "Conn TX: " << message_tx << endl;
+
+  if(CONN_TYPE == PI_CONN) {
+
+    Serial1.print(message_tx);
+    last_tx = current_time;
+
+  } else if(CONN_TYPE == XBEE_CONN) {
+
+    for(int i=0; i<num_addrs; i++) {
+      if(addr_all_controllers[i].getMsb() != 0 && addr_all_controllers[i].getLsb() != 0) {
+        Serial << "[" << i << "] Xbee TX: " << message_tx << " - ";
+        print32Bits(addr_all_controllers[i].getMsb());
+        Serial << " ";
+        print32Bits(addr_all_controllers[i].getLsb());
+        Serial << endl;
+              
+        ZBTxRequest zbtx = ZBTxRequest(addr_all_controllers[i], (uint8_t *)message_tx, strlen(message_tx));
+        zbtx.setFrameId('0');
+        xbee.send(zbtx); 
+        ind_addr_sent = i;
+      }
+    }
+    last_tx = current_time;
+
+  } else if(CONN_TYPE == GPS_CONN) {
+
+    Serial3.print(message_tx);
+    last_tx = current_time;
+
+  } else if(CONN_TYPE == PIXY_CONN) {
+
+    #ifdef HAS_KINETISK_UART3
+    Serial4.print(message_tx);
+    last_tx = current_time;
+    #endif
+
+  } else if(CONN_TYPE == BT_CONN) {
+
+    #ifdef HAS_KINETISK_UART4
+    Serial5.print(message_tx);
+    last_tx = current_time;
+    #endif
+
+  } else if(CONN_TYPE == ARDUINO_CONN) {
+
+    #if defined(HAS_KINETISK_UART5) || defined (HAS_KINETISK_LPUART0)
+    Serial6.print(message_tx);
+    last_tx = current_time;
+    #endif
+
+  }
+
 }
 
 
@@ -408,7 +668,7 @@ void BowieComms::processAction(Msg m) {
     if(m.pck1.cmd == 'X' || m.pck2.cmd == 'X') {
       // reply with our id
       delay(20);
-      xbeeSend('$', 'W', 1, ROBOT_ID, 'W', 1, ROBOT_ID, '!' );
+      connSend('$', 'W', 1, ROBOT_ID, 'W', 1, ROBOT_ID, '!' );
     }
   } else {
     chooseNextMessage();
@@ -430,7 +690,7 @@ void BowieComms::transmitDidComplete() {
 
 void BowieComms::sendNextMsg() {
   Msg m = popNextMsg();
-  xbeeSend(m);
+  connSend(m);
 }
 
 

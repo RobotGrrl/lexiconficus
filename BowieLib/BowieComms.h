@@ -48,6 +48,14 @@
 // Vars
 #define HEARTBEAT_MS 1000
 
+// Connectivity
+#define PI_CONN 1
+#define XBEE_CONN 2
+#define GPS_CONN 3   // probably will not be used, but including it just in case
+#define PIXY_CONN 4  // same as above
+#define BT_CONN 5
+#define ARDUINO_CONN 6
+
 struct Packet {
   char cmd;
   uint8_t key;
@@ -71,7 +79,7 @@ class BowieComms {
   public:
 
     BowieComms();
-    void initComms();
+    void initComms(int conn);
     void updateComms();
     void setCommLed(uint8_t pin);
     unsigned long getCommLatency();
@@ -135,12 +143,11 @@ class BowieComms {
     void removePeriodicMessage(uint8_t remove_ind);
     void removePeriodicMessage(Msg m);
 
-    
-
-    // Xbee
-    void xbeeSend(Msg m);
-    void xbeeSend(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim);
-    void xbeeSendEasy(char c);
+    // Conn
+    void connRead();
+    void connSend(Msg m);
+    void connSend(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim);
+    void connSendEasy(char c);
 
   private:
 
@@ -152,6 +159,7 @@ class BowieComms {
 
     // Custom
     uint8_t COMM_LED;
+    uint8_t CONN_TYPE;
 
     // Comms
     uint8_t msgs_in_queue;
@@ -160,12 +168,14 @@ class BowieComms {
     unsigned long last_rx_comms;
     uint8_t unlikely_count = 0;
 
+    // Conn
+    void connBlink();
+
     // Xbee
     void addXbeeToList(XBeeAddress64 newAddr);
     void updateRxTime(XBeeAddress64 senderLongAddress);
     void xbeeWatchdog();
     bool xbeeRead();
-    void xbeeBlink();
     void print32Bits(uint32_t dw);
     void print16Bits(uint16_t w);
     void print8Bits(byte c);
