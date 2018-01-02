@@ -97,6 +97,7 @@ class BowieComms {
     unsigned long diff_time;
     unsigned long last_rx_msg;
     unsigned long last_transmit;
+    bool use_base64_parsing; // false by default
 
     // Xbee
     XBee xbee = XBee();

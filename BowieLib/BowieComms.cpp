@@ -13,6 +13,7 @@ BowieComms::BowieComms() {
   diff_time = 0;
   last_rx_msg = 0;
   last_transmit = 0;
+  use_base64_parsing = false;
 
   // Xbee
   xbee = XBee();
@@ -162,6 +163,10 @@ void BowieComms::initComms(int conn) {
   promulgate.set_rx_callback(received_action);
   promulgate.set_tx_callback(transmit_complete);
   promulgate.set_debug_stream(&Serial);
+
+  if(use_base64_parsing) {
+    promulgate.useBase64Parsing(true);
+  }
 
 }
 
