@@ -64,6 +64,12 @@ class BowieDrive {
     void turnSequence(bool dir);
     void resetTurnSequence();
 
+    // getters
+    int getMotorASpeed();
+    int getMotorBSpeed();
+    bool getMotorADir();
+    bool getMotorBDir();
+
   private:
 
     // pins
@@ -79,6 +85,12 @@ class BowieDrive {
 
     // other
     long current_time;
+
+    // info
+    int motor_a_speed;
+    int motor_b_speed;
+    bool motor_a_dir;
+    bool motor_b_dir;
 
     // driving algorithms
     uint8_t turn_sequence_step;

@@ -138,9 +138,15 @@ class MegaBowieShoreline {
     bool LOGGING_ENABLED; // true by default
     bool TURN_SEQUENCE_MODE; // true by default
 
+    // Other
     uint8_t unlikely_count;
     long current_time;
     long last_ctrl;
+    long last_update_periodic;
+
+    // Periodic messages
+    Msg current_sensor_periodic;
+    void updatePeriodicMessages();
 
     // Comms Callbacks - Arduino
     static void receivedAction_Arduino(Msg m);

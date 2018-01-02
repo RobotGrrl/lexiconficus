@@ -42,13 +42,16 @@ class BowieLights {
     void turnOnLights();
     void turnOffLights();
     void dimLights();
-    void setLight(uint8_t led_num, uint8_t led_val);
+    void setLight(uint8_t led_num, uint8_t val);
+    int getLight(uint8_t p);
 
   private:
     uint8_t BRIGHT_LED_FRONT_LEFT;
     uint8_t BRIGHT_LED_BACK_LEFT;
     uint8_t BRIGHT_LED_FRONT_RIGHT;
     uint8_t BRIGHT_LED_BACK_RIGHT;
+
+    uint8_t led_val[4];
 
 };
 

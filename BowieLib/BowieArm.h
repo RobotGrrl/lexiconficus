@@ -45,7 +45,7 @@ class BowieArm {
     void setArm1ServoPin(uint8_t p);
     void setArm2ServoPin(uint8_t p);
     void initServos();
-
+    
     // Callback
     void setServoInterruptCallback( void (*servoInterruptCallback)(int key, int val) );
 

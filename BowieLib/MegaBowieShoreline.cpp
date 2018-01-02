@@ -15,6 +15,10 @@ MegaBowieShoreline::MegaBowieShoreline() {
   unlikely_count = 0;
   current_time = 0;
   last_ctrl = 0;
+  last_update_periodic = 0;
+
+  current_sensor_periodic = bowiecomms_xbee.msg_none;
+  
 }
 
 MegaBowieShoreline *MegaBowieShoreline::bowieInstance;
@@ -112,11 +116,7 @@ void MegaBowieShoreline::begin() {
 
   bowiecomms_xbee.initComms(XBEE_CONN);
 
-  // TODO - current sensors
-  /*
-  bowiecomms_xbee.addPeriodicMessage(random_periodic1);
-  bowiecomms_xbee.addPeriodicMessage(random_periodic2);
-  */
+  bowiecomms_xbee.addPeriodicMessage(current_sensor_periodic);
 
   // Arduino Comms
   bowiecomms_arduino = BowieComms();
@@ -129,6 +129,8 @@ void MegaBowieShoreline::begin() {
 
   bowiecomms_arduino.initComms(ARDUINO_CONN);
 
+  bowiecomms_arduino.addPeriodicMessage(current_sensor_periodic);
+  
 }
 
 
@@ -187,9 +189,6 @@ void MegaBowieShoreline::commsTimeout_Arduino() {
   // The comms timed out. You can do an action here, such as
   // turning off the motors and sending them back to the 
   // home positions.
-
-  // TODO
-
 }
 
 void MegaBowieShoreline::controllerAdded_Arduino() {
@@ -244,9 +243,6 @@ void MegaBowieShoreline::commsTimeout_Xbee() {
   // The comms timed out. You can do an action here, such as
   // turning off the motors and sending them back to the 
   // home positions.
-
-  // TODO
-
 }
 
 void MegaBowieShoreline::controllerAdded_Xbee() {
@@ -308,7 +304,13 @@ void MegaBowieShoreline::update(bool force_no_sleep) {
   updateLogSensorData();
   bowielogger.updateLogging();
 
-  // TODO monitoring current and logging
+  // periodic
+  if(current_time-last_update_periodic >= 1000) {
+    updatePeriodicMessages();
+    last_update_periodic = current_time;
+  }
+
+  // TODO monitoring current
   
 }
 
@@ -529,8 +531,71 @@ void MegaBowieShoreline::processServoInterrupt(int key, int val) {
 }
 
 void MegaBowieShoreline::updateLogSensorData() {
-  // TODO all of the sensor data here
+  
   bowielogger.setLogData_t(LOG_TIME, now());
+  bowielogger.setLogData_u8(LOG_MOTOR_A_SPEED, bowiedrive.getMotorASpeed());
+  int r = 99;
+  bool b = bowiedrive.getMotorADir();
+  b = !b; // have to reverse it to make sense for the logging (now 1 = fwd)
+  r = b ? 1 : 0;
+  bowielogger.setLogData_u8(LOG_MOTOR_A_DIR, r);
+
+  bowielogger.setLogData_u8(LOG_MOTOR_B_SPEED, bowiedrive.getMotorBSpeed());
+  r = 99;
+  b = bowiedrive.getMotorBDir();
+  b = !b; // have to reverse it to make sense for the logging (now 1 = fwd)
+  r = b ? 1 : 0;
+  bowielogger.setLogData_u8(LOG_MOTOR_B_DIR, r);
+
+  bowielogger.setLogData_u16(LOG_MOTOR_CURRENT_SENSOR, motorCurrent.getCurrentSensorReading());
+
+  bowielogger.setLogData_u16(LOG_SERVO_POS_ARM_L, bowiearm.getArmPos());
+  bowielogger.setLogData_u16(LOG_SERVO_POS_ARM_R, SERVO_MAX_US - bowiearm.getArmPos() + SERVO_MIN_US);
+  bowielogger.setLogData_u16(LOG_SERVO_POS_END, bowiescoop.getEndPos());
+  bowielogger.setLogData_u16(LOG_SERVO_POS_HOPPER, bowiehopper.getHopperPos());
+  bowielogger.setLogData_u16(LOG_SERVO_POS_LID, bowiehopper.getLidPos());
+  bowielogger.setLogData_u16(LOG_SERVO_POS_EXTRA, 0);
+  bowielogger.setLogData_u16(LOG_SERVO_CURRENT_SENSOR, servoCurrent.getCurrentSensorReading());
+
+  bowielogger.setLogData_u8(LOG_LED_FRONT_L, bowielights.getLight(0));
+  bowielogger.setLogData_u8(LOG_LED_FRONT_R, bowielights.getLight(1));
+  bowielogger.setLogData_u8(LOG_LED_BACK_L, bowielights.getLight(2));
+  bowielogger.setLogData_u8(LOG_LED_BACK_R, bowielights.getLight(3));
+
+  // TODO - remainder of the IMU & GPS vars
+  bowielogger.setLogData_f(LOG_IMU_PITCH, 0.0);
+  bowielogger.setLogData_f(LOG_IMU_ROLL, 0.0);
+  bowielogger.setLogData_f(LOG_IMU_YAW, 0.0);
+  bowielogger.setLogData_f(LOG_COMPASS_HEADING, 0.0);
+  bowielogger.setLogData_f(LOG_GPS_LATITUDE, 0.0);
+  bowielogger.setLogData_f(LOG_GPS_LONGITUDE, 0.0);
+  bowielogger.setLogData_f(LOG_GPS_ALTITUDE, 0.0);
+
+  // TODO - battery sensor
+  bowielogger.setLogData_u16(LOG_BATTERY_SENSOR, analogRead(A24));  
+
+  bowielogger.setLogData_u16(LOG_COMM_XBEE_LATENCY, bowiecomms_xbee.getCommLatency());
+  bowielogger.setLogData_u16(LOG_COMM_ARDUINO_LATENCY, bowiecomms_arduino.getCommLatency());
+
+}
+
+void MegaBowieShoreline::updatePeriodicMessages() {
+  // Updating our periodic messages
+
+  current_sensor_periodic.priority = 10;
+  current_sensor_periodic.action = '#';
+  current_sensor_periodic.pck1.cmd = 'E';
+  current_sensor_periodic.pck1.key = 1;
+  current_sensor_periodic.pck1.val = motorCurrent.getCurrentSensorReading();
+  current_sensor_periodic.pck2.cmd = 'F';
+  current_sensor_periodic.pck2.key = 1;
+  current_sensor_periodic.pck2.val = servoCurrent.getCurrentSensorReading();
+  current_sensor_periodic.delim = '!';
+
+  bowiecomms_xbee.updatePeriodicMessage(current_sensor_periodic);
+  
+  bowiecomms_arduino.updatePeriodicMessage(current_sensor_periodic);
+  
 }
 
 
@@ -857,7 +922,10 @@ void MegaBowieShoreline::moveArmAndEnd(int armPos, int step, int del, int armMin
   int hopper_original_pos = bowiehopper.getHopperPos();
   int endPos = 0;
 
-  if(bowiearm.getArmPos() == ARM_MIN && bowiescoop.getScoopPos() < END_MAX) { // check if the arm is down and if the end is going past being down
+  int arm_position = 0;
+  int end_position = 0;
+
+  if(bowiearm.getArmPos() == ARM_MIN && bowiescoop.getEndPos() < END_MAX) { // check if the arm is down and if the end is going past being down
     Serial << "!!! Cannot move end-effector here when arm down" << endl;
     return;
   }
@@ -883,7 +951,7 @@ void MegaBowieShoreline::moveArmAndEnd(int armPos, int step, int del, int armMin
       //if(SERVO_OVER_CURRENT_SHUTDOWN) return; // break out of here so the pos doesn't keep moving
     }
   } else if(bowiearm.getArmPos() <= armPos) { // headed towards ARM_MAX
-    for(int i=getArmPos(); i<armPos; i+=step) {
+    for(int i=bowiearm.getArmPos(); i<armPos; i+=step) {
       bowiearm.arm.writeMicroseconds(i);
       bowiearm.arm2.writeMicroseconds(SERVO_MAX_US - i + SERVO_MIN_US);
       endPos = clawParallelValBounds(i, armMin, armMax, endMin, endMax);

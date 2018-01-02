@@ -53,9 +53,9 @@
 // --
 // if you have more or less data, modify these three variables below
 
-#define NUM_DATA_POINTS 26
+#define NUM_DATA_POINTS 27
 
-struct LogLine { // 25 points
+struct LogLine { // 26 points
   time_t sample_time;
   uint8_t motor_a_speed;
   uint8_t motor_a_dir;
@@ -81,7 +81,8 @@ struct LogLine { // 25 points
   float gps_longitude;
   float gps_altitude;
   uint16_t battery_sensor;
-  uint16_t comm_latency;
+  uint16_t comm_xbee_latency;
+  uint16_t comm_arduino_latency;
 };
 
 #define LOG_TIME 0
@@ -111,7 +112,8 @@ struct LogLine { // 25 points
 #define LOG_GPS_LONGITUDE 22
 #define LOG_GPS_ALTITUDE 23
 #define LOG_BATTERY_SENSOR 24
-#define LOG_COMM_LATENCY 25
+#define LOG_COMM_XBEE_LATENCY 25
+#define LOG_COMM_ARDUINO_LATENCY 26
 
 // --
 

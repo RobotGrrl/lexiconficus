@@ -19,14 +19,8 @@ $ X = id
 
 Robot -> Operator
 -----------------
-A = accelerometer
-O = gyroscope
-F = force sensors
-U = sonar sensors
-M = magnetometer
-H = altitude
-I = gpio
-T = temperature
+# E = motor current sensor
+# F = servo current sensor
 @ Z = reserved for testing
 $ W = id
 

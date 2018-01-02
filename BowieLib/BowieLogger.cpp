@@ -38,10 +38,11 @@ BowieLogger::BowieLogger() {
   log_headers[22] = "GPS Longitude";
   log_headers[23] = "GPS Altitude";
   log_headers[24] = "Battery";
-  log_headers[25] = "Comm Latency";
+  log_headers[25] = "Comm Xbee Latency";
+  log_headers[26] = "Comm Arduino Latency";
 
   logdata = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
   LOGGING = false;
   logging_path = "";

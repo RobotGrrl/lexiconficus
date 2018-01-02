@@ -8,6 +8,12 @@ BowieDrive::BowieDrive() {
   // other
   current_time = 0;
 
+  // info
+  motor_a_speed = 0;
+  motor_b_speed = 0;
+  motor_a_dir = true;
+  motor_b_dir = true;
+
   // driving algorithms
   turn_sequence_step = 0;
   restart_step_timer = true;
@@ -54,25 +60,33 @@ void BowieDrive::setMotorBCtrl2Pin(uint8_t p) {
   MOTORB_CTRL2 = p;
 }
 
-// ---- Motors
-// Thanks to Randy Glenn for writing this code before a Field Test in 2016!
+
+/*
+
+---- Motors ----
+Thanks to Randy Glenn for writing this code before a Field Test in 2016!
+*/
 
 void BowieDrive::motor_setDir(uint8_t motorNum, bool dir) {
   if(0 == motorNum) {
     if(dir) {
       digitalWrite(MOTORA_CTRL1, LOW);
-      digitalWrite(MOTORA_CTRL2, HIGH);        
+      digitalWrite(MOTORA_CTRL2, HIGH);
+      motor_a_dir = true;
     } else {
       digitalWrite(MOTORA_CTRL1, HIGH);
       digitalWrite(MOTORA_CTRL2, LOW);
+      motor_a_dir = false;
     }
   } else if(1 == motorNum) {
     if(dir) {
       digitalWrite(MOTORB_CTRL2, LOW);
-      digitalWrite(MOTORB_CTRL1, HIGH);    
+      digitalWrite(MOTORB_CTRL1, HIGH);  
+      motor_b_dir = true;  
     } else {
       digitalWrite(MOTORB_CTRL2, HIGH);
-      digitalWrite(MOTORB_CTRL1, LOW);    
+      digitalWrite(MOTORB_CTRL1, LOW);
+      motor_b_dir = false;
     }    
   }
 }
@@ -80,8 +94,10 @@ void BowieDrive::motor_setDir(uint8_t motorNum, bool dir) {
 void BowieDrive::motor_setSpeed(uint8_t motorNum, uint8_t speed) {
   if(0 == motorNum) {
     analogWrite(MOTORA_SPEED, speed);
+    motor_a_speed = speed;
   } else if(1 == motorNum) {
     analogWrite(MOTORB_SPEED, speed);
+    motor_b_speed = speed;
   }
 }
 
@@ -110,7 +126,12 @@ void BowieDrive::leftBork() {
   analogWrite(MOTORA_SPEED, 0);
 }
 
-// ---- Driving Algorithms
+
+/*
+
+---- Driving Algorithms ----
+
+*/
 
 void BowieDrive::rampSpeed(bool dir, int start, int end, int step, int del) {
   if(start < end) {
@@ -291,5 +312,28 @@ void BowieDrive::turnSequence(bool dir) { // true = right, false = left
 void BowieDrive::resetTurnSequence() {
   restart_step_timer = true;
   turn_sequence_step = 0;
+}
+
+
+/*
+
+---- Getters ----
+
+*/
+
+int BowieDrive::getMotorASpeed() {
+  return motor_a_speed;
+}
+
+int BowieDrive::getMotorBSpeed() {
+  return motor_b_speed;
+}
+
+bool BowieDrive::getMotorADir() {
+  return motor_a_dir;
+}
+
+bool BowieDrive::getMotorBDir() {
+  return motor_b_dir;
 }
 
