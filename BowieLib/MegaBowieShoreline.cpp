@@ -5,9 +5,12 @@ MegaBowieShoreline::MegaBowieShoreline() {
   // Instance of the class for the callbacks from Promulgate
   bowieInstance = this;
 
+  EZ_DEBUG = true;
+
   REMOTE_OP_ENABLED = true;
   PREVENT_OVER_CURRENT = false;
   LOGGING_ENABLED = true;
+  TURN_SEQUENCE_MODE = true;
 
   unlikely_count = 0;
   current_time = 0;
@@ -109,7 +112,7 @@ void MegaBowieShoreline::begin() {
 
   bowiecomms_xbee.initComms(XBEE_CONN);
 
-  // TODO
+  // TODO - current sensors
   /*
   bowiecomms_xbee.addPeriodicMessage(random_periodic1);
   bowiecomms_xbee.addPeriodicMessage(random_periodic2);
@@ -272,37 +275,40 @@ void MegaBowieShoreline::update(bool force_no_sleep) {
 
   current_time = millis();
 
+  // comms
+  bowiecomms_xbee.updateComms();
+  bowiecomms_arduino.updateComms();
+
   // specific things to do if remote operation is enabled
   if(REMOTE_OP_ENABLED) {
 
     if(!force_no_sleep) {
+      // go to sleep if we haven't heard in a while
       if(millis()-last_ctrl >= REMOTE_OP_TIMEOUT) {
-
-        // TODO
-        /*
         digitalWrite(COMM_LED, LOW);
-        motor_setDir(0, MOTOR_DIR_REV);
-        motor_setSpeed(0, 0);
-        motor_setDir(1, MOTOR_DIR_REV);
-        motor_setSpeed(1, 0);
-        parkArm();
-        parkEnd();
-        parkHopper();
-        parkLid();
-        */
-
+        bowiedrive.motor_setDir(0, MOTOR_DIR_REV);
+        bowiedrive.motor_setSpeed(0, 0);
+        bowiedrive.motor_setDir(1, MOTOR_DIR_REV);
+        bowiedrive.motor_setSpeed(1, 0);
+        bowielights.dimLights();
+        bowiearm.parkArm();
+        bowiescoop.parkEnd();
+        bowiehopper.parkHopper();
+        bowiehopper.parkLid();
       }
     }
     
   }
 
+  // sensors
   servoCurrent.updateCurrentSensor();
   motorCurrent.updateCurrentSensor();
 
+  // log
   updateLogSensorData();
   bowielogger.updateLogging();
 
-  // todo: monitoring current and logging
+  // TODO monitoring current and logging
   
 }
 
@@ -312,31 +318,21 @@ void MegaBowieShoreline::control(Msg m) {
 
   Packet packets[2] = { m.pck1, m.pck2 };
 
-  // TODO
-  /*
-  if(COMM_DEBUG) {
+  if(EZ_DEBUG) {
     Serial << "*c1 cmd: " << packets[0].cmd << " key: " << packets[0].key << " val: " << packets[0].val << endl;
     Serial << "*c2 cmd: " << packets[1].cmd << " key: " << packets[1].key << " val: " << packets[1].val << endl;
   }
-  */
 
   // we've seen this happen *sometimes*, and it is highly unlikely that this would be an
   // intentional command. let's make sure they mean this at least 2 times before listening
-  
-  // TODO
-  /*
-  if(val == 255 && val2 == 255 && cmd == 'L' && cmd2 == 'R') {
+  if(m.pck1.val == 255 && m.pck2.val == 255 && m.pck1.cmd == 'L' && m.pck2.cmd == 'R') {
     unlikely_count++;
     if(unlikely_count <= 2) return;
   } else {
     unlikely_count = 0;
   }
-  */
 
-  // TODO
-  /*
-
-  if(action == '#') {
+  if(m.action == '#') {
 
     for(int i=0; i<2; i++) {
 
@@ -350,98 +346,136 @@ void MegaBowieShoreline::control(Msg m) {
         }
       }
 
-      if(packets[i].cmd == 'G') { // green button
-        if(packets[i].val == 1) { // collect (fast)
+      if(packets[i].cmd == 'G') { // green button - dump
+        if(packets[i].val == 1) {
+          bool was_lid_parked = bowiehopper.getLidParked();
+          if(was_lid_parked) bowiehopper.unparkLid();
+          bowiehopper.moveLid(LID_MIN, 5, 1); // open lid
+          delay(50);
+          bowiescoop.moveEnd(END_MIN, 3, 2); // dump scoop
+          delay(300);
+          bowiescoop.moveEnd(END_PARALLEL_TOP, 5, 1); // back into position
+          bowiehopper.moveLid(LID_MAX, 5, 1); // close lid
+          if(was_lid_parked) bowiehopper.parkLid();
         }
       }
 
-      if(packets[i].cmd == 'W') { // white button
-        if(packets[i].val == 1) { // deposit
+      if(packets[i].cmd == 'W') { // white button - scoop slow
+        if(packets[i].val == 1) {
+          scoopSequence(1000);
         }
       }
 
-      if(packets[i].cmd == 'B') { // blue button
-        if(packets[i].val == 1) { // collect (slow)
+      if(packets[i].cmd == 'B') { // blue button - scoop fast
+        if(packets[i].val == 1) {
+          scoopSequence(0);
         }
       }
 
-      if(packets[i].cmd == 'N') { // black button
-        if(packets[i].val == 1) { // dance
+      if(packets[i].cmd == 'N') { // black button - empty
+        if(packets[i].val == 1) {
+          bool was_hopper_parked = bowiehopper.getHopperParked();
+          if(was_hopper_parked) bowiehopper.unparkHopper();
+          bool was_lid_parked = bowiehopper.getLidParked();
+          if(was_lid_parked) bowiehopper.unparkLid();
+          deposit();
+          if(was_hopper_parked) bowiehopper.parkHopper();
+          if(was_lid_parked) bowiehopper.parkLid();
         }
       }
 
     }
   } // -- end of '#' action specifier
 
-  */
+  if(m.action == '@') {
 
-  // TODO
-  /*
+    if(packets[0].cmd == 'L' && packets[0].key == 1 && packets[1].cmd == 'R' && packets[1].key == 0) {
+      // turning right
+      if(TURN_SEQUENCE_MODE) {
+        bowiedrive.turnSequence(false);
+      } else {
+        bowielights.setLight(1, MAX_BRIGHTNESS);
+        bowielights.setLight(3, MIN_BRIGHTNESS);
+        bowiedrive.motor_setDir(1, MOTOR_DIR_FWD);
+        bowiedrive.motor_setSpeed(1, 255);
 
-  if(action == '@') {
-
-    if(TURN_SEQUENCE_MODE) {
-      if(packets[0].cmd == 'L' && packets[0].key == 1 && packets[1].cmd == 'R' && packets[1].key == 0) {
-        // turning right
-        //last_activated_turn_sequence = millis();
-        turnSequence(false);
-        return; // we don't want the default stuff below in this mode
-      } else if(packets[0].cmd == 'L' && packets[0].key == 0 && packets[1].cmd == 'R' && packets[1].key == 1) {
-        // turning left
-        //last_activated_turn_sequence = millis();
-        turnSequence(true);
-        return; // we don't want the default stuff below in this mode
+        bowielights.setLight(0, MIN_BRIGHTNESS);
+        bowielights.setLight(2, MAX_BRIGHTNESS);
+        bowiedrive.motor_setDir(0, MOTOR_DIR_REV);
+        bowiedrive.motor_setSpeed(0, 255);
       }
+      return; // we don't want the default stuff below when turning
+    } else if(packets[0].cmd == 'L' && packets[0].key == 0 && packets[1].cmd == 'R' && packets[1].key == 1) {
+      // turning left
+      if(TURN_SEQUENCE_MODE) {
+        bowiedrive.turnSequence(true);
+      } else {
+        bowielights.setLight(0, MAX_BRIGHTNESS);
+        bowielights.setLight(2, MIN_BRIGHTNESS);
+        bowiedrive.motor_setDir(0, MOTOR_DIR_FWD);
+        bowiedrive.motor_setSpeed(0, 255);
+        
+        bowielights.setLight(1, MIN_BRIGHTNESS);
+        bowielights.setLight(3, MAX_BRIGHTNESS);
+        bowiedrive.motor_setDir(1, MOTOR_DIR_REV);
+        bowiedrive.motor_setSpeed(1, 255);
+      }
+      return; // we don't want the default stuff below when turning
     }
     
     // stop the motors when zeroed
     if(packets[0].cmd == 'L' && packets[0].key == 0 && packets[0].val == 0 && packets[1].cmd == 'R' && packets[1].key == 0 && packets[1].val == 0) {
-      motor_setDir(0, MOTOR_DIR_FWD);
-      motor_setSpeed(0, 0);
-      motor_setDir(1, MOTOR_DIR_FWD);
-      motor_setSpeed(1, 0);
+      // TODO (future) ramp this down from last speed
+      bowiedrive.motor_setDir(0, MOTOR_DIR_FWD);
+      bowiedrive.motor_setSpeed(0, 0);
+      bowiedrive.motor_setDir(1, MOTOR_DIR_FWD);
+      bowiedrive.motor_setSpeed(1, 0);
     }
 
     // if it reaches here, then we know we can reset this flag
-    resetTurnSequence();
+    bowiedrive.resetTurnSequence();
 
     for(int i=0; i<2; i++) {
 
       if(packets[i].cmd == 'L') { // left motor
         if(packets[i].val > 255) packets[i].key = 99; // something weird here, set key to skip
         if(packets[i].key == 1) { // fwd
-          analogWrite(BRIGHT_LED_FRONT_LEFT, MAX_BRIGHTNESS);
+          bowielights.setLight(0, MAX_BRIGHTNESS);
+          bowielights.setLight(2, MIN_BRIGHTNESS);
           //leftBork();
-          motor_setDir(0, MOTOR_DIR_FWD);
-          motor_setSpeed(0, val);
+          bowiedrive.motor_setDir(0, MOTOR_DIR_FWD);
+          bowiedrive.motor_setSpeed(0, packets[i].val);
         } else if(packets[i].key == 0) { // bwd
-          analogWrite(BRIGHT_LED_FRONT_LEFT, MIN_BRIGHTNESS);
+          bowielights.setLight(0, MIN_BRIGHTNESS);
+          bowielights.setLight(2, MAX_BRIGHTNESS);
           //leftBork();
-          motor_setDir(0, MOTOR_DIR_REV);
-          motor_setSpeed(0, val);
+          bowiedrive.motor_setDir(0, MOTOR_DIR_REV);
+          bowiedrive.motor_setSpeed(0, packets[i].val);
         }
       }
 
       if(packets[i].cmd == 'R') { // right motor
         if(packets[i].val > 255) packets[i].key = 99; // something weird here, set key to skip
         if(packets[i].key == 1) { // fwd
-          digitalWrite(BRIGHT_LED_FRONT_RIGHT, HIGH);
+          bowielights.setLight(1, MAX_BRIGHTNESS);
+          bowielights.setLight(3, MIN_BRIGHTNESS);
           //leftBork();
-          motor_setDir(1, MOTOR_DIR_FWD);
-          motor_setSpeed(1, val);
+          bowiedrive.motor_setDir(1, MOTOR_DIR_FWD);
+          bowiedrive.motor_setSpeed(1, packets[i].val);
         } else if(packets[i].key == 0) { // bwd
-          digitalWrite(BRIGHT_LED_FRONT_RIGHT, LOW);
+          bowielights.setLight(1, MIN_BRIGHTNESS);
+          bowielights.setLight(3, MAX_BRIGHTNESS);
           //leftBork();
-          motor_setDir(1, MOTOR_DIR_REV);
-          motor_setSpeed(1, val);
+          bowiedrive.motor_setDir(1, MOTOR_DIR_REV);
+          bowiedrive.motor_setSpeed(1, packets[i].val);
         }
       }
       
       if(packets[i].cmd == 'S') { // arm (data from 0-100)
         
-        int temp_pos = getArmPos();
+        int temp_pos = bowiearm.getArmPos();
         int new_pos = temp_pos;
-        int the_increment = (int)map(val, 0, 100, 1, 70);
+        int the_increment = (int)map(packets[i].val, 0, 100, 1, 70);
 
         if(packets[i].key == 0) {
           new_pos -= the_increment;
@@ -455,18 +489,28 @@ void MegaBowieShoreline::control(Msg m) {
           moveArmAndEnd(new_pos, 3, 1, ARM_HOME, ARM_MAX, END_HOME-300, END_PARALLEL_TOP-200);
         }
 
-        Serial << "\narm angle: " << arm_position << endl;
       }
       
     }
   } // -- end of '@' action specifier
 
-  */
-
 }
 
 void MegaBowieShoreline::servoInterrupt(int key, int val) {
-  
+  bowieInstance->processServoInterrupt(key, val);
+}
+
+void MegaBowieShoreline::processServoInterrupt(int key, int val) {
+
+  // force a refresh if it's been a bit of time
+  if(current_time-bowiecomms_xbee.getLastRXTime() >= 500) {
+    bowiecomms_xbee.updateComms();
+  }
+
+  if(current_time-bowiecomms_arduino.getLastRXTime() >= 500) {
+    bowiecomms_arduino.updateComms();
+  }
+
   switch(key) {
     case SERVO_ARM_KEY:
     break;
@@ -478,13 +522,14 @@ void MegaBowieShoreline::servoInterrupt(int key, int val) {
     break;
     case SERVO_EXTRA_KEY:
     break;
+    case SERVO_ARM_AND_END_KEY:
+    break;
   }
 
 }
 
 void MegaBowieShoreline::updateLogSensorData() {
   // TODO all of the sensor data here
-
   bowielogger.setLogData_t(LOG_TIME, now());
 }
 
@@ -565,15 +610,249 @@ void MegaBowieShoreline::overCurrentThreshold_Motors(bool first) {
 
 /*
 
----- Combined movements ----
+---- Movements ----
 
 */
 
+void MegaBowieShoreline::scoopSequence(int frame_delay) {
+
+  // 1. move arm down (not all the way)
+  // 2. move scoop slightly above parallel
+  // 3. drive forward
+  // 4. move scoop to parallel a bit
+  // 5. drive forward
+  // 6. tilt up quickly
+  // 7. move down slightly slowly
+  // 8. tilt up quickly
+
+  //bool DEBUGGING_ANIMATION = false;
+  bool was_hopper_parked = bowiehopper.getHopperParked();
+  bool was_lid_parked = bowiehopper.getLidParked();
+
+  /*
+  if(was_hopper_parked) bowie.unparkHopper();
+  if(was_lid_parked) bowie.unparkLid();
+  */
+
+  // 2. 
+  bowiescoop.moveEnd(END_PARALLEL_BOTTOM, 5, 1);
+  delay(frame_delay);
+
+  // 1.
+  bowiearm.moveArm(ARM_MIN+100, 4, 4);
+  delay(frame_delay);
+
+
+  // 2. 
+  bowiescoop.moveEnd(END_PARALLEL_BOTTOM+300, 5, 1);
+  delay(frame_delay);
+
+
+  // 3.
+  // drive forward a bit
+  /*
+  Serial << "Going to MOTORS FWD 255...";
+  bowie.rampSpeed(true, 100, 255, 20, 10);
+  bowie.goSpeed(true, 255, 500);
+  // stop motors!
+  Serial << "Going to MOTORS FWD 0...";
+  bowie.rampSpeed(true, 255, 100, 10, 5);
+  bowie.goSpeed(true, 0, 0);
+  if(DEBUGGING_ANIMATION) delay(3000);
+  */
+
+  
+  // 4.
+  bowiescoop.moveEnd(END_PARALLEL_BOTTOM, 5, 1);
+  delay(frame_delay);
+
+
+  // 5.
+  // drive forward a bit
+  Serial << "Going to MOTORS FWD 255...";
+  bowiedrive.rampSpeed(true, 100, 255, 20, 10);
+  bowiedrive.goSpeed(true, 255, 250);
+  // stop motors!
+  Serial << "Going to MOTORS FWD 0...";
+  bowiedrive.rampSpeed(true, 255, 100, 10, 5);
+  bowiedrive.goSpeed(true, 0, 0);
+
+  delay(frame_delay);
+
+  // 6.
+  bowiescoop.moveEnd(END_PARALLEL_BOTTOM-700, 5, 1);
+  delay(frame_delay);
+
+  // 7.
+  bowiescoop.moveEnd(END_PARALLEL_BOTTOM-400, 5, 1);
+  delay(frame_delay);
+
+  // 8.
+  bowiescoop.moveEnd(END_PARALLEL_BOTTOM-700, 5, 1);
+  delay(frame_delay);
+
+  // -----------
+
+  // move arm up a bit
+  bowiearm.moveArm(ARM_MIN+100, 3, 1);
+
+  delay(frame_delay);
+
+  // tilt the scoop upwards to avoid losing the items
+  Serial << "Going to END_PARALLEL_BOTTOM-700...";
+  bowiescoop.moveEnd(END_PARALLEL_BOTTOM-700, 3, 1); // todo - check this again, its less than end min
+  delay(20);
+
+  delay(frame_delay);
+
+  // lift arm with scoop parallel to ground
+  // this has to be adjusted if going faster
+  Serial << "Going to ARM_HOME...";
+  moveArmAndEnd(ARM_HOME, 5, 2, ARM_MIN, ARM_HOME, END_PARALLEL_BOTTOM-700, END_HOME-550);//END_PARALLEL_BOTTOM-400);
+
+  delay(150);
+
+  delay(frame_delay);
+  
+  // lift arm with scoop parallel to ground
+  Serial << "Going to ARM_MAX...";
+  moveArmAndEnd(ARM_MAX, 3, 3, ARM_HOME, ARM_MAX, END_HOME-550, END_PARALLEL_TOP-400);//END_PARALLEL_BOTTOM-400, END_PARALLEL_TOP-100);
+  
+  delay(frame_delay);
+
+  // open lid
+  Serial << "Going to LID_MIN...";
+  bowiehopper.moveLid(LID_MIN, 5, 2);
+  
+  delay(frame_delay);
+
+  // dump scoop
+  Serial << "Going to END_MIN...";
+  bowiescoop.moveEnd(END_MIN, 5, 3);
+  
+  delay(frame_delay);
+
+  // bring scoop back to position
+  Serial << "Going to END_PARALLEL_TOP-200...";
+  bowiescoop.moveEnd(END_PARALLEL_TOP-200, 5, 3);
+  
+  delay(frame_delay);
+
+  // close lid
+  Serial << "Going to LID_MAX...";
+  bowiehopper.moveLid(LID_MAX, 5, 2);
+  
+  delay(frame_delay);
+
+  // 
+  // drive backward a bit
+  Serial << "Going to MOTORS FWD 255...";
+  bowiedrive.rampSpeed(false, 100, 255, 20, 10);
+  bowiedrive.goSpeed(false, 255, 100);
+  
+  // stop motors!
+  Serial << "Going to MOTORS FWD 0...";
+  bowiedrive.rampSpeed(false, 255, 100, 10, 5);
+  bowiedrive.goSpeed(true, 0, 5);
+  
+  delay(frame_delay);
+
+  // park arm
+  /*
+  Serial << "Parking arm...";
+  bowie.parkArm();
+  bowie.parkEnd();  
+  
+  if(DEBUGGING_ANIMATION) delay(3000);
+
+  if(was_hopper_parked) bowie.parkHopper();
+  if(was_lid_parked) bowie.parkLid();
+  */
+  
+}
+
+void MegaBowieShoreline::deposit() {
+
+  bool was_arm_parked = bowiearm.getArmParked();
+
+  // if the arm is up let's move it to home
+  if(was_arm_parked) {
+    bowiescoop.unparkEnd();
+    bowiearm.unparkArm();
+  }
+  int temp_arm = bowiearm.getArmPos();
+  int temp_end = bowiescoop.getEndPos();
+  if(temp_arm > 2000) {
+    bowiescoop.moveEnd(END_HOME);
+    bowiearm.moveArm(ARM_HOME);
+  }
+
+  bowiehopper.unparkHopper();
+  bowiehopper.unparkLid();
+
+  // open lid
+  Serial << "Going to LID_MIN";
+  bowiehopper.moveLid(LID_MIN, 3, 2);
+  Serial << " done" << endl;
+  delay(10);
+
+  Serial << "Going to TILT_MIN";
+  bowiehopper.moveHopper(TILT_MIN, 2, 2);
+  Serial << " done" << endl;
+  delay(100);
+
+  delay(1000);
+
+  Serial << "Shaking the hopper TILT_MIN+300 to TILT_MIN";
+  for(int i=0; i<3; i++) {
+    bowiehopper.moveHopper(TILT_MIN+300, 1, 2);
+    delay(50);
+    bowiehopper.moveHopper(TILT_MIN, 1, 2);
+    delay(50);
+  }
+  Serial << " done" << endl;
+
+  delay(1000);
+
+  Serial << "Going to TILT_MAX";
+  bowiehopper.moveHopper(TILT_MAX, 2, 2);
+  Serial << " done" << endl;
+  delay(100);
+
+  Serial << "Positioning closed just in case TILT_MAX-200 to TILT_MAX";
+  for(int i=0; i<2; i++) {
+    bowiehopper.moveHopper(TILT_MAX-200, 1, 2);
+    delay(50);
+    bowiehopper.moveHopper(TILT_MAX, 1, 2);
+    delay(50);
+  }
+  Serial << " done" << endl;
+
+  bowiehopper.parkHopper();
+
+  // close lid
+  Serial << "Going to LID_MAX";
+  bowiehopper.moveLid(LID_MAX, 3, 2);
+  Serial << " done" << endl;
+  delay(10);
+
+  bowiehopper.parkLid();
+
+  // moving the arm back
+  if(temp_arm > 2000) {
+    bowiescoop.moveEnd(temp_end);
+    bowiearm.moveArm(temp_arm);
+  }
+
+  if(was_arm_parked) {
+    bowiescoop.parkEnd();
+    bowiearm.parkArm();
+  }
+  
+}
+
 void MegaBowieShoreline::moveArmAndEnd(int armPos, int step, int del, int armMin, int armMax, int endMin, int endMax) {
   
-  // TODO
-  /*
-
   bool did_move_hopper = false;
   int hopper_original_pos = bowiehopper.getHopperPos();
   int endPos = 0;
@@ -584,7 +863,7 @@ void MegaBowieShoreline::moveArmAndEnd(int armPos, int step, int del, int armMin
   }
   
   bowiearm.unparkArm();
-  bowiescoop.unparkScoop();
+  bowiescoop.unparkEnd();
 
   if(bowiehopper.getHopperPos() == TILT_MIN) { // check if the hopper is up
     bowiehopper.moveHopper(TILT_MAX); // move it flush if not
@@ -596,41 +875,39 @@ void MegaBowieShoreline::moveArmAndEnd(int armPos, int step, int del, int armMin
       bowiearm.arm.writeMicroseconds(i);
       bowiearm.arm2.writeMicroseconds(SERVO_MAX_US - i + SERVO_MIN_US);
       endPos = clawParallelValBounds(i, armMin, armMax, endMin, endMax);
-      bowiescoop.end.writeMicroseconds(endPos);
+      bowiescoop.scoop.writeMicroseconds(endPos);
       arm_position = i;
       end_position = endPos;
       delay(del);
-      servoInterruption(SERVO_ARM_AND_END_KEY, i);
-      if(SERVO_OVER_CURRENT_SHUTDOWN) return; // break out of here so the pos doesn't keep moving
+      servoInterrupt(SERVO_ARM_AND_END_KEY, i);
+      //if(SERVO_OVER_CURRENT_SHUTDOWN) return; // break out of here so the pos doesn't keep moving
     }
-  } else if(getArmPos() <= armPos) { // headed towards ARM_MAX
+  } else if(bowiearm.getArmPos() <= armPos) { // headed towards ARM_MAX
     for(int i=getArmPos(); i<armPos; i+=step) {
-      arm.writeMicroseconds(i);
-      arm2.writeMicroseconds(SERVO_MAX_US - i + SERVO_MIN_US);
+      bowiearm.arm.writeMicroseconds(i);
+      bowiearm.arm2.writeMicroseconds(SERVO_MAX_US - i + SERVO_MIN_US);
       endPos = clawParallelValBounds(i, armMin, armMax, endMin, endMax);
-      end.writeMicroseconds(endPos);
+      bowiescoop.scoop.writeMicroseconds(endPos);
       arm_position = i;
       end_position = endPos;
       delay(del); 
-      servoInterruption(SERVO_ARM_AND_END_KEY, i);
-      if(SERVO_OVER_CURRENT_SHUTDOWN) return; // break out of here so the pos doesn't keep moving
+      servoInterrupt(SERVO_ARM_AND_END_KEY, i);
+      //if(SERVO_OVER_CURRENT_SHUTDOWN) return; // break out of here so the pos doesn't keep moving
     }
   }
-  arm.writeMicroseconds(armPos);
-  arm2.writeMicroseconds(SERVO_MAX_US - armPos + SERVO_MIN_US);
+  bowiearm.arm.writeMicroseconds(armPos);
+  bowiearm.arm2.writeMicroseconds(SERVO_MAX_US - armPos + SERVO_MIN_US);
   endPos = clawParallelValBounds(armPos, armMin, armMax, endMin, endMax);
-  end.writeMicroseconds(endPos);
+  bowiescoop.scoop.writeMicroseconds(endPos);
   arm_position = armPos;
   end_position = endPos;
   delay(del);
-  servoInterruption(SERVO_ARM_AND_END_KEY, armPos);
-  if(SERVO_OVER_CURRENT_SHUTDOWN) return; // break out of here so the pos doesn't keep moving
+  servoInterrupt(SERVO_ARM_AND_END_KEY, armPos);
+  //if(SERVO_OVER_CURRENT_SHUTDOWN) return; // break out of here so the pos doesn't keep moving
 
   if(did_move_hopper) { // move hopper back to original position
-    moveHopper(hopper_original_pos);
+    bowiehopper.moveHopper(hopper_original_pos);
   }
-
-  */
 
 }
 

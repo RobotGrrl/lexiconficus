@@ -97,6 +97,7 @@ class MegaBowieShoreline {
   public:
     MegaBowieShoreline();
     void begin();
+    bool EZ_DEBUG;
 
     // Components
     BowieArm bowiearm;
@@ -121,7 +122,9 @@ class MegaBowieShoreline {
     void enableLogging();
     void disableLogging();
 
-    // Combined movements
+    // Movements
+    void scoopSequence(int frame_delay);
+    void deposit();
     void moveArmAndEnd(int armPos, int step, int del, int armMin, int armMax, int endMin, int endMax);
     int clawParallelVal(int arm_Val);
     int clawParallelValBounds(int arm_Val, int armMin, int armMax, int endMin, int endMax);
@@ -133,6 +136,7 @@ class MegaBowieShoreline {
     bool REMOTE_OP_ENABLED; // true by default
     bool PREVENT_OVER_CURRENT; // false by default (advanced functionality)
     bool LOGGING_ENABLED; // true by default
+    bool TURN_SEQUENCE_MODE; // true by default
 
     uint8_t unlikely_count;
     long current_time;
@@ -165,6 +169,9 @@ class MegaBowieShoreline {
     void waitingToCoolDown_Motors(bool first);
     void reactivateAfterCoolDown_Motors();
     void overCurrentThreshold_Motors(bool first);
+
+    // Servo interruption
+    void processServoInterrupt(int key, int val);
 
     // Update logging sensors
     void updateLogSensorData();

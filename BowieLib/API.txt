@@ -92,6 +92,7 @@ Serial6 = Obstacle avoidance arduino
 #define SERVO_HOPPER_KEY 3
 #define SERVO_LID_KEY 4
 #define SERVO_EXTRA_KEY 5
+#define SERVO_ARM_AND_END_KEY 6
 #define LOGGING_AFTER_KEY 99
 
 

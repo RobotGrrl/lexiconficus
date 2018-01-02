@@ -36,6 +36,7 @@
 
 // Keys
 #define SERVO_ARM_KEY 1
+#define SERVO_ARM_AND_END_KEY 6
 
 class BowieArm {
 

@@ -83,6 +83,7 @@ class BowieComms {
     void updateComms();
     void setCommLed(uint8_t pin);
     unsigned long getCommLatency();
+    unsigned long getLastRXTime();
 
     // Callbacks
     void set_comms_timeout_callback( void (*commsTimeoutCallback)() );

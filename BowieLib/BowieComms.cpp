@@ -205,6 +205,10 @@ unsigned long BowieComms::getCommLatency() {
   return diff_time;
 }
 
+unsigned long BowieComms::getLastRXTime() {
+  return last_rx_comms;
+}
+
 
 /*
 
