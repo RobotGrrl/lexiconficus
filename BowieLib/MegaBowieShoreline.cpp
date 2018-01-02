@@ -18,6 +18,12 @@ MegaBowieShoreline::MegaBowieShoreline() {
   last_update_periodic = 0;
 
   current_sensor_periodic = bowiecomms_xbee.msg_none;
+
+  arm_pos_over_current = ARM_HOME;
+  end_pos_over_current = END_HOME;
+  hopper_pos_over_current = TILT_MAX;
+  lid_pos_over_current = LID_MIN;
+  servos_deactivated_over_current = false;
   
 }
 
@@ -156,6 +162,14 @@ void MegaBowieShoreline::disableLogging() {
   LOGGING_ENABLED = false;
 }
 
+void MegaBowieShoreline::enableOverCurrentProtection() {
+  PREVENT_OVER_CURRENT = true;
+}
+
+void MegaBowieShoreline::disableOverCurrentProtection() {
+  PREVENT_OVER_CURRENT = false;
+}
+
 
 /*
 
@@ -286,11 +300,13 @@ void MegaBowieShoreline::update(bool force_no_sleep) {
         bowiedrive.motor_setSpeed(0, 0);
         bowiedrive.motor_setDir(1, MOTOR_DIR_REV);
         bowiedrive.motor_setSpeed(1, 0);
-        bowielights.dimLights();
-        bowiearm.parkArm();
-        bowiescoop.parkEnd();
-        bowiehopper.parkHopper();
-        bowiehopper.parkLid();
+        if(!servos_deactivated_over_current) {
+          bowielights.dimLights();
+          bowiearm.parkArm();
+          bowiescoop.parkEnd();
+          bowiehopper.parkHopper();
+          bowiehopper.parkLid();
+        }
       }
     }
     
@@ -309,8 +325,6 @@ void MegaBowieShoreline::update(bool force_no_sleep) {
     updatePeriodicMessages();
     last_update_periodic = current_time;
   }
-
-  // TODO monitoring current
   
 }
 
@@ -350,6 +364,9 @@ void MegaBowieShoreline::control(Msg m) {
 
       if(packets[i].cmd == 'G') { // green button - dump
         if(packets[i].val == 1) {
+
+          if(servos_deactivated_over_current) return; // over current protection
+
           bool was_lid_parked = bowiehopper.getLidParked();
           if(was_lid_parked) bowiehopper.unparkLid();
           bowiehopper.moveLid(LID_MIN, 5, 1); // open lid
@@ -364,18 +381,27 @@ void MegaBowieShoreline::control(Msg m) {
 
       if(packets[i].cmd == 'W') { // white button - scoop slow
         if(packets[i].val == 1) {
+
+          if(servos_deactivated_over_current) return; // over current protection
+
           scoopSequence(1000);
         }
       }
 
       if(packets[i].cmd == 'B') { // blue button - scoop fast
         if(packets[i].val == 1) {
+
+          if(servos_deactivated_over_current) return; // over current protection
+
           scoopSequence(0);
         }
       }
 
       if(packets[i].cmd == 'N') { // black button - empty
         if(packets[i].val == 1) {
+
+          if(servos_deactivated_over_current) return; // over current protection
+
           bool was_hopper_parked = bowiehopper.getHopperParked();
           if(was_hopper_parked) bowiehopper.unparkHopper();
           bool was_lid_parked = bowiehopper.getLidParked();
@@ -475,6 +501,8 @@ void MegaBowieShoreline::control(Msg m) {
       
       if(packets[i].cmd == 'S') { // arm (data from 0-100)
         
+        if(servos_deactivated_over_current) return; // over current protection
+
         int temp_pos = bowiearm.getArmPos();
         int new_pos = temp_pos;
         int the_increment = (int)map(packets[i].val, 0, 100, 1, 70);
@@ -609,12 +637,14 @@ void MegaBowieShoreline::waitingToCoolDown_ServosCallback(bool first) {
   // you might want to detach the servos here
   // (or de-activate the dc motors)
   // first == true when it's called the first time
+  bowieInstance->waitingToCoolDown_Servos(first);
 }
 
 void MegaBowieShoreline::reactivateAfterCoolDown_ServosCallback() {
- // you might want to re-attach the servos here
- // and send them back to a position
- // (or re-activate the dc motors)
+  // you might want to re-attach the servos here
+  // and send them back to a position
+  // (or re-activate the dc motors)
+  bowieInstance->reactivateAfterCoolDown_Servos();
 }
 
 void MegaBowieShoreline::overCurrentThreshold_ServosCallback(bool first) {
@@ -624,18 +654,21 @@ void MegaBowieShoreline::overCurrentThreshold_ServosCallback(bool first) {
   // PS: waitingToCoolDown() will be called prior to
   // this function
   // first == true when it's called the first time
+  bowieInstance->overCurrentThreshold_Servos(first);
 }
 
 void MegaBowieShoreline::waitingToCoolDown_MotorsCallback(bool first) {
   // you might want to detach the servos here
   // (or de-activate the dc motors)
   // first == true when it's called the first time
+  bowieInstance->waitingToCoolDown_Motors(first);
 }
 
 void MegaBowieShoreline::reactivateAfterCoolDown_MotorsCallback() {
   // you might want to re-attach the servos here
   // and send them back to a position
   // (or re-activate the dc motors)
+  bowieInstance->reactivateAfterCoolDown_Motors();
 }
 
 void MegaBowieShoreline::overCurrentThreshold_MotorsCallback(bool first) {
@@ -645,31 +678,90 @@ void MegaBowieShoreline::overCurrentThreshold_MotorsCallback(bool first) {
   // PS: waitingToCoolDown() will be called prior to
   // this function
   // first == true when it's called the first time
+  bowieInstance->overCurrentThreshold_Motors(first);
 }
 
 
 void MegaBowieShoreline::waitingToCoolDown_Servos(bool first) {
   if(!PREVENT_OVER_CURRENT) return;
+
+  servos_deactivated_over_current = true;
+
+  if(first) {
+
+    tone(SPEAKER, 4435, 300);
+    for(int i=0; i<3; i++) {
+      tone(SPEAKER, 622, 100);
+      delay(50);
+      tone(SPEAKER, 1760, 100);
+      delay(50);
+    }
+
+    arm_pos_over_current = bowiearm.getArmPos();
+    end_pos_over_current = bowiescoop.getEndPos();
+    hopper_pos_over_current = bowiehopper.getHopperPos();
+    lid_pos_over_current = bowiehopper.getLidPos();
+
+    bowiearm.parkArm();
+    bowiescoop.parkEnd();
+    bowiehopper.parkHopper();
+    bowiehopper.parkLid();
+
+    bowielights.dimLights();
+
+  }
+
 }
 
 void MegaBowieShoreline::reactivateAfterCoolDown_Servos() {
   if(!PREVENT_OVER_CURRENT) return;
+
+  servos_deactivated_over_current = false;
+
+  for(int i=0; i<3; i++) {
+    tone(SPEAKER, 622, 300);
+    delay(100);
+  }
+
+  bowiearm.unparkArm();
+  bowiescoop.unparkEnd();
+  bowiehopper.unparkHopper();
+  bowiehopper.unparkLid();
+
+  bowiearm.moveArm(arm_pos_over_current);
+  bowiescoop.moveEnd(end_pos_over_current);
+  bowiehopper.moveHopper(hopper_pos_over_current);
+  bowiehopper.moveLid(lid_pos_over_current);
+
+  bowielights.turnOnLights();
+
 }
 
 void MegaBowieShoreline::overCurrentThreshold_Servos(bool first) {
   if(!PREVENT_OVER_CURRENT) return;
+
+  servos_deactivated_over_current = true;
+
+  tone(SPEAKER, 622, 100);
+  delay(50);
+  tone(SPEAKER, 1760, 100);
+  delay(50);
+
 }
 
 void MegaBowieShoreline::waitingToCoolDown_Motors(bool first) {
   if(!PREVENT_OVER_CURRENT) return;
+  // TODO (future) - see how often this occurs after looking at the logs
 }
 
 void MegaBowieShoreline::reactivateAfterCoolDown_Motors() {
   if(!PREVENT_OVER_CURRENT) return;
+  // TODO (future) - see how often this occurs after looking at the logs
 }
 
 void MegaBowieShoreline::overCurrentThreshold_Motors(bool first) {
   if(!PREVENT_OVER_CURRENT) return;
+  // TODO (future) - see how often this occurs after looking at the logs
 }
 
 

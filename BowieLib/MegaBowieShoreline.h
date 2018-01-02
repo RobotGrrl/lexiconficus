@@ -121,6 +121,8 @@ class MegaBowieShoreline {
     void disableRemoteOp();
     void enableLogging();
     void disableLogging();
+    void enableOverCurrentProtection();
+    void disableOverCurrentProtection();
 
     // Movements
     void scoopSequence(int frame_delay);
@@ -169,6 +171,11 @@ class MegaBowieShoreline {
     static void overCurrentThreshold_MotorsCallback(bool first);
 
     // Current
+    int arm_pos_over_current;
+    int end_pos_over_current;
+    int hopper_pos_over_current;
+    int lid_pos_over_current;
+    bool servos_deactivated_over_current;
     void waitingToCoolDown_Servos(bool first);
     void reactivateAfterCoolDown_Servos();
     void overCurrentThreshold_Servos(bool first);
