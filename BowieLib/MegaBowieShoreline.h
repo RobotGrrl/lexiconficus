@@ -29,6 +29,7 @@
 #include "BowieLights.h"
 #include "BowieLogger.h"
 #include "BowieScoop.h"
+#include "BowieComms.h"
 
 #ifndef _MEGABOWIESHORELINE_H_
 #define _MEGABOWIESHORELINE_H_
@@ -66,20 +67,6 @@
 #define SCOOP_PROBE_LEFT A18
 #define SCOOP_PROBE_RIGHT A17
 
-struct Packet {
-  char cmd;
-  uint8_t key;
-  uint16_t val;
-};
-
-struct Msg {
-  uint8_t priority;
-  char action;
-  Packet pck1;
-  Packet pck2;
-  char delim;
-};
-
 #define REMOTE_OP_TIMEOUT 300
 
 #ifndef SERVO_ARM_KEY
@@ -105,6 +92,8 @@ struct Msg {
 
 class MegaBowieShoreline {
 
+  static MegaBowieShoreline *bowieInstance;
+
   public:
     MegaBowieShoreline();
     void begin();
@@ -118,10 +107,12 @@ class MegaBowieShoreline {
     BowieLights bowielights;
     BowieLogger bowielogger;
     BowieScoop bowiescoop;
+    BowieComms bowiecomms_xbee;
+    BowieComms bowiecomms_arduino;
 
     // Control
     void update(bool force_no_sleep);
-    void control(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim);
+    void control(Msg m);
     static void servoInterrupt(int key, int val);
     
     // States
@@ -147,6 +138,18 @@ class MegaBowieShoreline {
     long current_time;
     long last_ctrl;
 
+    // Comms Callbacks - Arduino
+    static void receivedAction_Arduino(Msg m);
+    static void commsTimeout_Arduino();
+    static void controllerAdded_Arduino();
+    static void controllerRemoved_Arduino();
+
+    // Comms Callbacks - Xbee
+    static void receivedAction_Xbee(Msg m);
+    static void commsTimeout_Xbee();
+    static void controllerAdded_Xbee();
+    static void controllerRemoved_Xbee();
+
     // Current Callbacks
     static void waitingToCoolDown_ServosCallback(bool first);
     static void reactivateAfterCoolDown_ServosCallback();
@@ -165,6 +168,9 @@ class MegaBowieShoreline {
 
     // Update logging sensors
     void updateLogSensorData();
+
+    // Specific
+    void beep();
 
 };
 
