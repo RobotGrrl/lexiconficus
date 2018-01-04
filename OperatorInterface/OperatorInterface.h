@@ -1,18 +1,22 @@
 /*
  * Robot Missions Operator Interface
- * -------------------------------------
+ * ---------------------------------
  *
- * Teensy 3.2
- * Board by RGlenn
-
-Xbee is on Serial1
-
+ * Communications with the robot using Robot Missions's
+ * hardware interface. Uses an Xbee to connect with the
+ * robot. Xbee is on Serial1.
  *
  * Erin RobotGrrl for Robot Missions
  * --> http://RobotMissions.org
  *
+ * Using Teensy 3.6, works with Teensy 3.2
+ * 
+ * Erin RobotGrrl
+ * Jan. 3rd, 2018
+ *
  * MIT license, check LICENSE for more information
  * All text above must be included in any redistribution
+ *
  */
 
 #include "Arduino.h"
@@ -53,8 +57,8 @@ Xbee is on Serial1
 // mode switch
 #define MODE_SW A10
 #define MODE1_THRESH 1000 // 1023
-#define MODE2_THRESH 500 // 512
-#define MODE3_THRESH 0 // 1
+#define MODE2_THRESH 500  // 512
+#define MODE3_THRESH 0    // 1
 #define MODE1 1
 #define MODE2 2
 #define MODE3 3
@@ -83,10 +87,10 @@ Xbee is on Serial1
 #define JOYSTICK_SW 15
 #define ACTIVITY_TIMEOUT 1000
 #define IDLE_UPDATE_FREQ 250
-#define MAX_X 1015 // left
-#define MIN_X 1 // right
-#define MAX_Y 1023 // up
-#define MIN_Y 1 // down
+#define MAX_X 1015  // left
+#define MIN_X 1     // right
+#define MAX_Y 1023  // up
+#define MIN_Y 1     // down
 #define ZERO_ZONE 30
 
 // states
@@ -98,22 +102,33 @@ Xbee is on Serial1
 #define SCOOP_F_STATE 5
 #define EMPTY_STATE 6
 
+// xbee
+#define XBEE_COORDINATOR_DH 0x00000000
+#define XBEE_COORDINATOR_DL 0x00000000 // to coordinator
+//#define XBEE_COORDINATOR_DL 0x0000FFFF // broadcast
+
+// vars
+#define MAX_ROBOTS 6
+#define DEFAULT_RETRY_TIME 250
+#define SECONDARY_RETRY_TIME 500
+#define REMOTE_OP_TIMEOUT 300
+
+// conns
+#define XBEE_CONN 1
+#define USB_CONN 2
+
+struct Packet {
+  char cmd;
+  uint8_t key;
+  uint16_t val;
+};
+
 struct Msg {
   uint8_t priority;
   char action;
-  char cmd;
-  uint8_t key;
-  uint16_t val;
-  char cmd2;
-  uint8_t key2;
-  uint16_t val2;
+  Packet pck1;
+  Packet pck2;
   char delim;
-};
-
-struct Cmd {
-  char cmd;
-  uint8_t key;
-  uint16_t val;
 };
 
 // width: 128 height: 64
@@ -188,116 +203,200 @@ PROGMEM const unsigned char robot_missions_logo[] = {
 
 class Operator {
 
+  static Operator *opInstance;
+  static void received_action(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim);
+  static void transmit_complete();
+
   public:
     Operator();
 
-    void init();
-    void update();
+    void initOperator(int conn);
+    void updateOperator();
     void calibrateHome();
     void breatheLeds();
+    void setCommLed(uint8_t pin);
+    unsigned long getCommLatency();
+    unsigned long getLastRXTime();
 
-    // display
-    Adafruit_SSD1306 display;
+    // Callbacks
+    void set_comms_timeout_callback( void (*commsTimeoutCallback)() );
+    void set_controller_added_callback( void (*controllerAddedCallback)() );
+    void set_controller_removed_callback( void (*controllerRemovedCallback)() );
+    void set_received_action_callback( void (*receivedActionCallback)(Msg m) );
 
-    // state
-    int CURRENT_STATE;
-    bool GO_TIME;
-    int LAST_STATE;
+    // Promulgate
+    Promulgate promulgate;
+    unsigned long current_time;
+    unsigned long diff_time;
+    unsigned long last_rx_msg;
+    unsigned long last_transmit;
+    bool use_base64_parsing; // false by default
+    uint16_t retry_time = DEFAULT_RETRY_TIME;
+    uint8_t retry_count = 0;
 
-    // mode (operator / semi-autonomous / full autonomous)
-    int CURRENT_MODE;
-    void updateModeSwitch();
+    // Xbee
+    XBee xbee = XBee();
+    XBeeAddress64 addr64 = XBeeAddress64(0x00000000, 0x0000ffff);
+    XBeeAddress64 addr_coord = XBeeAddress64(XBEE_COORDINATOR_DH, XBEE_COORDINATOR_DL);
+    ZBTxStatusResponse txStatus = ZBTxStatusResponse();
+    ZBRxResponse rx = ZBRxResponse();
+    char message_tx[64];
+    char message_rx[64];
+    uint32_t msg_tx_count;
+    uint32_t msg_rx_count;
+    uint32_t msg_tx_err;
+    unsigned long last_rx;
+    unsigned long last_tx;
+    unsigned long last_retry_time;
 
-    // can't believe this joystick drifts
-    int HOME_X;
-    int HOME_Y;
+    // Xbee Robots
+    XBeeAddress64 addr_all_robots[MAX_ROBOTS];
+    uint8_t num_addrs = 0;
+    uint8_t ind_addr_sent;
+    uint8_t failed_send_count[MAX_ROBOTS];
+    uint16_t ids_of_all_robots[MAX_ROBOTS];
+    long last_rx_all[MAX_ROBOTS];
+    long last_rx_check = 0;
 
-    // messages
-    Msg msg_none = { 9, '^', '0', 0, 0, '0', 0, 0, '!' };
+    bool SELECTED_ROBOT = false;
+    uint16_t SELECTED_ROBOT_ID[MAX_ROBOTS];
+    int num_robot_conn = 0;
+    XBeeAddress64 selected_robot_addr;
+
+    // Promulgate
+    void sendNextMsg();
+    void processAction(Msg m);
+    void transmitDidComplete();
+
+    // Messages
+    Packet pck_none = { '0', 0, 0 };
+    Msg msg_none = { 9, '^', pck_none, pck_none, '!' };
     uint8_t getMsgQueueLength();
     Msg popNextMsg();
-    void addNextMsg(uint8_t priority, char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim);
-    void addNextMsg(Msg m);
-    void insertNextMsg(Msg m);
+    void addMsg(uint8_t priority, char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim);
+    void addMsg(Msg m);
+    void insertMsg(Msg m);
 
-    // joystick
-    int getJoyX();
-    int getJoyY();
-    bool joystick_on;
+    // Conn
+    void connRead();
+    void connSend(Msg m);
+    void connSend(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim);
+    void connSendEasy(char c);
 
-    // buttons
-    bool getRedButton();
-    bool getGreenButton();
-    bool getYellowButton();
-    bool getBlueButton();
-    bool getWhiteButton();
-    bool getBlackButton();
-    bool getJoystickButton();
-
-    // leds
-    void ledsOff();
-    void buttonsOff();
-    void introLedSequence();
-
-    // display
+    // Display
+    Adafruit_SSD1306 display;
     void displayLogo();
     void scrollLogo();
     void displayTitleBar();
     void mainMenu();
+    void displaySearchingAnimation();
 
-    // speaker
+    // State
+    int CURRENT_STATE;
+    bool GO_TIME;
+    int LAST_STATE;
+
+    // Mode (operator / semi-autonomous / full autonomous)
+    int CURRENT_MODE;
+    void updateModeSwitch();
+
+    // Joystick
+    int HOME_X;
+    int HOME_Y;
+    bool joystick_on;
+    int getJoyX();
+    int getJoyY();
+    bool getJoystickButton();
+
+    // Buttons
+    bool getButton(uint8_t b);
+    
+    // LEDs
+    long last_led_blink;
+    bool led_on;
+    void ledsOff();
+    void buttonsOff();
+    void introLedSequence();
+
+    // Speaker
     void buzz(int targetPin, long frequency, long length);
-
 
   private:
 
-    // update
-    unsigned long current_time;
+    // Callbacks
+    void (*_commsTimeoutCallback)();
+    void (*_controllerAddedCallback)();
+    void (*_controllerRemovedCallback)();
+    void (*_receivedActionCallback)(Msg m);
 
-    // messages
-    uint8_t msgs_in_queue;
-    Msg msg_queue[MSG_QUEUE_SIZE];
+    // Custom
+    uint8_t COMM_LED;
+    uint8_t CONN_TYPE;
 
-    // modes
-    bool turn_on_spot;
-    bool slower_speed;
-    uint8_t slow_speed;
-
-    // init
+    // Init
     void initLeds();
     void initButtons();
     void initJoystick();
     void initSpeaker();
 
-    // joystick
+    // Comms
+    uint8_t msgs_in_queue;
+    uint8_t msg_send_index;
+    Msg msg_queue[MSG_QUEUE_SIZE];
+    unsigned long last_rx_comms;
+    uint8_t unlikely_count = 0;
+
+    // Conn
+    void connBlink();
+
+    // Xbee
+    void xbeeSendEasy(char c);
+    void xbeeSend(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim);
+    void xbeeSendToList(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim);
+    void addXbeeToList(XBeeAddress64 newAddr);
+    void updateRxTime(XBeeAddress64 senderLongAddress);
+    void xbeeWatchdog();
+    bool xbeeRead();
+    void print32Bits(uint32_t dw);
+    void print16Bits(uint16_t w);
+    void print8Bits(byte c);
+
+    // Pins
+    uint8_t button_pins[7];
+    uint8_t led_pins[7];
+    uint8_t button_states[7];
+    Bounce bounce_buttons[7];
+
+    // Misc
+    bool turn_on_spot;
+    bool slower_speed;
+    uint8_t slow_speed;
+    uint8_t letter_itr;
+    long last_letter_itr;
+
+    // Joystick
     uint16_t joy_x;
     uint16_t joy_y;
-    uint16_t joy_sw;
     uint16_t joy_x_prev;
     uint16_t joy_y_prev;
+    uint16_t joy_sw;
     bool joystick_idle;
+    long last_increment;
     unsigned long last_activity;
     unsigned long last_idle_update;
     bool first_idle;
+    
+    // Control
     int motor_speed;
+    int turn_speed;
     int incr_speed;
     int arm_pos;
+    bool scrolling_up;
     void joystickDriveControl();
     void joystickArmControl();
 
-    // buttons
+    // Buttons
     void updateButtons();
-    bool red_on;
-    bool green_on;
-    bool yellow_on;
-    bool blue_on;
-    bool white_on;
-    bool black_on;
-    
-    // joystick
-    long last_increment;
-    bool scrolling_up;
-    int turn_speed;
 
 };
 
