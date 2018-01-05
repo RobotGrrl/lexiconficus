@@ -3,6 +3,10 @@
 Operator opinterface = Operator();
 
 void buttonChanged(int button, int val);
+void modeChanged(int mode);
+void robotAdded();
+void robotRemoved(bool connection);
+
 void receivedAction(Msg m);
 void commsTimeout();
 void controllerAdded();
@@ -12,12 +16,16 @@ void setup() {
   Serial.begin(9600);
   
   opinterface.initOperator(XBEE_CONN, 9600);
-  opinterface.set_button_changed_callback(buttonChanged);
   // opinterface.setAutoconnect(FALSE); // uncomment if you want to select which robot to connect to
   opinterface.set_received_action_callback(receivedAction);
   opinterface.set_comms_timeout_callback(commsTimeout);
   opinterface.set_controller_added_callback(controllerAdded);
   opinterface.set_controller_removed_callback(controllerRemoved);
+  
+  opinterface.set_button_changed_callback(buttonChanged);
+  opinterface.set_mode_changed_callback(modeChanged);
+  opinterface.set_robot_added_callback(robotAdded);
+  opinterface.set_robot_removed_callback(robotRemoved);
   
 }
 
@@ -29,6 +37,24 @@ void loop() {
 
 void buttonChanged(int button, int val) {
   // This is called each time a button is pressed
+}
+
+void modeChanged(int mode) {
+  // This is called each time the mode switch is changed
+}
+
+void robotAdded() {
+  // A new robot has been added to the list to select from.
+  // If you want to select it, you could call 
+  // opinterface.xbeeChooseRobotToConnect(),
+  // but make sure that SELECTED_ROBOT is false first.
+}
+
+void robotRemoved(bool connection) {
+  // A robot has been removed from the list to select from.
+  // If connection == true, we are still connected to the robot we're
+  // controlling. If not, you might want to prompt the user to select
+  // a new robot. See comment in robotAdded() for details.
 }
 
 void receivedAction(Msg m) {

@@ -210,15 +210,12 @@ class Operator {
 
   public:
     Operator();
-
-    void initOperator(int conn, int baud);
-    void updateOperator();
-    void calibrateHome();
-    void breatheLeds();
     void setCommLed(uint8_t pin);
     void setAutoconnect(bool b);
     unsigned long getCommLatency();
     unsigned long getLastRXTime();
+    int getMotorSpeed(int m); // 1 = left, 2 = right
+    bool getMotorDir(int m);
 
     // Callbacks
     void set_comms_timeout_callback( void (*commsTimeoutCallback)() );
@@ -226,6 +223,13 @@ class Operator {
     void set_controller_removed_callback( void (*controllerRemovedCallback)() );
     void set_received_action_callback( void (*receivedActionCallback)(Msg m) );
     void set_button_changed_callback( void (*buttonChangedCallback)(int button, int value) );
+    void set_mode_changed_callback( void (*modeChangedCallback)(int mode) );
+    void set_robot_added_callback( void (*robotAddedCallback)() );
+    void set_robot_removed_callback( void (*robotRemovedCallback)(bool still_connected) );
+
+    // Init & Update
+    void initOperator(int conn, int baud);
+    void updateOperator();
 
     // Promulgate
     Promulgate promulgate;
@@ -285,6 +289,8 @@ class Operator {
     void connSend(Msg m);
     void connSend(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim);
     void connSendEasy(char c);
+    void connRetrySend();
+    void xbeeChooseRobotToConnect(); // added to public in case user wants to call this from their sketch
 
     // Display
     Adafruit_SSD1306 display;
@@ -294,19 +300,18 @@ class Operator {
     void mainMenu();
     void displaySearchingAnimation();
 
-    // State
-    int CURRENT_STATE;
-    bool GO_TIME;
+    // Mode & State
+    int CURRENT_STATE; // For continuous states (ie, with joystick)
     int LAST_STATE;
-
-    // Mode (operator / semi-autonomous / full autonomous)
-    int CURRENT_MODE;
+    int CURRENT_MODE; // Mode (operator / semi-autonomous / full autonomous)
     void updateModeSwitch();
 
     // Joystick
     int HOME_X;
     int HOME_Y;
     bool joystick_on;
+    void updateJoystick();
+    void calibrateHome();
     int getJoyX();
     int getJoyY();
     
@@ -320,6 +325,7 @@ class Operator {
     bool led_on;
     void ledsOff();
     void introLedSequence();
+    void breatheLeds();
 
     // Speaker
     void buzz(int targetPin, long frequency, long length);
@@ -332,6 +338,9 @@ class Operator {
     void (*_controllerRemovedCallback)();
     void (*_receivedActionCallback)(Msg m);
     void (*_buttonChangedCallback)(int button, int value);
+    void (*_modeChangedCallback)(int mode);
+    void (*_robotAddedCallback)();
+    void (*_robotRemovedCallback)(bool still_connected);
 
     // Custom
     uint8_t COMM_LED;
@@ -385,26 +394,24 @@ class Operator {
     uint16_t joy_x_prev;
     uint16_t joy_y_prev;
     uint16_t joy_sw;
-    bool joystick_idle;
     long last_increment;
     unsigned long last_activity;
-    unsigned long last_idle_update;
-    bool first_idle;
+    bool scrolling_up;
     
     // Control
+    bool motor_l_dir;
+    int motor_l_speed;
+    bool motor_r_dir;
+    int motor_r_speed;
     int motor_speed;
     int turn_speed;
     int incr_speed;
     int arm_pos;
-    bool scrolling_up;
     void joystickDriveControl();
     void joystickArmControl();
 
     // Buttons
     void updateButtons();
-
-    // Other
-    void xbeeChooseRobotToConnect();
 
 };
 

@@ -88,22 +88,16 @@ Operator::Operator() : display(OLED_RESET) {
     bounce_buttons[i] = Bounce();
   }
 
-  // State
-  GO_TIME = false;
+  // Mode & State
   CURRENT_STATE = IDLE_STATE;
-  LAST_STATE = CURRENT_STATE;
-
-  // Mode
   CURRENT_MODE = MODE1;
 
   // Joystick
   HOME_X = 347;
   HOME_Y = 356;
-  first_idle = false;
-  joystick_idle = false;
-  last_idle_update = 0;
+  last_increment = 0;
   last_activity = 0;
-  arm_pos = 50;
+  scrolling_up = false;
   
   // Misc
   turn_on_spot = true;
@@ -113,14 +107,60 @@ Operator::Operator() : display(OLED_RESET) {
   last_letter_itr = 0;
 
   // Control
-  last_increment = 0;
-  scrolling_up = false;
+  motor_l_dir = false;
+  motor_r_dir = false;
+  motor_l_speed = 0;
+  motor_r_speed = 0;
+  motor_speed = 0;  
   turn_speed = 0;
+  incr_speed = 0;
+  arm_pos = 50;
 
   // LEDs
   last_led_blink = 0;
   led_on = false;
 }
+
+void Operator::setCommLed(uint8_t pin) {
+  COMM_LED = pin;
+}
+
+void Operator::setAutoconnect(bool b) {
+  AUTOCONNECT = b;
+}
+
+unsigned long Operator::getCommLatency() {
+  return diff_time;
+}
+
+unsigned long Operator::getLastRXTime() {
+  return last_rx_comms;
+}
+
+int Operator::getMotorSpeed(int m) { // 1 = left, 2 = right
+  if(m == 1) {
+    return motor_l_speed;
+  } else if(m == 2) {
+    return motor_r_speed;
+  }
+  return 0;
+}
+
+bool Operator::getMotorDir(int m) {
+  if(m == 1) {
+    return motor_l_dir;
+  } else if(m == 2) {
+    return motor_r_dir;
+  }
+  return false;
+}
+
+
+/*
+
+---- #Callbacks ----
+
+*/
 
 void Operator::set_comms_timeout_callback( void (*commsTimeoutCallback)() ) {
   _commsTimeoutCallback = commsTimeoutCallback;
@@ -142,21 +182,24 @@ void Operator::set_button_changed_callback( void (*buttonChangedCallback)(int bu
   _buttonChangedCallback = buttonChangedCallback;
 }
 
-void Operator::setCommLed(uint8_t pin) {
-  COMM_LED = pin;
+void Operator::set_mode_changed_callback( void (*modeChangedCallback)(int mode) ) {
+  _modeChangedCallback = modeChangedCallback;
 }
 
-void Operator::setAutoconnect(bool b) {
-  AUTOCONNECT = b;
+void Operator::set_robot_added_callback( void (*robotAddedCallback)() ) {
+  _robotAddedCallback = robotAddedCallback;
 }
 
-unsigned long Operator::getCommLatency() {
-  return diff_time;
+void Operator::set_robot_removed_callback( void (*robotRemovedCallback)(bool still_connected) ) {
+  _robotRemovedCallback = robotRemovedCallback;
 }
 
-unsigned long Operator::getLastRXTime() {
-  return last_rx_comms;
-}
+
+/*
+
+---- #Init #Update ----
+
+*/
 
 void Operator::initOperator(int conn, int baud) {
 
@@ -250,18 +293,8 @@ void Operator::updateOperator() {
   // Reading the data from the Stream
   connRead();
 
-  // Retry
-  if(current_time-last_rx_msg >= retry_time && retry_count < 5) { // retry 5 times
-    Serial.println(F("Retrying send"));
-    Serial << getMsgQueueLength() << " msgs in queue" << endl;
-    if(getMsgQueueLength() <= 0) {
-      addMsg(msg_none);
-    }
-    sendNextMsg();
-    retry_time = SECONDARY_RETRY_TIME;
-    last_rx_msg = current_time;
-    retry_count++;
-  }
+  // Retry sending messages if there are any
+  connRetrySend();
   
   // Comms have timed out
   if(millis()-last_rx_comms >= REMOTE_OP_TIMEOUT) {
@@ -280,70 +313,16 @@ void Operator::updateOperator() {
   mainMenu();
 
   // Let's choose the robot in XBee mode
+  // This will activate whenever SELECTED_ROBOT == false 
+  // and whenever CONN_TYPE == XBEE_CONN
   xbeeChooseRobotToConnect();
 
   // TODO
-  if(CURRENT_MODE == MODE1) {
+  if(SELECTED_ROBOT) {
 
-    if(SELECTED_ROBOT) {
+    if(CURRENT_MODE == MODE1) {
       if(CURRENT_STATE == DRIVE_STATE) joystickDriveControl();
       if(CURRENT_STATE == ARM_STATE) joystickArmControl();
-    }
-
-  }
-
-}
-
-void Operator::xbeeChooseRobotToConnect() {
-
-  if(SELECTED_ROBOT == false && CONN_TYPE == XBEE_CONN) {
-    
-    // Say we're searching while waiting
-    displaySearchingAnimation();
-
-    for(int i=0; i<3; i++) {
-      if(ids_of_all_robots[i] != 0) {
-        display.setCursor(i*50,22);
-        display.print(ids_of_all_robots[i]);
-      }
-    }
-
-    for(int i=3; i<6; i++) {
-      if(ids_of_all_robots[i] != 0) {
-        display.setCursor(i*50,50);
-        display.print(ids_of_all_robots[i]);
-      }
-    }
-
-    display.display();
-
-    if(!AUTOCONNECT) {
-
-      if(getJoystickButton() == 1) {
-        Serial << "They have chosen their robots!" << endl;
-
-        for(int i=0; i<6; i++) {
-          if(getButton(i) == 1) {
-            SELECTED_ROBOT_ID[num_robot_conn] = ids_of_all_robots[i];
-            num_robot_conn++;
-          }
-        }
-
-      }
-
-    } else {
-
-      if(num_addrs > 0) { // as soon as we see one, connect to it
-        SELECTED_ROBOT_ID[num_robot_conn] = ids_of_all_robots[0];
-        num_robot_conn++;
-      }
-
-    }
-
-    if(num_robot_conn > 0) {  
-      SELECTED_ROBOT = true;
-      CURRENT_STATE = IDLE_STATE;
-      resetButtonStates();
     }
 
   }
@@ -353,9 +332,21 @@ void Operator::xbeeChooseRobotToConnect() {
 
 /*
 
----- Joystick ----
+---- #Joystick ----
 
 */
+
+void Operator::updateJoystick() {
+  joy_x_prev = joy_x;
+  joy_y_prev = joy_y;
+  joy_x = getJoyX();
+  joy_y = getJoyY();
+
+  if(joy_y > MAX_Y) joy_y = MAX_Y;
+  if(joy_y < MIN_Y) joy_y = MIN_Y;
+  if(joy_x > MAX_X) joy_x = MAX_X;
+  if(joy_x < MIN_X) joy_x = MIN_X;
+}
 
 void Operator::calibrateHome() {
 
@@ -374,91 +365,56 @@ void Operator::calibrateHome() {
 
 }
 
+int Operator::getJoyX() {
+  return analogRead(JOYSTICK_X);
+}
+
+int Operator::getJoyY() {
+  return analogRead(JOYSTICK_Y);
+}
+
+
+/*
+
+---- #Control ----
+
+*/
+
 void Operator::joystickDriveControl() {
 
   Msg m = msg_none;
+  bool motor_dir = true;
+  bool send_motor_message = false;
 
-  joy_x_prev = joy_x;
-  joy_y_prev = joy_y;
-  joy_x = analogRead(JOYSTICK_X);
-  joy_y = analogRead(JOYSTICK_Y);
+  updateJoystick();
 
-  //Serial << "X: " << joy_x << " Y: " << joy_y << " SW: " << joy_sw << endl;
-
-  // checking to see if the nunchuck has been idle
-  if(joy_y >= (HOME_Y-5) && joy_y <= (HOME_Y+5)
-    && joy_x >= (HOME_X-5) && joy_x <= (HOME_Y+5) ) {
-    if(first_idle) last_activity = current_time;
-
-    if(current_time-last_activity >= ACTIVITY_TIMEOUT) {
-      joystick_idle = true;
-    }
-  } else {
-    first_idle = false;
-    joystick_idle = false;
-  }
-
-  // drive
-
-  int speed_r = 0;
-  int speed_l = 0;
-  boolean motor_dir = true;
-
-  if(joy_y > MAX_Y) joy_y = MAX_Y;
-  if(joy_y < MIN_Y) joy_y = MIN_Y;
-  if(joy_x > MAX_X) joy_x = MAX_X;
-  if(joy_x < MIN_X) joy_x = MIN_X;
-
-  bool speed_adj = false;
-
-  // TODO
-  /*
   if(joy_y >= (HOME_Y-ZERO_ZONE) && joy_y <= (HOME_Y+ZERO_ZONE)
      && joy_x >= (HOME_X-ZERO_ZONE) && joy_x <= (HOME_X+ZERO_ZONE)) {
     
-    motor_speed = 0;
-    //turn_speed = 0;
+    motor_l_dir = false;
+    motor_l_speed = 0;
+    motor_r_dir = false;
+    motor_r_speed = 0;
 
-    // stand still
-    m.priority = 3;
-    m.action = '@';
-    m.cmd = 'L';
-    m.key = 0;
-    m.val = motor_speed;
-    m.cmd2 = 'R';
-    m.key2 = 0;
-    m.val2 = motor_speed;
-    m.delim = '!';
-
-    Serial << "stand still" << endl;
+    send_motor_message = true;
     
   } else if(joy_x >= (MAX_X-150) && ( joy_y >= (HOME_Y-ZERO_ZONE) && joy_y <= (HOME_Y+ZERO_ZONE) ) ) {
   
-    m.priority = 3;
-    m.action = '@';
-    m.cmd = 'L';
-    m.key = 0;
-    m.val = TURN_SPEED_REV;
-    m.cmd2 = 'R';
-    m.key2 = 1;
-    m.val2 = TURN_SPEED_FWD;
-    m.delim = '!';
+    motor_l_dir = false;
+    motor_l_speed = TURN_SPEED_REV;
+    motor_r_dir = true;
+    motor_r_speed = TURN_SPEED_FWD;
 
-    if(OP_DEBUG) Serial << " hard left" << endl;
+    send_motor_message = true;
   
   } else if(joy_x <= (MIN_X+150) && ( joy_y >= (HOME_Y-ZERO_ZONE) && joy_y <= (HOME_Y+ZERO_ZONE) )) {
 
-    m.priority = 3;
-    m.action = '@';
-    m.cmd = 'L';
-    m.key = 1;
-    m.val = TURN_SPEED_FWD;
-    m.cmd2 = 'R';
-    m.key2 = 0;
-    m.val2 = TURN_SPEED_REV;
-    m.delim = '!';
+    motor_l_dir = true;
+    motor_l_speed = TURN_SPEED_FWD;
+    motor_r_dir = false;
+    motor_r_speed = TURN_SPEED_REV;
 
-    if(OP_DEBUG) Serial << " hard right" << endl;
+    send_motor_message = true;
 
   } else {
 
@@ -467,7 +423,7 @@ void Operator::joystickDriveControl() {
       // forwards
 
       if(current_time - last_increment > 10) {
-        incr_speed = 4;//map(joy_x, (MIN_X+150), HOME_X, 1, 10);
+        incr_speed = 4;
         last_increment = current_time;
       } else {
         incr_speed = 0;  
@@ -489,14 +445,14 @@ void Operator::joystickDriveControl() {
       if(motor_speed < MIN_SPEED) motor_speed = MIN_SPEED;
       motor_dir = true;
 
-      Serial << "motor_speed: " << motor_speed << endl;
+      send_motor_message = true;
 
     } else if(joy_y <= (HOME_Y-ZERO_ZONE)) { 
 
       // backwards
 
       if(current_time - last_increment > 10) {
-        incr_speed = 2;//map(joy_x, (MIN_X+150), HOME_X, 1, 10);
+        incr_speed = 4;
         last_increment = current_time;
       } else {
         incr_speed = 0;  
@@ -518,95 +474,60 @@ void Operator::joystickDriveControl() {
       if(motor_speed < MIN_SPEED) motor_speed = MIN_SPEED;
       motor_dir = false;
 
-      Serial << "motor_speed: " << motor_speed << endl;
-
+      send_motor_message = true;
     }
 
     // sending the data
+    motor_l_speed = motor_speed;
+    motor_r_speed = motor_speed;
     if(motor_dir) {
-      m.priority = 3;
-      m.action = '@';
-      m.cmd = 'L';
-      m.key = 1;
-      m.val = motor_speed;
-      m.cmd2 = 'R';
-      m.key2 = 1;
-      m.val2 = motor_speed;
-      m.delim = '!';
+      motor_l_dir = true;
+      motor_r_dir = true;
     } else {
-      m.priority = 3;
-      m.action = '@';
-      m.cmd = 'L';
-      m.key = 0;
-      m.val = motor_speed;
-      m.cmd2 = 'R';
-      m.key2 = 0;
-      m.val2 = motor_speed;
-      m.delim = '!';
+      motor_l_dir = false;
+      motor_r_dir = false;
     }
+    
+  }
 
-    if(OP_DEBUG) Serial << " motor_speed: " << motor_speed << endl;
+  if(send_motor_message) {
+
+    if(OP_DEBUG) Serial << "Motor speed L (" << motor_l_dir << "): " << motor_l_speed;
+    if(OP_DEBUG) Serial << "Motor speed R (" << motor_r_dir << "): " << motor_r_speed;
+    if(OP_DEBUG) Serial << endl;
+
+    m.priority = 3;
+    m.action = '@';
+    m.pck1.cmd = 'L';
+    m.pck1.key = motor_l_dir;
+    m.pck1.val = motor_l_speed;
+    m.pck2.cmd = 'R';
+    m.pck2.key = motor_r_dir;
+    m.pck2.val = motor_r_speed;
+    m.delim = '!';
+
+    insertMsg(m);
 
   }
-  */
-
-  insertMsg(m);
-
+  
 }
 
 void Operator::joystickArmControl() {
 
-  current_time = millis();
-
   Msg m = msg_none;
+  current_time = millis();
+  bool send_arm_msg = false;
+  bool arm_dir = true;
 
-  joy_x_prev = joy_x;
-  joy_y_prev = joy_y;
-  joy_x = analogRead(JOYSTICK_X);
-  joy_y = analogRead(JOYSTICK_Y);
-  joy_sw = analogRead(JOYSTICK_SW);
+  updateJoystick();
 
-  //Serial << "X: " << joy_x << " Y: " << joy_y << " SW: " << joy_sw << endl;
-
-  // checking to see if the nunchuck has been idle
-  if(joy_y >= (HOME_Y-5) && joy_y <= (HOME_Y+5)
-    && joy_x >= (HOME_X-5) && joy_x <= (HOME_Y+5) ) {
-    if(first_idle) last_activity = current_time;
-
-    if(current_time-last_activity >= ACTIVITY_TIMEOUT) {
-      joystick_idle = true;
-    }
-  } else {
-    first_idle = false;
-    joystick_idle = false;
-  }
-
-  // drive
-
-  boolean motor_dir = true;
-
-  if(joy_y > MAX_Y) joy_y = MAX_Y;
-  if(joy_y < MIN_Y) joy_y = MIN_Y;
-  if(joy_x > MAX_X) joy_x = MAX_X;
-  if(joy_x < MIN_X) joy_x = MIN_X;
-
-  // TODO
-  /*
   if(joy_y >= (HOME_Y-ZERO_ZONE) && joy_y <= (HOME_Y+ZERO_ZONE)
      && joy_x >= (HOME_X-ZERO_ZONE) && joy_x <= (HOME_X+ZERO_ZONE)) {
     
     incr_speed = 0;
+    arm_dir = true;
 
-    // stand still
-    m.priority = 3;
-    m.action = '@';
-    m.cmd = 'S';
-    m.key = 1;
-    m.val = 0;//arm_pos;
-    m.cmd2 = 'q';
-    m.key2 = 0;
-    m.val2 = 0;
-    m.delim = '!';
+    send_arm_msg = true;
     
   } else if(joy_x >= (MAX_X-150) && ( joy_y >= (HOME_Y-ZERO_ZONE) && joy_y <= (HOME_Y+ZERO_ZONE) ) ) {
   
@@ -618,72 +539,55 @@ void Operator::joystickArmControl() {
 
   } else {
 
-
     if(joy_y >= (HOME_Y+ZERO_ZONE)) { 
 
       // forwards
-
       if(current_time - last_increment > 100) {
-        //incr_speed++;
-        incr_speed = (int)map(joy_y, HOME_Y, MAX_Y, 1, 100);
+        incr_speed = (int)map(joy_y, MAX_Y, HOME_Y, 4, 100);;
         last_increment = current_time;
       }
-      
       if(incr_speed > 100) incr_speed = 100;
-
-      Serial << "^ Arm incr: " << incr_speed << endl;
-      m.key = 1;
+      arm_dir = true;
+      
+      send_arm_msg = true;
       
     } else if(joy_y <= (HOME_Y-ZERO_ZONE)) { 
 
       // backwards
-
       if(current_time - last_increment > 100) {
-        //incr_speed++;
-        incr_speed = (int)map(joy_y, HOME_Y, MIN_Y, 1, 100);
+        incr_speed = (int)map(joy_y, HOME_Y, MIN_Y, 4, 100);
         last_increment = current_time;
       }
-      
       if(incr_speed > 100) incr_speed = 100;
+      arm_dir = false;
 
-      m.key = 0;
-
-      Serial << "v Arm incr: " << incr_speed << endl;
+      send_arm_msg = true;
 
     }
 
-    // sending the data
+  }
+
+  if(send_arm_msg) {
+
+    if(OP_DEBUG) Serial << " Arm incr_speed (" << arm_dir << "): " << incr_speed << endl;
+
     m.priority = 3;
     m.action = '@';
-    m.cmd = 'S';
-    
-    m.val = incr_speed;
-    m.cmd2 = 'q';
-    m.key2 = 0;
-    m.val2 = 0;
+    m.pck1.cmd = 'S';
+    m.pck1.key = arm_dir;
+    m.pck1.val = incr_speed;
     m.delim = '!';
 
-    if(OP_DEBUG) Serial << " incr_speed: " << incr_speed << endl;
+    insertMsg(m);
 
   }
-  */
 
-  insertMsg(m);
-
-}
-
-int Operator::getJoyX() {
-  return analogRead(JOYSTICK_X);
-}
-
-int Operator::getJoyY() {
-  return analogRead(JOYSTICK_Y);
 }
 
 
 /*
 
----- Buttons ----
+---- #Buttons ----
 
 */
 
@@ -710,8 +614,6 @@ void Operator::updateButtons() {
     }
 
     if(did_change) {
-
-      _buttonChangedCallback(i, button_states[i]);
 
       m.priority = 1;
       m.action = '#';
@@ -743,6 +645,7 @@ void Operator::updateButtons() {
       }
     }
     addMsg(m);
+    _buttonChangedCallback(i, button_states[i]);
   }
 
 }
@@ -774,13 +677,14 @@ void Operator::updateModeSwitch() {
 
   int val = analogRead(MODE_SW);
 
-  // TODO check previous & do a callback
-
   if(val >= MODE1_THRESH) {
+    if(CURRENT_MODE != MODE1) _modeChangedCallback(MODE1);
     CURRENT_MODE = MODE1;
   } else if(val >= MODE2_THRESH) {
+    if(CURRENT_MODE != MODE2) _modeChangedCallback(MODE2);
     CURRENT_MODE = MODE2;
   } else if(val >= MODE3_THRESH) {
+    if(CURRENT_MODE != MODE3) _modeChangedCallback(MODE3);
     CURRENT_MODE = MODE3;
   }
 
@@ -1085,7 +989,7 @@ void Operator::addXbeeToList(XBeeAddress64 newAddr) {
     Serial << "! New robot added to Xbee list !" << endl;
     addr_all_robots[num_addrs] = XBeeAddress64(newAddr.getMsb(), newAddr.getLsb());
     num_addrs++;
-    // TODO send a callback _robotAddedCallback();
+    _robotAddedCallback();
   }
   
 }
@@ -1127,8 +1031,7 @@ void Operator::xbeeWatchdog() {
           }
           // reset if we're no longer connected to any robot
           if(num_robot_conn == 0) {
-            // TODO
-            //resetButtonStates();
+            resetButtonStates();
             SELECTED_ROBOT = false;
             CURRENT_STATE = IDLE_STATE;
           }
@@ -1145,7 +1048,7 @@ void Operator::xbeeWatchdog() {
           }
           // so that we can properly deincrement the num_addr counter
           num_addrs--;
-          // TODO send a callback _robotRemovedCallback();
+          _robotRemovedCallback(SELECTED_ROBOT);
         }
       }
     }
@@ -1225,6 +1128,62 @@ bool Operator::xbeeRead() {
   
 }
 
+void Operator::xbeeChooseRobotToConnect() {
+
+  if(SELECTED_ROBOT == false && CONN_TYPE == XBEE_CONN) {
+    
+    // Say we're searching while waiting
+    displaySearchingAnimation();
+
+    for(int i=0; i<3; i++) {
+      if(ids_of_all_robots[i] != 0) {
+        display.setCursor(i*50,22);
+        display.print(ids_of_all_robots[i]);
+      }
+    }
+
+    for(int i=3; i<6; i++) {
+      if(ids_of_all_robots[i] != 0) {
+        display.setCursor(i*50,50);
+        display.print(ids_of_all_robots[i]);
+      }
+    }
+
+    display.display();
+
+    if(!AUTOCONNECT) {
+
+      if(getJoystickButton() == 1) {
+        Serial << "They have chosen their robots!" << endl;
+
+        for(int i=0; i<6; i++) {
+          if(getButton(i) == 1) {
+            SELECTED_ROBOT_ID[num_robot_conn] = ids_of_all_robots[i];
+            num_robot_conn++;
+          }
+        }
+
+      }
+
+    } else {
+
+      if(num_addrs > 0) { // as soon as we see one, connect to it
+        SELECTED_ROBOT_ID[num_robot_conn] = ids_of_all_robots[0];
+        num_robot_conn++;
+      }
+
+    }
+
+    if(num_robot_conn > 0) {  
+      SELECTED_ROBOT = true;
+      CURRENT_STATE = IDLE_STATE;
+      resetButtonStates();
+    }
+
+  }
+
+}
+
 // these routines are just to print the data with
 // leading zeros and allow formatting such that it
 // will be easy to read.
@@ -1255,7 +1214,7 @@ void Operator::print8Bits(byte c){
 
 /*
 
----- Generic Conn Related ----
+---- #Conn Generic Related ----
 
 */
 
@@ -1291,12 +1250,10 @@ void Operator::connRead() {
 void Operator::connBlink() {
   if(current_time-last_led_blink >= 100) {
     if(current_time-last_rx <= 6000 && current_time > 6000) {
-      // TODO
-      //digitalWrite(led, led_on);
-      //led_on = !led_on;
+      digitalWrite(COMM_LED, led_on);
+      led_on = !led_on;
     } else {
-      // TODO
-      //digitalWrite(led, LOW);
+      digitalWrite(COMM_LED, LOW);
     }
     last_led_blink = current_time;
   }
@@ -1363,6 +1320,20 @@ void Operator::connSendEasy(char c) {
 
 }
 
+void Operator::connRetrySend() {
+  if(current_time-last_rx_msg >= retry_time && retry_count < 5) { // retry 5 times
+    Serial.println(F("Retrying send"));
+    Serial << getMsgQueueLength() << " msgs in queue" << endl;
+    if(getMsgQueueLength() <= 0) {
+      addMsg(msg_none);
+    }
+    sendNextMsg();
+    retry_time = SECONDARY_RETRY_TIME;
+    last_rx_msg = current_time;
+    retry_count++;
+  }
+}
+
 
 /*
 
@@ -1386,8 +1357,7 @@ void Operator::transmit_complete() {
 
 void Operator::processAction(Msg m) {
 
-  // TODO
-  //if(PROG_DEBUG) {
+  if(OP_DEBUG) {
     Serial << "---PROCESS ACTION---" << endl;
     Serial << "action: " << m.action << endl;
     Serial << "command: " << m.pck1.cmd << endl;
@@ -1397,46 +1367,40 @@ void Operator::processAction(Msg m) {
     Serial << "key: " << m.pck2.key << endl;
     Serial << "val: " << m.pck2.val << endl;
     Serial << "delim: " << m.delim << endl;
-  //}
+  }
 
   // Sending the ID
   if(m.action == '$') {
 
-    // TODO improve
-    //for(int i=0; i<2; i++) {
-      if(m.pck1.cmd == 'W' || m.pck2.cmd == 'W') {
-        //Serial << "ID of the robot: " << val << endl;
-        long most_recent_time = 0;
-        int assoc_ind = 0;
-        
-        for(int i=0; i<MAX_ROBOTS; i++) {
-          // we'll assume the one to send last is who this
-          // id is associated with. makes sense
-          if(last_rx_all[i] > most_recent_time) {
-            most_recent_time = last_rx_all[i];
-            assoc_ind = i;
-          }
+    if(m.pck1.cmd == 'W' || m.pck2.cmd == 'W') {
+      //Serial << "ID of the robot: " << val << endl;
+      long most_recent_time = 0;
+      int assoc_ind = 0;
+      
+      for(int i=0; i<MAX_ROBOTS; i++) {
+        // we'll assume the one to send last is who this
+        // id is associated with. makes sense
+        if(last_rx_all[i] > most_recent_time) {
+          most_recent_time = last_rx_all[i];
+          assoc_ind = i;
         }
-  
-        //Serial << "ID at ind " << assoc_ind << " is: " << val << "(num_addrs: " << num_addrs << endl;
-        ids_of_all_robots[assoc_ind] = m.pck1.val;
-        //break;
       }
-    //}
 
+      //Serial << "ID at ind " << assoc_ind << " is: " << val << "(num_addrs: " << num_addrs << endl;
+      ids_of_all_robots[assoc_ind] = m.pck1.val;
+    }
+    
   }
 
-  // } else {
-  //   chooseNextMessage();
-  //   sendNextMsg();
-  // }
-  
   _receivedActionCallback(m);
 
   msg_rx_count++;
   diff_time = current_time-last_rx_msg;
   last_rx_msg = current_time;
   Serial << "COMMS- Roundtrip latency (ms): " << diff_time << " Msg count: " << msg_rx_count << endl;
+
+  // send the next message now that we have received a reply from the robot
+  sendNextMsg();
 
 }
 
@@ -1461,7 +1425,7 @@ void Operator::displaySearchingAnimation() {
   display.clearDisplay();
   display.setTextSize(2);
   display.setCursor(0,0);
-  //display.print("Searching");
+  
   switch(letter_itr) {
     case 0:
     display.print("S");
