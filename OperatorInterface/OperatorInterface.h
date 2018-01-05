@@ -116,6 +116,7 @@
 // conns
 #define XBEE_CONN 1
 #define USB_CONN 2
+#define BT_CONN 3
 
 struct Packet {
   char cmd;
@@ -210,11 +211,12 @@ class Operator {
   public:
     Operator();
 
-    void initOperator(int conn);
+    void initOperator(int conn, int baud);
     void updateOperator();
     void calibrateHome();
     void breatheLeds();
     void setCommLed(uint8_t pin);
+    void setAutoconnect(bool b);
     unsigned long getCommLatency();
     unsigned long getLastRXTime();
 
@@ -223,6 +225,7 @@ class Operator {
     void set_controller_added_callback( void (*controllerAddedCallback)() );
     void set_controller_removed_callback( void (*controllerRemovedCallback)() );
     void set_received_action_callback( void (*receivedActionCallback)(Msg m) );
+    void set_button_changed_callback( void (*buttonChangedCallback)(int button, int value) );
 
     // Promulgate
     Promulgate promulgate;
@@ -306,16 +309,16 @@ class Operator {
     bool joystick_on;
     int getJoyX();
     int getJoyY();
-    bool getJoystickButton();
-
+    
     // Buttons
     bool getButton(uint8_t b);
+    bool getJoystickButton();
+    void resetButtonStates();
     
     // LEDs
     long last_led_blink;
     bool led_on;
     void ledsOff();
-    void buttonsOff();
     void introLedSequence();
 
     // Speaker
@@ -328,10 +331,12 @@ class Operator {
     void (*_controllerAddedCallback)();
     void (*_controllerRemovedCallback)();
     void (*_receivedActionCallback)(Msg m);
+    void (*_buttonChangedCallback)(int button, int value);
 
     // Custom
     uint8_t COMM_LED;
     uint8_t CONN_TYPE;
+    bool AUTOCONNECT; // defaults to true
 
     // Init
     void initLeds();
@@ -397,6 +402,9 @@ class Operator {
 
     // Buttons
     void updateButtons();
+
+    // Other
+    void xbeeChooseRobotToConnect();
 
 };
 

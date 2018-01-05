@@ -8,6 +8,7 @@ Operator::Operator() : display(OLED_RESET) {
   // LED
   COMM_LED = 13;
   CONN_TYPE = XBEE_CONN;
+  AUTOCONNECT = true;
 
   // Promulgate
   current_time = 0;
@@ -137,8 +138,16 @@ void Operator::set_received_action_callback( void (*receivedActionCallback)(Msg 
   _receivedActionCallback = receivedActionCallback;
 }
 
+void Operator::set_button_changed_callback( void (*buttonChangedCallback)(int button, int value) ) {
+  _buttonChangedCallback = buttonChangedCallback;
+}
+
 void Operator::setCommLed(uint8_t pin) {
   COMM_LED = pin;
+}
+
+void Operator::setAutoconnect(bool b) {
+  AUTOCONNECT = b;
 }
 
 unsigned long Operator::getCommLatency() {
@@ -149,13 +158,13 @@ unsigned long Operator::getLastRXTime() {
   return last_rx_comms;
 }
 
-void Operator::initOperator(int conn) {
+void Operator::initOperator(int conn, int baud) {
 
   bool possible = false;
 
   if(conn == USB_CONN) {
 
-    Serial1.begin(9600);
+    Serial1.begin(baud);
     // Promulgate
     promulgate = Promulgate(&Serial1, &Serial1);
 
@@ -165,13 +174,22 @@ void Operator::initOperator(int conn) {
   } else if(conn == XBEE_CONN) {
     
     // Start xbee's serial
-    Serial1.begin(9600);
+    Serial1.begin(baud);
     xbee.begin(Serial1);
 
     // Promulgate
     promulgate = Promulgate(&Serial1, &Serial1);
 
     CONN_TYPE = XBEE_CONN;
+    possible = true;
+
+  } else if(conn == BT_CONN) {
+
+    Serial1.begin(baud);
+    // Promulgate
+    promulgate = Promulgate(&Serial1, &Serial1);
+
+    CONN_TYPE = BT_CONN;
     possible = true;
 
   }
@@ -216,7 +234,7 @@ void Operator::updateOperator() {
       if(CONN_TYPE == XBEE_CONN) {
         // send it directly, bypassing the queue
         xbeeSendToList('$', 'X', 1, 50, 'X', 1, 50, '!');
-      } else if(CONN_TYPE == USB_CONN) {
+      } else if(CONN_TYPE == USB_CONN || CONN_TYPE == BT_CONN) {
         connSend('$', 'X', 1, 50, 'X', 1, 50, '!');
       }
       last_retry_time = current_time;
@@ -261,9 +279,26 @@ void Operator::updateOperator() {
   // Display
   mainMenu();
 
-  if(!SELECTED_ROBOT) {
-    // They haven't chosen a robot yet
+  // Let's choose the robot in XBee mode
+  xbeeChooseRobotToConnect();
 
+  // TODO
+  if(CURRENT_MODE == MODE1) {
+
+    if(SELECTED_ROBOT) {
+      if(CURRENT_STATE == DRIVE_STATE) joystickDriveControl();
+      if(CURRENT_STATE == ARM_STATE) joystickArmControl();
+    }
+
+  }
+
+}
+
+void Operator::xbeeChooseRobotToConnect() {
+
+  if(SELECTED_ROBOT == false && CONN_TYPE == XBEE_CONN) {
+    
+    // Say we're searching while waiting
     displaySearchingAnimation();
 
     for(int i=0; i<3; i++) {
@@ -282,321 +317,37 @@ void Operator::updateOperator() {
 
     display.display();
 
-    // TODO
-    if(getJoystickButton() == true) {
-      Serial << "They have chosen their robots!" << endl;
+    if(!AUTOCONNECT) {
 
-      // TODO
-      /*
-      if(controller.getRedButton() == true && num_addrs >= 1) {
+      if(getJoystickButton() == 1) {
+        Serial << "They have chosen their robots!" << endl;
+
+        for(int i=0; i<6; i++) {
+          if(getButton(i) == 1) {
+            SELECTED_ROBOT_ID[num_robot_conn] = ids_of_all_robots[i];
+            num_robot_conn++;
+          }
+        }
+
+      }
+
+    } else {
+
+      if(num_addrs > 0) { // as soon as we see one, connect to it
         SELECTED_ROBOT_ID[num_robot_conn] = ids_of_all_robots[0];
         num_robot_conn++;
       }
-      */
 
     }
 
-    if(num_addrs > 0) { // as soon as we see one, connect to it
-      SELECTED_ROBOT_ID[num_robot_conn] = ids_of_all_robots[0];
-      num_robot_conn++;
-      
+    if(num_robot_conn > 0) {  
       SELECTED_ROBOT = true;
       CURRENT_STATE = IDLE_STATE;
-      // TODO
-      /*
-      ledsOff();
       resetButtonStates();
-      GO_TIME = true;
-      */
     }
 
   }
 
-  // TODO
-  if(CURRENT_MODE == MODE1) {
-
-    // wait for go time (connecting to robots) from the sketch
-    if(GO_TIME) {
-      if(CURRENT_STATE == DRIVE_STATE) joystickDriveControl();
-      if(CURRENT_STATE == ARM_STATE) joystickArmControl();
-    }
-
-  }
-
-}
-
-
-/*
-
----- Display ----
-
-*/
-
-void Operator::displaySearchingAnimation() {
-
-  display.clearDisplay();
-  display.setTextSize(2);
-  display.setCursor(0,0);
-  //display.print("Searching");
-  switch(letter_itr) {
-    case 0:
-    display.print("S");
-    break;
-    case 1:
-    display.print("Se");
-    break;
-    case 2:
-    display.print("Sea");
-    break;
-    case 3:
-    display.print("Sear");
-    break;
-    case 4:
-    display.print("Searc");
-    break;
-    case 5:
-    display.print("Search");
-    break;
-    case 6:
-    display.print("Searchi");
-    break;
-    case 7:
-    display.print("Searchin");
-    break;
-    case 8:
-    display.print("Searching");
-    break;
-  }
-  if(current_time-last_letter_itr >= 200) {
-    letter_itr++;
-    if(letter_itr > 8) letter_itr = 0;
-    last_letter_itr = current_time;
-  }
-
-}
-
-void Operator::mainMenu() {
-
-  display.clearDisplay();
-
-  displayTitleBar();
-
-  uint8_t r = 5;
-  uint8_t y = 20;
-  uint8_t sp = 27;
-
-  display.drawCircle((display.width()/2)-50, y, r, WHITE);
-  display.drawCircle(display.width()/2, y, r, WHITE);
-  display.drawCircle((display.width()/2)+50, y, r, WHITE);
-
-  display.drawCircle((display.width()/2)-50, y+sp, r, WHITE);
-  display.drawCircle(display.width()/2, y+sp, r, WHITE);
-  display.drawCircle((display.width()/2)+50, y+sp, r, WHITE);
-
-
-  display.setTextSize(1);
-
-  if(CURRENT_MODE == MODE1) {
-
-    display.setCursor(0,y+10);
-    display.println("Drive");
-
-    display.setCursor((display.width()/2)-15,y+10);
-    display.println("Arm");
-
-    display.setCursor((display.width()/2)+32,y+10);
-    display.println("Empty");
-
-    display.setCursor(0,y+sp+10);
-    display.println("Scoop S");
-
-    display.setCursor((display.width()/2)-15,y+sp+10);
-    display.println("Scoop F");
-
-    display.setCursor((display.width()/2)+32,y+sp+10);
-    display.println("Dump");
-
-  } else if(CURRENT_MODE == MODE2) {
-
-    display.setCursor(0,y+10);
-    display.println("Mot. A");
-
-    display.setCursor((display.width()/2)-15,y+10);
-    display.println("Serv. A");
-
-    display.setCursor((display.width()/2)+32,y+10);
-    display.println("Touch");
-
-    display.setCursor(0,y+sp+10);
-    display.println("");
-
-    display.setCursor((display.width()/2)-15,y+sp+10);
-    display.println("");
-
-    display.setCursor((display.width()/2)+32,y+sp+10);
-    display.println("");
-
-  } else if(CURRENT_MODE == MODE3) {
-
-    display.setCursor(0,y+10);
-    display.println("Square");
-
-    display.setCursor((display.width()/2)-15,y+10);
-    display.println("Wave");
-
-    display.setCursor((display.width()/2)+32,y+10);
-    display.println("Dance");
-
-    display.setCursor(0,y+sp+10);
-    display.println("GPS");
-
-    display.setCursor((display.width()/2)-15,y+sp+10);
-    display.println("Comp.");
-
-    display.setCursor((display.width()/2)+32,y+sp+10);
-    display.println("");
-
-  }
-
-  display.display();
-
-}
-
-void Operator::displayTitleBar() {
-
-  display.drawLine(0, 10, display.width()-1, 10, WHITE);
-
-  display.setCursor(5,0);
-  display.setTextSize(1);
-  display.setTextColor(WHITE);
-
-  if(CURRENT_MODE == MODE1) {
-    display.println("Operator");
-  } else if(CURRENT_MODE == MODE2) {
-    display.println("Sensors");
-  } else if(CURRENT_MODE == MODE3) {
-    display.println("Autonomous");
-  }
-
-  display.setCursor(80,0);
-  display.println("Batt:");
-  display.setCursor(108,0);
-  uint8_t batt_val = 100;
-  display.println(batt_val);
-
-}
-
-void Operator::displayLogo() {
-  display.drawBitmap(0, 0,  robot_missions_logo, 128, 64, 1);
-  display.display();
-}
-
-void Operator::scrollLogo() {
-  display.drawBitmap(0, 0,  robot_missions_logo, 128, 64, 1);
-  display.display();
-  //delay(300);
-
-  display.startscrolldiagright(0x00, 0x0F);
-  // TODO: Make this better
-  delay(2000);
-  display.startscrolldiagleft(0x00, 0x0F);
-  // TODO: Make this better
-  delay(2000);
-  display.stopscroll();
-}
-
-
-/*
-
----- LEDs ----
-
-*/
-
-void Operator::introLedSequence() {
-
-  for(int i=0; i<6; i++) {
-    analogWrite(led_pins[i], 255);
-    delay(80);
-  }
-
-  for(int j=0; j<3; j++) {
-    for(int i=0; i<6; i++) {
-      analogWrite(led_pins[i], 0);
-    }
-    delay(100);
-    for(int i=0; i<6; i++) {
-      analogWrite(led_pins[i], 255);
-    }
-    delay(100);
-  }
-
-  for(int i=6; i>=0; i--) {
-    analogWrite(led_pins[i], 0);
-    delay(80);
-  }
-  
-}
-
-void Operator::breatheLeds() {
-
-  for(int i=0; i<=256; i+=2) {
-    analogWrite(LED1, i);
-    analogWrite(LED2, i);
-    analogWrite(LED3, i);
-    analogWrite(LED4, i);
-    analogWrite(LED5, i);
-    analogWrite(LED6, i);
-    delay(10);
-  }
-
-  digitalWrite(LED1, HIGH);
-  digitalWrite(LED2, HIGH);
-  digitalWrite(LED3, HIGH);
-  digitalWrite(LED4, HIGH);
-  digitalWrite(LED5, HIGH);
-  digitalWrite(LED6, HIGH);
-  delay(100);
-
-  for(int i=256; i>=0; i-=2) {
-    analogWrite(LED1, i);
-    analogWrite(LED2, i);
-    analogWrite(LED3, i);
-    analogWrite(LED4, i);
-    analogWrite(LED5, i);
-    analogWrite(LED6, i);
-    delay(10);
-  }
-
-  digitalWrite(LED1, LOW);
-  digitalWrite(LED2, LOW);
-  digitalWrite(LED3, LOW);
-  digitalWrite(LED4, LOW);
-  digitalWrite(LED5, LOW);
-  digitalWrite(LED6, LOW);
-  delay(100);
-
-}
-
-void Operator::ledsOff() {
-  digitalWrite(LED1, LOW);
-  digitalWrite(LED2, LOW);
-  digitalWrite(LED3, LOW);
-  digitalWrite(LED4, LOW);
-  digitalWrite(LED5, LOW);
-  digitalWrite(LED6, LOW);
-}
-
-void Operator::buttonsOff() {
-  // TODO
-  /*
-  red_on = false;
-  yellow_on = false;
-  green_on = false;
-  white_on = false;
-  blue_on = false;
-  black_on = false;
-  */
-  ledsOff();
 }
 
 
@@ -938,6 +689,9 @@ int Operator::getJoyY() {
 
 void Operator::updateButtons() {
   
+  Msg m = msg_none;
+  bool did_change = false;
+
   for(int i=0; i<7; i++) {
     bounce_buttons[i].update();
     if(bounce_buttons[i].fell()) {
@@ -948,305 +702,67 @@ void Operator::updateButtons() {
       }
       if(button_states[i] == 0) {
         button_states[i] = 1;
+        did_change = true;
       } else if(button_states[i] == 1) {
         button_states[i] = 0;
+        did_change = true;
       }
     }
+
+    if(did_change) {
+
+      _buttonChangedCallback(i, button_states[i]);
+
+      m.priority = 1;
+      m.action = '#';
+      m.pck1.key = 0;
+      m.pck1.val = button_states[i];
+      m.delim = '!';
+      switch(i) {
+        case 0: // 'red'
+          m.pck1.cmd = 'P';
+        break;
+        case 1: // yellow
+          m.pck1.cmd = 'Y';
+        break;
+        case 2: // green
+          m.pck1.cmd = 'G';
+        break;
+        case 3: // white
+          m.pck1.cmd = 'W';
+        break;
+        case 4: // blue
+          m.pck1.cmd = 'B';
+        break;
+        case 5: // black
+          m.pck1.cmd = 'N';
+        break;
+        case 6: // joystick
+          m.pck1.cmd = 'J';
+        break;
+      }
+    }
+    addMsg(m);
   }
-
-  for(int i=0; i<6; i++) {
-    if(button_states[i] == 1) {
-      analogWrite(led_pins[i], 255);
-    } else {
-      analogWrite(led_pins[i], 0);
-    }
-  }
-  
-  // TODO + callbacks for buttons
-  /*
-
-  Msg m = {0, '^', '0', 0, 0, '0', 0, 0, '!'};
-
-  // drive state
-  if(bouncer1.fell()) {
-
-    if(BUTTON_DEBUG) Serial.print(F("red button (P)"));
-
-    if(reset_leds) {
-      ledsOff();
-      yellow_on = false;
-      green_on = false;
-      white_on = false;
-      blue_on = false;
-      black_on = false;
-    }
-    
-    red_on = !red_on;
-
-    m.priority = 1;
-    m.action = '#';
-    m.cmd = 'P';
-    m.key = 0;
-
-    if(red_on) {
-      m.val = 1;
-      digitalWrite(LED1, HIGH);
-      CURRENT_STATE = DRIVE_STATE;
-    } else {
-      m.val = 0;
-      digitalWrite(LED1, LOW);
-      CURRENT_STATE = IDLE_STATE;
-    }
-
-    m.cmd2 = '0';
-    m.key2 = 0;
-    m.val2 = 0;
-    m.delim = '!';
-
-    addNextMsg(m);
-
-  }
-  
-  // arm state
-  if(bouncer2.fell()) { 
-    
-    if(BUTTON_DEBUG) Serial.print(F("yellow button (Y)"));
-
-    if(reset_leds) {
-      ledsOff();
-      red_on = false;
-      green_on = false;
-      white_on = false;
-      blue_on = false;
-      black_on = false;
-    }
-
-    yellow_on = !yellow_on;
-    
-    m.priority = 1;
-    m.action = '#';
-    m.cmd = 'Y';
-    m.key = 0;
-
-    if(yellow_on) {
-      m.val = 1;
-      digitalWrite(LED2, HIGH);
-      CURRENT_STATE = ARM_STATE;
-    } else {
-      m.val = 0;
-      digitalWrite(LED2, LOW);
-      CURRENT_STATE = IDLE_STATE;
-    }
-
-    m.cmd2 = '0';
-    m.key2 = 0;
-    m.val2 = 0;
-    m.delim = '!';
-
-    addNextMsg(m);
-
-  }
-
-  if(bouncer3.fell()) {
-
-    if(BUTTON_DEBUG) Serial.print(F("green button (G)"));
-
-    if(reset_leds) {
-      ledsOff();
-      red_on = false;
-      yellow_on = false;
-      white_on = false;
-      blue_on = false;
-      black_on = false;
-    }
-
-    green_on = !green_on;
-
-    m.priority = 1;
-    m.action = '#';
-    m.cmd = 'G';
-    m.key = 0;
-
-    if(green_on) {
-      m.val = 1;
-      digitalWrite(LED3, HIGH);
-      CURRENT_STATE = DUMP_STATE;
-    } else {
-      m.val = 0;
-      digitalWrite(LED3, LOW);
-      CURRENT_STATE = IDLE_STATE;
-    }
-
-    m.cmd2 = '0';
-    m.key2 = 0;
-    m.val2 = 0;
-    m.delim = '!';
-
-    addNextMsg(m);
-
-  }
-  
-  if(bouncer4.fell()) {
-
-    if(BUTTON_DEBUG) Serial.print(F("white button (W)"));
-
-    if(reset_leds) {
-      ledsOff();
-      red_on = false;
-      yellow_on = false;
-      green_on = false;
-      blue_on = false;
-      black_on = false;
-    }
-
-    white_on = !white_on;
-
-    m.priority = 1;
-    m.action = '#';
-    m.cmd = 'W';
-    m.key = 0;
-
-    if(white_on) {
-      m.val = 1;
-      digitalWrite(LED4, HIGH);
-      CURRENT_STATE = SCOOP_S_STATE;
-    } else {
-      m.val = 0;
-      digitalWrite(LED4, LOW);
-      CURRENT_STATE = IDLE_STATE;
-    }
-
-    m.cmd2 = '0';
-    m.key2 = 0;
-    m.val2 = 0;
-    m.delim = '!';
-
-    addNextMsg(m);
-    
-  }
-
-  if(bouncer5.fell()) { 
-    
-    if(BUTTON_DEBUG) Serial.print(F("blue button (B)"));
-
-    if(reset_leds) {
-      ledsOff();
-      red_on = false;
-      yellow_on = false;
-      green_on = false;
-      white_on = false;
-      black_on = false;
-    }
-
-    blue_on = !blue_on;
-
-    m.priority = 1;
-    m.action = '#';
-    m.cmd = 'B';
-    m.key = 0;
-
-    if(blue_on) {
-      m.val = 1;
-      digitalWrite(LED5, HIGH);
-      CURRENT_STATE = SCOOP_F_STATE;
-    } else {
-      m.val = 0;
-      digitalWrite(LED5, LOW);
-      CURRENT_STATE = IDLE_STATE;
-    }
-
-    m.cmd2 = '0';
-    m.key2 = 0;
-    m.val2 = 0;
-    m.delim = '!';
-
-    addNextMsg(m);
-    
-  }
-
-  if(bouncer6.fell()) {
-    
-    if(BUTTON_DEBUG) Serial.print(F("black button (N)"));
-
-    if(reset_leds) {
-      red_on = false;
-      yellow_on = false;
-      green_on = false;
-      white_on = false;
-      blue_on = false;
-    }
-
-    black_on = !black_on;
-
-    m.priority = 1;
-    m.action = '#';
-    m.cmd = 'N';
-    m.key = 0;
-
-    if(black_on) {
-      m.val = 1;
-      digitalWrite(LED6, HIGH);
-      CURRENT_STATE = EMPTY_STATE;
-    } else {
-      m.val = 0;
-      digitalWrite(LED6, LOW);
-      CURRENT_STATE = IDLE_STATE;
-    }
-
-    m.cmd2 = '0';
-    m.key2 = 0;
-    m.val2 = 0;
-    m.delim = '!';
-
-    addNextMsg(m);
-    
-  }
-
-  if(joystick_button.fell()) {
-    
-    //if(BUTTON_DEBUG) 
-    Serial.print(F("joystick button (J)"));
-
-    // for the joystick, this defaults to true
-    // because of the initialisation sequence
-
-    joystick_on = !joystick_on;
-
-    m.priority = 1;
-    m.action = '#';
-    m.cmd = 'J';
-    m.key = 0;
-
-    if(joystick_on) {
-      m.val = 1;
-    } else {
-      m.val = 0;
-    }
-
-    m.cmd2 = '0';
-    m.key2 = 0;
-    m.val2 = 0;
-    m.delim = '!';
-
-    addNextMsg(m);
-    
-  }
-
-  */
-
 
 }
 
 bool Operator::getButton(uint8_t b) {
-  // TODO
+  if(button_states[b] == 1) return true;
   return false;
 }
 
 bool Operator::getJoystickButton() {
-  if(joystick_on) return true;
+  if(button_states[6] == 1) return true;
   return false;
 }
 
+void Operator::resetButtonStates() {
+  for(int i=0; i<7; i++) {
+    button_states[i] = 0;
+  }
+  ledsOff();
+}
 
 /*
 
@@ -1296,14 +812,10 @@ void Operator::buzz(int targetPin, long frequency, long length) {
 */
 
 void Operator::initLeds() {
-  pinMode(BOARD_LED, OUTPUT);
   pinMode(COMM_LED, OUTPUT);
-  pinMode(LED1, OUTPUT);
-  pinMode(LED2, OUTPUT);
-  pinMode(LED3, OUTPUT);
-  pinMode(LED4, OUTPUT);
-  pinMode(LED5, OUTPUT);
-  pinMode(LED6, OUTPUT);
+  for(int i=0; i<7; i++) {
+    pinMode(led_pins[i], OUTPUT);
+  }
 }
 
 void Operator::initButtons() {
@@ -1751,7 +1263,7 @@ void Operator::connRead() {
 
   char c;
 
-  if(CONN_TYPE == USB_CONN) {
+  if(CONN_TYPE == USB_CONN || CONN_TYPE == BT_CONN) {
 
     while(Serial1.available()) {
       c = Serial1.read();
@@ -1790,14 +1302,13 @@ void Operator::connBlink() {
   }
 }
 
-
 void Operator::connSend(Msg m) {
 
   sprintf(message_tx,"%c%c%d,%d,%c%d,%d%c", m.action, m.pck1.cmd, m.pck1.key, m.pck1.val, m.pck2.cmd, m.pck2.key, m.pck2.val, m.delim);
   
   Serial << "Conn TX: " << message_tx << endl;
 
-  if(CONN_TYPE == USB_CONN) {
+  if(CONN_TYPE == USB_CONN || CONN_TYPE == BT_CONN) {
 
     Serial1.print(message_tx);
     last_tx = current_time;
@@ -1817,7 +1328,7 @@ void Operator::connSend(char action, char cmd, uint8_t key, uint16_t val, char c
 
   Serial << "Conn TX: " << message_tx << endl;
 
-  if(CONN_TYPE == USB_CONN) {
+  if(CONN_TYPE == USB_CONN || CONN_TYPE == BT_CONN) {
 
     Serial1.print(message_tx);
     last_tx = current_time;
@@ -1838,7 +1349,7 @@ void Operator::connSendEasy(char c) {
 
   Serial << "Conn TX: " << message_tx << endl;
 
-  if(CONN_TYPE == USB_CONN) {
+  if(CONN_TYPE == USB_CONN || CONN_TYPE == BT_CONN) {
 
     Serial1.print(message_tx);
     last_tx = current_time;
@@ -1851,6 +1362,7 @@ void Operator::connSendEasy(char c) {
   }
 
 }
+
 
 /*
 
@@ -1938,9 +1450,247 @@ void Operator::sendNextMsg() {
 }
 
 
+/*
+
+---- Display ----
+
+*/
+
+void Operator::displaySearchingAnimation() {
+
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setCursor(0,0);
+  //display.print("Searching");
+  switch(letter_itr) {
+    case 0:
+    display.print("S");
+    break;
+    case 1:
+    display.print("Se");
+    break;
+    case 2:
+    display.print("Sea");
+    break;
+    case 3:
+    display.print("Sear");
+    break;
+    case 4:
+    display.print("Searc");
+    break;
+    case 5:
+    display.print("Search");
+    break;
+    case 6:
+    display.print("Searchi");
+    break;
+    case 7:
+    display.print("Searchin");
+    break;
+    case 8:
+    display.print("Searching");
+    break;
+  }
+  if(current_time-last_letter_itr >= 200) {
+    letter_itr++;
+    if(letter_itr > 8) letter_itr = 0;
+    last_letter_itr = current_time;
+  }
+
+}
+
+void Operator::mainMenu() {
+
+  display.clearDisplay();
+
+  displayTitleBar();
+
+  uint8_t r = 5;
+  uint8_t y = 20;
+  uint8_t sp = 27;
+
+  display.drawCircle((display.width()/2)-50, y, r, WHITE);
+  display.drawCircle(display.width()/2, y, r, WHITE);
+  display.drawCircle((display.width()/2)+50, y, r, WHITE);
+
+  display.drawCircle((display.width()/2)-50, y+sp, r, WHITE);
+  display.drawCircle(display.width()/2, y+sp, r, WHITE);
+  display.drawCircle((display.width()/2)+50, y+sp, r, WHITE);
 
 
+  display.setTextSize(1);
 
+  if(CURRENT_MODE == MODE1) {
+
+    display.setCursor(0,y+10);
+    display.println("Drive");
+
+    display.setCursor((display.width()/2)-15,y+10);
+    display.println("Arm");
+
+    display.setCursor((display.width()/2)+32,y+10);
+    display.println("Empty");
+
+    display.setCursor(0,y+sp+10);
+    display.println("Scoop S");
+
+    display.setCursor((display.width()/2)-15,y+sp+10);
+    display.println("Scoop F");
+
+    display.setCursor((display.width()/2)+32,y+sp+10);
+    display.println("Dump");
+
+  } else if(CURRENT_MODE == MODE2) {
+
+    display.setCursor(0,y+10);
+    display.println("Mot. A");
+
+    display.setCursor((display.width()/2)-15,y+10);
+    display.println("Serv. A");
+
+    display.setCursor((display.width()/2)+32,y+10);
+    display.println("Touch");
+
+    display.setCursor(0,y+sp+10);
+    display.println("");
+
+    display.setCursor((display.width()/2)-15,y+sp+10);
+    display.println("");
+
+    display.setCursor((display.width()/2)+32,y+sp+10);
+    display.println("");
+
+  } else if(CURRENT_MODE == MODE3) {
+
+    display.setCursor(0,y+10);
+    display.println("Square");
+
+    display.setCursor((display.width()/2)-15,y+10);
+    display.println("Wave");
+
+    display.setCursor((display.width()/2)+32,y+10);
+    display.println("Dance");
+
+    display.setCursor(0,y+sp+10);
+    display.println("GPS");
+
+    display.setCursor((display.width()/2)-15,y+sp+10);
+    display.println("Comp.");
+
+    display.setCursor((display.width()/2)+32,y+sp+10);
+    display.println("");
+
+  }
+
+  display.display();
+
+}
+
+void Operator::displayTitleBar() {
+
+  display.drawLine(0, 10, display.width()-1, 10, WHITE);
+
+  display.setCursor(5,0);
+  display.setTextSize(1);
+  display.setTextColor(WHITE);
+
+  if(CURRENT_MODE == MODE1) {
+    display.println("Operator");
+  } else if(CURRENT_MODE == MODE2) {
+    display.println("Sensors");
+  } else if(CURRENT_MODE == MODE3) {
+    display.println("Autonomous");
+  }
+
+  display.setCursor(80,0);
+  display.println("Batt:");
+  display.setCursor(108,0);
+  uint8_t batt_val = 100;
+  display.println(batt_val);
+
+}
+
+void Operator::displayLogo() {
+  display.drawBitmap(0, 0,  robot_missions_logo, 128, 64, 1);
+  display.display();
+}
+
+void Operator::scrollLogo() {
+  display.drawBitmap(0, 0,  robot_missions_logo, 128, 64, 1);
+  display.display();
+  
+  display.startscrolldiagright(0x00, 0x0F);
+  delay(2000);
+  display.startscrolldiagleft(0x00, 0x0F);
+  delay(2000);
+  display.stopscroll();
+}
+
+
+/*
+
+---- LEDs ----
+
+*/
+
+void Operator::introLedSequence() {
+
+  for(int i=0; i<6; i++) {
+    analogWrite(led_pins[i], 255);
+    delay(80);
+  }
+
+  for(int j=0; j<3; j++) {
+    for(int i=0; i<6; i++) {
+      analogWrite(led_pins[i], 0);
+    }
+    delay(100);
+    for(int i=0; i<6; i++) {
+      analogWrite(led_pins[i], 255);
+    }
+    delay(100);
+  }
+
+  for(int i=6; i>=0; i--) {
+    analogWrite(led_pins[i], 0);
+    delay(80);
+  }
+  
+}
+
+void Operator::breatheLeds() {
+
+  for(int i=0; i<=256; i+=2) {
+    for(int j=0; j<6; j++) {
+      analogWrite(led_pins[j], i);
+    }
+    delay(10);
+  }
+
+  for(int j=0; j<6; j++) {
+    digitalWrite(led_pins[j], HIGH);
+  }
+  delay(100);
+
+  for(int i=256; i>=0; i-=2) {
+    for(int j=0; j<6; j++) {
+      analogWrite(led_pins[j], i);
+    }
+    delay(10);
+  }
+
+  for(int j=0; j<6; j++) {
+    digitalWrite(led_pins[j], LOW);
+  }
+  delay(100);
+
+}
+
+void Operator::ledsOff() {
+  for(int j=0; j<6; j++) {
+    digitalWrite(led_pins[j], LOW);
+  }
+}
 
 
 
