@@ -34,7 +34,7 @@
 
 //#define DEBUG false
 #define COMM_DEBUG false
-#define OP_DEBUG false
+#define OP_DEBUG true
 #define BUTTON_DEBUG true
 
 // speeds
@@ -87,11 +87,11 @@
 #define JOYSTICK_SW 15
 #define ACTIVITY_TIMEOUT 1000
 #define IDLE_UPDATE_FREQ 250
-#define MAX_X 1015  // left
-#define MIN_X 1     // right
+#define MAX_X 1019  // left
+#define MIN_X 6     // right
 #define MAX_Y 1023  // up
-#define MIN_Y 1     // down
-#define ZERO_ZONE 30
+#define MIN_Y 8     // down
+#define ZERO_ZONE 50
 
 // states
 #define IDLE_STATE 0
@@ -205,7 +205,7 @@ class Operator {
   static void transmit_complete();
 
   public:
-    Operator();
+    Operator(uint8_t your_op_id);
     void setCommLed(uint8_t pin);
     void setAutoconnect(bool b);
     unsigned long getCommLatency();
@@ -213,6 +213,8 @@ class Operator {
     int getMotorSpeed(int m); // 1 = left, 2 = right
     bool getMotorDir(int m);
     int getCurrentMode();
+    bool TESTING;
+    uint8_t OP_ID;
 
     // Callbacks
     void set_comms_timeout_callback( void (*commsTimeoutCallback)() );
@@ -319,6 +321,7 @@ class Operator {
     void joystickArmControl();
     
     // Buttons
+    bool sticky_buttons;
     bool getButton(uint8_t b);
     void setButtonState(uint8_t b, uint8_t state);
     bool getJoystickButton();

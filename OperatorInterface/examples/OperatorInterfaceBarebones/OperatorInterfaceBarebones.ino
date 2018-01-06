@@ -1,6 +1,6 @@
 #include "OperatorInterface.h"
 
-Operator opinterface = Operator();
+Operator opinterface = Operator(50);
 
 void buttonChanged(int button, int val);
 void modeChanged(int mode);
@@ -16,6 +16,7 @@ void setup() {
   Serial.begin(9600);
   
   opinterface.initOperator(XBEE_CONN, 9600);
+  //opinterface.TESTING = true;
   // opinterface.setAutoconnect(FALSE); // uncomment if you want to select which robot to connect to
   opinterface.set_received_action_callback(receivedAction);
   opinterface.set_comms_timeout_callback(commsTimeout);
@@ -35,8 +36,8 @@ void setup() {
   opinterface.setButtonLabel("Dump", 5, 1);
 
   opinterface.setModeLabel("Operator", 1);
-  opinterface.setModeLabel("Sensors", 1);
-  opinterface.setModeLabel("Autonomous", 1);
+  opinterface.setModeLabel("Sensors", 2);
+  opinterface.setModeLabel("Autonomous", 3);
 
 }
 
@@ -61,6 +62,9 @@ void loop() {
     //}
   
   }
+
+  //Serial << millis() << " ~" << endl;
+  //delay(100);
 
 }
 

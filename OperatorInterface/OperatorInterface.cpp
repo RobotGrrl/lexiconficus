@@ -1,9 +1,11 @@
 #include "OperatorInterface.h"
 
-Operator::Operator() : display(OLED_RESET) {
+Operator::Operator(uint8_t your_op_id) : display(OLED_RESET) {
 
   // Instance of the class for the callbacks from Promulgate
   opInstance = this;
+  TESTING = false;
+  OP_ID = your_op_id;
 
   // LED
   COMM_LED = 13;
@@ -101,8 +103,8 @@ Operator::Operator() : display(OLED_RESET) {
   CURRENT_MODE = MODE1;
 
   // Joystick
-  HOME_X = 347;
-  HOME_Y = 356;
+  HOME_X = (int)((MAX_X-MIN_X)/2);
+  HOME_Y = (int)((MAX_Y-MIN_Y)/2);
   last_increment = 0;
   last_activity = 0;
   scrolling_up = false;
@@ -113,6 +115,7 @@ Operator::Operator() : display(OLED_RESET) {
   slow_speed = 100;
   letter_itr = 0;
   last_letter_itr = 0;
+  sticky_buttons = false;
 
   // Control
   motor_l_dir = false;
@@ -214,6 +217,10 @@ void Operator::set_robot_removed_callback( void (*robotRemovedCallback)(bool sti
 
 void Operator::initOperator(int conn, int baud) {
 
+  displayLogo();
+
+  calibrateHome();
+
   bool possible = false;
 
   if(conn == USB_CONN) {
@@ -223,6 +230,7 @@ void Operator::initOperator(int conn, int baud) {
     promulgate = Promulgate(&Serial1, &Serial1);
 
     CONN_TYPE = USB_CONN;
+    SELECTED_ROBOT = true; // connected by default
     possible = true;
 
   } else if(conn == XBEE_CONN) {
@@ -244,6 +252,7 @@ void Operator::initOperator(int conn, int baud) {
     promulgate = Promulgate(&Serial1, &Serial1);
 
     CONN_TYPE = BT_CONN;
+    SELECTED_ROBOT = true; // connected by default
     possible = true;
 
   }
@@ -267,12 +276,14 @@ void Operator::initOperator(int conn, int baud) {
   initLeds();
   initButtons();
   initJoystick();
-  displayLogo();
   initSpeaker();
   introLedSequence();
+  display.clearDisplay();
 }
 
 void Operator::updateOperator() {
+
+  current_time = millis();
 
   // Conn Comms
   connBlink();
@@ -287,16 +298,16 @@ void Operator::updateOperator() {
     if(current_time-last_retry_time >= 500) {
       if(CONN_TYPE == XBEE_CONN) {
         // send it directly, bypassing the queue
-        xbeeSendToList('$', 'X', 1, 50, 'X', 1, 50, '!');
+        xbeeSendToList('$', 'X', 1, OP_ID, 'X', 1, OP_ID, '!');
       } else if(CONN_TYPE == USB_CONN || CONN_TYPE == BT_CONN) {
-        connSend('$', 'X', 1, 50, 'X', 1, 50, '!');
+        connSend('$', 'X', 1, OP_ID, 'X', 1, OP_ID, '!');
       }
       last_retry_time = current_time;
     }
   } else {
     // If not, send our ID less frequently
     if(current_time-last_retry_time >= 2500) {
-      addMsg( 3, '$', 'X', 1, 50, 'X', 1, 50, '!' );
+      addMsg( 3, '$', 'X', 1, OP_ID, 'X', 1, OP_ID, '!' );
       last_retry_time = current_time;
     }
   }
@@ -319,19 +330,28 @@ void Operator::updateOperator() {
   // Update our interface
   updateButtons();
   updateModeSwitch();
+  
+  if(TESTING) {
+    mainMenu();
+  } else {
+    if(SELECTED_ROBOT == false) {
+      // Let's choose the robot in XBee mode
+      // This will activate whenever SELECTED_ROBOT == false 
+      // and whenever CONN_TYPE == XBEE_CONN
+      xbeeChooseRobotToConnect();
+    } else {
+      // Display
+      mainMenu();
+    }
+  }
 
-  // Display
-  mainMenu();
-
-  // Let's choose the robot in XBee mode
-  // This will activate whenever SELECTED_ROBOT == false 
-  // and whenever CONN_TYPE == XBEE_CONN
-  xbeeChooseRobotToConnect();
-
-    // if(CURRENT_MODE == MODE1) {
-    //   if(CURRENT_STATE == DRIVE_STATE) joystickDriveControl();
-    //   if(CURRENT_STATE == ARM_STATE) joystickArmControl();
-    // }
+  if(CONN_TYPE == BT_CONN || CONN_TYPE == USB_CONN) {
+    // Send the messages from the operator without waiting for
+    // messages from the robot. Doing this because assuming that
+    // these types of connections would most likely be to a computer
+    // or terminal.
+    sendNextMsg();
+  }
 
 }
 
@@ -347,6 +367,8 @@ void Operator::updateJoystick() {
   joy_y_prev = joy_y;
   joy_x = getJoyX();
   joy_y = getJoyY();
+
+  if(OP_DEBUG) Serial << "X: " << joy_x << " Y: " << joy_y << endl;
 
   if(joy_y > MAX_Y) joy_y = MAX_Y;
   if(joy_y < MIN_Y) joy_y = MIN_Y;
@@ -397,6 +419,9 @@ void Operator::joystickDriveControl() {
   if(joy_y >= (HOME_Y-ZERO_ZONE) && joy_y <= (HOME_Y+ZERO_ZONE)
      && joy_x >= (HOME_X-ZERO_ZONE) && joy_x <= (HOME_X+ZERO_ZONE)) {
     
+    Serial << "home" << endl;
+
+    motor_speed = 0;
     motor_l_dir = false;
     motor_l_speed = 0;
     motor_r_dir = false;
@@ -549,10 +574,10 @@ void Operator::joystickArmControl() {
 
       // forwards
       if(current_time - last_increment > 100) {
-        incr_speed = (int)map(joy_y, MAX_Y, HOME_Y, 4, 100);;
+        incr_speed = (int)map(joy_y, HOME_Y, MAX_Y, 4, 10);
         last_increment = current_time;
       }
-      if(incr_speed > 100) incr_speed = 100;
+      if(incr_speed > 10) incr_speed = 10;
       arm_dir = true;
       
       send_arm_msg = true;
@@ -561,10 +586,10 @@ void Operator::joystickArmControl() {
 
       // backwards
       if(current_time - last_increment > 100) {
-        incr_speed = (int)map(joy_y, HOME_Y, MIN_Y, 4, 100);
+        incr_speed = (int)map(joy_y, HOME_Y, MIN_Y, 4, 10);
         last_increment = current_time;
       }
-      if(incr_speed > 100) incr_speed = 100;
+      if(incr_speed > 10) incr_speed = 10;
       arm_dir = false;
 
       send_arm_msg = true;
@@ -599,22 +624,29 @@ void Operator::joystickArmControl() {
 
 void Operator::updateButtons() {
   
+  if(current_time < 4000) return; // something odd happens on startup
+
   Msg m = msg_none;
   bool did_change = false;
 
   for(int i=0; i<7; i++) {
+    did_change = false;
     bounce_buttons[i].update();
     if(bounce_buttons[i].fell()) {
       if(i < 6) {
-        Serial << "Button " << i << endl;
+        Serial << "Button " << i;
       } else {
-        Serial << "Joystick button" << endl;
+        Serial << "Joystick button";
       }
+      Serial << " pressed " << current_time << endl;
       if(button_states[i] == 0) {
+        if(!sticky_buttons) resetButtonStates();
         button_states[i] = 1;
+        if(i<6) digitalWrite(led_pins[i], HIGH);
         did_change = true;
       } else if(button_states[i] == 1) {
         button_states[i] = 0;
+        if(i<6) digitalWrite(led_pins[i], LOW);
         did_change = true;
       }
     }
@@ -652,9 +684,12 @@ void Operator::updateButtons() {
           m.pck1.cmd = 'J';
         break;
       }
+
+      insertMsg(m);
+      _buttonChangedCallback(i, button_states[i]);
+
     }
-    addMsg(m);
-    _buttonChangedCallback(i, button_states[i]);
+
   }
 
   // update the state
@@ -702,19 +737,24 @@ void Operator::updateModeSwitch() {
   int val = analogRead(MODE_SW);
 
   if(val >= MODE1_THRESH) {
-    if(CURRENT_MODE != MODE1) _modeChangedCallback(MODE1);
+    if(CURRENT_MODE != MODE1) {
+      resetButtonStates();
+      _modeChangedCallback(MODE1);
+    }
     CURRENT_MODE = MODE1;
   } else if(val >= MODE2_THRESH) {
-    if(CURRENT_MODE != MODE2) _modeChangedCallback(MODE2);
+    if(CURRENT_MODE != MODE2) {
+      resetButtonStates();
+      _modeChangedCallback(MODE2);
+    }
     CURRENT_MODE = MODE2;
   } else if(val >= MODE3_THRESH) {
-    if(CURRENT_MODE != MODE3) _modeChangedCallback(MODE3);
+    if(CURRENT_MODE != MODE3) {
+      resetButtonStates();
+      _modeChangedCallback(MODE3);
+    }
     CURRENT_MODE = MODE3;
   }
-
-  // remember to do this to avoid any robot craziness
-  // (ie, switch a mode when a button is still on... yikes)
-  resetButtonStates();
 
 }
 
@@ -806,6 +846,7 @@ void Operator::addMsg(uint8_t priority, char action, char cmd, uint8_t key, uint
       Serial.print(F("Cannot add msg to queue, number of messages in queue: "));
       Serial.println(msgs_in_queue);
     }
+    return;
   }
   msg_queue[msgs_in_queue].priority = priority;
   msg_queue[msgs_in_queue].action = action;
@@ -824,12 +865,14 @@ void Operator::addMsg(uint8_t priority, char action, char cmd, uint8_t key, uint
 // that was attempted to be added — it would be out of date already. With the cycle
 // of sensor sends, there will be new data along its way shortly.
 void Operator::addMsg(Msg m) {
-  //Serial.print("adding next message");
+  // TODO future might need to have msgs be replaced rather than added
+  //if(OP_DEBUG) Serial << "adding next msg " << msgs_in_queue << endl;
   if(msgs_in_queue > MSG_QUEUE_SIZE-1) {
     if(COMM_DEBUG) {
       Serial.print(F("Cannot add msg to queue, number of messages in queue: "));
       Serial.println(msgs_in_queue);
     }
+    return;
   }
   msg_queue[msgs_in_queue] = m;
   msgs_in_queue++;
@@ -845,12 +888,14 @@ void Operator::insertMsg(Msg m) {
 
   Serial.print("inserting next message");
 
+  /*
   if(msgs_in_queue == 0) {
     if(OP_DEBUG) Serial << "Adding it to index 0" << endl;
     msg_queue[0] = m;
     msgs_in_queue++;
     return;
   }
+  */
 
   bool completed = false;
   uint8_t insert_index = 0;
@@ -876,6 +921,7 @@ void Operator::insertMsg(Msg m) {
   }
 
   if(!completed) { // if we can't insert it, at least add it
+    Serial << "if we can't insert it, at least add it" << endl;
     addMsg(m);
   }
 
@@ -1158,8 +1204,12 @@ bool Operator::xbeeRead() {
 
 void Operator::xbeeChooseRobotToConnect() {
 
-  if(SELECTED_ROBOT == false && CONN_TYPE == XBEE_CONN) {
+  if(CONN_TYPE == XBEE_CONN) {
     
+    sticky_buttons = true;
+
+    display.setTextColor(WHITE);
+
     // Say we're searching while waiting
     displaySearchingAnimation();
 
@@ -1178,7 +1228,7 @@ void Operator::xbeeChooseRobotToConnect() {
     }
 
     display.display();
-
+    
     if(!AUTOCONNECT) {
 
       if(getJoystickButton() == 1) {
@@ -1206,6 +1256,7 @@ void Operator::xbeeChooseRobotToConnect() {
       SELECTED_ROBOT = true;
       CURRENT_STATE = IDLE_STATE;
       resetButtonStates();
+      sticky_buttons = false;
     }
 
   }
@@ -1296,6 +1347,7 @@ void Operator::connSend(Msg m) {
   if(CONN_TYPE == USB_CONN || CONN_TYPE == BT_CONN) {
 
     Serial1.print(message_tx);
+    Serial << "----> " << message_tx << endl;
     last_tx = current_time;
 
   } else if(CONN_TYPE == XBEE_CONN) {
@@ -1365,7 +1417,7 @@ void Operator::connRetrySend() {
 
 /*
 
----- Promulgate Related ----
+---- #Promulgate Related ----
 
 */
 
@@ -1453,14 +1505,14 @@ void Operator::setButtonLabel(String label, int button, int mode) {
 }
 
 void Operator::setModeLabel(String label, int mode) {
-  modeLabels[mode] = label;
+  modeLabels[mode-1] = label;
 }
 
 void Operator::displaySearchingAnimation() {
 
   display.clearDisplay();
   display.setTextSize(2);
-  display.setCursor(0,0);
+  display.setCursor(10,10);
   
   switch(letter_itr) {
     case 0:
@@ -1496,7 +1548,7 @@ void Operator::displaySearchingAnimation() {
     if(letter_itr > 8) letter_itr = 0;
     last_letter_itr = current_time;
   }
-
+  
 }
 
 void Operator::mainMenu() {
@@ -1509,14 +1561,42 @@ void Operator::mainMenu() {
   uint8_t y = 20;
   uint8_t sp = 27;
 
-  display.drawCircle((display.width()/2)-50, y, r, WHITE);
-  display.drawCircle(display.width()/2, y, r, WHITE);
-  display.drawCircle((display.width()/2)+50, y, r, WHITE);
+  if(button_states[0] == 1) {
+    display.fillRect(((display.width()/2)-50)-r, y-r, r*2, r*2, WHITE);
+  } else {
+    display.drawCircle((display.width()/2)-50, y, r, WHITE);
+  }
+  
+  if(button_states[1] == 1) {
+    display.fillRect((display.width()/2)-r, y-r, r*2, r*2, WHITE);
+  } else {
+    display.drawCircle(display.width()/2, y, r, WHITE);
+  }
 
-  display.drawCircle((display.width()/2)-50, y+sp, r, WHITE);
-  display.drawCircle(display.width()/2, y+sp, r, WHITE);
-  display.drawCircle((display.width()/2)+50, y+sp, r, WHITE);
+  if(button_states[2] == 1) {
+    display.fillRect(((display.width()/2)+50)-r, y-r, r*2, r*2, WHITE);
+  } else {
+    display.drawCircle((display.width()/2)+50, y, r, WHITE);
+  }
 
+
+  if(button_states[3] == 1) {
+    display.fillRect(((display.width()/2)-50)-r, y+sp-r, r*2, r*2, WHITE);
+  } else {
+    display.drawCircle((display.width()/2)-50, y+sp, r, WHITE);
+  }
+
+  if(button_states[4] == 1) {
+    display.fillRect((display.width()/2)-r, y+sp-r, r*2, r*2, WHITE);
+  } else {
+    display.drawCircle(display.width()/2, y+sp, r, WHITE);
+  }
+
+  if(button_states[5] == 1) {
+    display.fillRect(((display.width()/2)+50)-r, y+sp-r, r*2, r*2, WHITE);
+  } else {
+    display.drawCircle((display.width()/2)+50, y+sp, r, WHITE);
+  }
 
   display.setTextSize(1);
 
