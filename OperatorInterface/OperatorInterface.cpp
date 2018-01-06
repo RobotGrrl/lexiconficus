@@ -65,6 +65,14 @@ Operator::Operator() : display(OLED_RESET) {
   display.begin(SSD1306_SWITCHCAPVCC, 0x3D);  // initialize with the I2C addr 0x3D (for the 128x64)  
   display.clearDisplay(); // Clear the buffer.
   display.display();
+  for(int i=0; i<6; i++) {
+    for(int j=0; j<3; j++) {
+      buttonLabels[i][j] = " ";
+    }
+  }
+  for(int i=0; i<3; i++) {
+    modeLabels[i] = " ";
+  }
 
   // Pins
   button_pins[0] = BUTTON1;
@@ -155,6 +163,9 @@ bool Operator::getMotorDir(int m) {
   return false;
 }
 
+int Operator::getCurrentMode() {
+  return CURRENT_MODE;
+}
 
 /*
 
@@ -317,15 +328,10 @@ void Operator::updateOperator() {
   // and whenever CONN_TYPE == XBEE_CONN
   xbeeChooseRobotToConnect();
 
-  // TODO
-  if(SELECTED_ROBOT) {
-
-    if(CURRENT_MODE == MODE1) {
-      if(CURRENT_STATE == DRIVE_STATE) joystickDriveControl();
-      if(CURRENT_STATE == ARM_STATE) joystickArmControl();
-    }
-
-  }
+    // if(CURRENT_MODE == MODE1) {
+    //   if(CURRENT_STATE == DRIVE_STATE) joystickDriveControl();
+    //   if(CURRENT_STATE == ARM_STATE) joystickArmControl();
+    // }
 
 }
 
@@ -617,8 +623,11 @@ void Operator::updateButtons() {
 
       m.priority = 1;
       m.action = '#';
-      m.pck1.key = 0;
+      m.pck1.key = CURRENT_MODE;
       m.pck1.val = button_states[i];
+      m.pck2.cmd = 'N';
+      m.pck2.key = CURRENT_MODE;
+      m.pck2.val = CURRENT_STATE;
       m.delim = '!';
       switch(i) {
         case 0: // 'red'
@@ -648,11 +657,26 @@ void Operator::updateButtons() {
     _buttonChangedCallback(i, button_states[i]);
   }
 
+  // update the state
+  bool all_zero = true;
+  for(int i=0; i<6; i++) {
+    if(button_states[i] == 1) {
+      CURRENT_STATE = ACTIVE_STATE;
+      all_zero = false;
+      break;
+    }
+  }
+  if(all_zero) CURRENT_STATE = IDLE_STATE;
+
 }
 
 bool Operator::getButton(uint8_t b) {
   if(button_states[b] == 1) return true;
   return false;
+}
+
+void Operator::setButtonState(uint8_t b, uint8_t state) {
+  button_states[b] = state;
 }
 
 bool Operator::getJoystickButton() {
@@ -687,6 +711,10 @@ void Operator::updateModeSwitch() {
     if(CURRENT_MODE != MODE3) _modeChangedCallback(MODE3);
     CURRENT_MODE = MODE3;
   }
+
+  // remember to do this to avoid any robot craziness
+  // (ie, switch a mode when a button is still on... yikes)
+  resetButtonStates();
 
 }
 
@@ -1033,7 +1061,7 @@ void Operator::xbeeWatchdog() {
           if(num_robot_conn == 0) {
             resetButtonStates();
             SELECTED_ROBOT = false;
-            CURRENT_STATE = IDLE_STATE;
+            CURRENT_STATE = SEARCHING_STATE;
           }
           // remove it from the list
           addr_all_robots[i] = XBeeAddress64(0, 0);
@@ -1416,9 +1444,17 @@ void Operator::sendNextMsg() {
 
 /*
 
----- Display ----
+---- #Display ----
 
 */
+
+void Operator::setButtonLabel(String label, int button, int mode) {
+  buttonLabels[button][mode-1] = label;
+}
+
+void Operator::setModeLabel(String label, int mode) {
+  modeLabels[mode] = label;
+}
 
 void Operator::displaySearchingAnimation() {
 
@@ -1487,62 +1523,62 @@ void Operator::mainMenu() {
   if(CURRENT_MODE == MODE1) {
 
     display.setCursor(0,y+10);
-    display.println("Drive");
+    display.println(buttonLabels[0][0]);
 
     display.setCursor((display.width()/2)-15,y+10);
-    display.println("Arm");
+    display.println(buttonLabels[1][0]);
 
     display.setCursor((display.width()/2)+32,y+10);
-    display.println("Empty");
+    display.println(buttonLabels[2][0]);
 
     display.setCursor(0,y+sp+10);
-    display.println("Scoop S");
+    display.println(buttonLabels[3][0]);
 
     display.setCursor((display.width()/2)-15,y+sp+10);
-    display.println("Scoop F");
+    display.println(buttonLabels[4][0]);
 
     display.setCursor((display.width()/2)+32,y+sp+10);
-    display.println("Dump");
+    display.println(buttonLabels[5][0]);
 
   } else if(CURRENT_MODE == MODE2) {
 
     display.setCursor(0,y+10);
-    display.println("Mot. A");
+    display.println(buttonLabels[0][1]);
 
     display.setCursor((display.width()/2)-15,y+10);
-    display.println("Serv. A");
+    display.println(buttonLabels[1][1]);
 
     display.setCursor((display.width()/2)+32,y+10);
-    display.println("Touch");
+    display.println(buttonLabels[2][1]);
 
     display.setCursor(0,y+sp+10);
-    display.println("");
+    display.println(buttonLabels[3][1]);
 
     display.setCursor((display.width()/2)-15,y+sp+10);
-    display.println("");
+    display.println(buttonLabels[4][1]);
 
     display.setCursor((display.width()/2)+32,y+sp+10);
-    display.println("");
+    display.println(buttonLabels[5][1]);
 
   } else if(CURRENT_MODE == MODE3) {
 
     display.setCursor(0,y+10);
-    display.println("Square");
+    display.println(buttonLabels[0][2]);
 
     display.setCursor((display.width()/2)-15,y+10);
-    display.println("Wave");
+    display.println(buttonLabels[1][2]);
 
     display.setCursor((display.width()/2)+32,y+10);
-    display.println("Dance");
+    display.println(buttonLabels[2][2]);
 
     display.setCursor(0,y+sp+10);
-    display.println("GPS");
+    display.println(buttonLabels[3][2]);
 
     display.setCursor((display.width()/2)-15,y+sp+10);
-    display.println("Comp.");
+    display.println(buttonLabels[4][2]);
 
     display.setCursor((display.width()/2)+32,y+sp+10);
-    display.println("");
+    display.println(buttonLabels[5][2]);
 
   }
 
@@ -1559,11 +1595,14 @@ void Operator::displayTitleBar() {
   display.setTextColor(WHITE);
 
   if(CURRENT_MODE == MODE1) {
-    display.println("Operator");
+    display.println(modeLabels[0]);
+    //display.println("Operator");
   } else if(CURRENT_MODE == MODE2) {
-    display.println("Sensors");
+    display.println(modeLabels[1]);
+    //display.println("Sensors");
   } else if(CURRENT_MODE == MODE3) {
-    display.println("Autonomous");
+    display.println(modeLabels[2]);
+    //display.println("Autonomous");
   }
 
   display.setCursor(80,0);

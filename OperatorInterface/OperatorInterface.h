@@ -95,12 +95,8 @@
 
 // states
 #define IDLE_STATE 0
-#define DRIVE_STATE 1
-#define ARM_STATE 2
-#define DUMP_STATE 3
-#define SCOOP_S_STATE 4
-#define SCOOP_F_STATE 5
-#define EMPTY_STATE 6
+#define SEARCHING_STATE 1
+#define ACTIVE_STATE 2
 
 // xbee
 #define XBEE_COORDINATOR_DH 0x00000000
@@ -216,6 +212,7 @@ class Operator {
     unsigned long getLastRXTime();
     int getMotorSpeed(int m); // 1 = left, 2 = right
     bool getMotorDir(int m);
+    int getCurrentMode();
 
     // Callbacks
     void set_comms_timeout_callback( void (*commsTimeoutCallback)() );
@@ -294,6 +291,10 @@ class Operator {
 
     // Display
     Adafruit_SSD1306 display;
+    String buttonLabels[6][3];
+    String modeLabels[3];
+    void setButtonLabel(String label, int button, int mode);
+    void setModeLabel(String label, int mode);
     void displayLogo();
     void scrollLogo();
     void displayTitleBar();
@@ -314,9 +315,12 @@ class Operator {
     void calibrateHome();
     int getJoyX();
     int getJoyY();
+    void joystickDriveControl();
+    void joystickArmControl();
     
     // Buttons
     bool getButton(uint8_t b);
+    void setButtonState(uint8_t b, uint8_t state);
     bool getJoystickButton();
     void resetButtonStates();
     
@@ -407,9 +411,7 @@ class Operator {
     int turn_speed;
     int incr_speed;
     int arm_pos;
-    void joystickDriveControl();
-    void joystickArmControl();
-
+    
     // Buttons
     void updateButtons();
 

@@ -26,12 +26,41 @@ void setup() {
   opinterface.set_mode_changed_callback(modeChanged);
   opinterface.set_robot_added_callback(robotAdded);
   opinterface.set_robot_removed_callback(robotRemoved);
-  
+
+  opinterface.setButtonLabel("Drive", 0, 1);
+  opinterface.setButtonLabel("Arm", 1, 1);
+  opinterface.setButtonLabel("Empty", 2, 1);
+  opinterface.setButtonLabel("Scoop S", 3, 1);
+  opinterface.setButtonLabel("Scoop F", 4, 1);
+  opinterface.setButtonLabel("Dump", 5, 1);
+
+  opinterface.setModeLabel("Operator", 1);
+  opinterface.setModeLabel("Sensors", 1);
+  opinterface.setModeLabel("Autonomous", 1);
+
 }
 
 void loop() {
 
   opinterface.updateOperator();
+
+  if(opinterface.getCurrentMode() == 1) {
+  
+    if(opinterface.getButton(0) == 1) { // drive state
+      opinterface.joystickDriveControl();
+    }
+
+    if(opinterface.getButton(1) == 1) { // arm state
+      opinterface.joystickArmControl();
+    }
+      
+    //if(opinterface.getButton(2) == 1) { // scoop
+      // send scoop command
+      // if, for example, you want to stop after some time...
+      // opinterface.setButtonState(2, 0);
+    //}
+  
+  }
 
 }
 
