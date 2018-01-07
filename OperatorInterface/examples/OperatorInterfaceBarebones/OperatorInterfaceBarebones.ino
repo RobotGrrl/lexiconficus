@@ -1,6 +1,8 @@
 #include "OperatorInterface.h"
 
-Operator opinterface = Operator(50);
+#define OP_ID 50
+
+Operator opinterface;
 
 void buttonChanged(int button, int val);
 void modeChanged(int mode);
@@ -13,11 +15,17 @@ void controllerAdded();
 void controllerRemoved();
 
 void setup() {
+  delay(1000);
   Serial.begin(9600);
-  
+
+  opinterface = Operator();
+
+  opinterface.begin();
+  opinterface.setOpID(OP_ID);
   opinterface.initOperator(XBEE_CONN, 9600);
+  
   //opinterface.TESTING = true;
-  // opinterface.setAutoconnect(FALSE); // uncomment if you want to select which robot to connect to
+  opinterface.setAutoconnect(false); // uncomment if you want to select which robot to connect to
   opinterface.set_received_action_callback(receivedAction);
   opinterface.set_comms_timeout_callback(commsTimeout);
   opinterface.set_controller_added_callback(controllerAdded);
@@ -62,9 +70,8 @@ void loop() {
     //}
   
   }
-
-  //Serial << millis() << " ~" << endl;
-  //delay(100);
+  
+  //delay(50);
 
 }
 
@@ -98,6 +105,7 @@ void receivedAction(Msg m) {
   // if there is / is not a core action associated with it.
   // You can do custom actions with this data here.
 
+  /*
   Serial << "---RECEIVED ACTION---" << endl;
   Serial << "action: " << m.action << endl;
   Serial << "command: " << m.pck1.cmd << endl;
@@ -107,6 +115,7 @@ void receivedAction(Msg m) {
   Serial << "key: " << m.pck2.key << endl;
   Serial << "val: " << m.pck2.val << endl;
   Serial << "delim: " << m.delim << endl;
+  */
   
 }
 

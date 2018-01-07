@@ -1,11 +1,17 @@
 #include "OperatorInterface.h"
 
-Operator::Operator(uint8_t your_op_id) : display(OLED_RESET) {
+Operator *Operator::opInstance;
+
+Operator::Operator() {
+
+}
+
+void Operator::begin() {
 
   // Instance of the class for the callbacks from Promulgate
   opInstance = this;
   TESTING = false;
-  OP_ID = your_op_id;
+  OP_ID = 50;
 
   // LED
   COMM_LED = 13;
@@ -22,9 +28,12 @@ Operator::Operator(uint8_t your_op_id) : display(OLED_RESET) {
   // Xbee
   xbee = XBee();
   addr64 = XBeeAddress64(0x00000000, 0x0000ffff);
+  addr_coord = XBeeAddress64(XBEE_COORDINATOR_DH, XBEE_COORDINATOR_DL);
+  addr_robot = XBeeAddress64(0x0013A200, 0x40D96FC2);
+  addr_fake = XBeeAddress64(0x13131313, 0x13131313);
   txStatus = ZBTxStatusResponse();
   rx = ZBRxResponse();
-  for(int i=0; i<64; i++) {
+  for(int i=0; i<32; i++) {
     message_tx[i] = '0';
     message_rx[i] = '0';
   }
@@ -39,7 +48,7 @@ Operator::Operator(uint8_t your_op_id) : display(OLED_RESET) {
   num_addrs = 0;
   ind_addr_sent = 0;
   for(int i=0; i<MAX_ROBOTS; i++) {
-    addr_all_robots[i] = XBeeAddress64(0, 0);
+    addr_all_robots[i] = XBeeAddress64(addr_fake.getMsb(), addr_fake.getLsb());
     ids_of_all_robots[i] = 0;
     failed_send_count[i] = 0;
     last_rx_all[i] = 0;
@@ -64,9 +73,6 @@ Operator::Operator(uint8_t your_op_id) : display(OLED_RESET) {
 
   // Display
   // by default, we'll generate the high voltage from the 3.3v line internally! (neat!)
-  display.begin(SSD1306_SWITCHCAPVCC, 0x3D);  // initialize with the I2C addr 0x3D (for the 128x64)  
-  display.clearDisplay(); // Clear the buffer.
-  display.display();
   for(int i=0; i<6; i++) {
     for(int j=0; j<3; j++) {
       buttonLabels[i][j] = " ";
@@ -130,6 +136,18 @@ Operator::Operator(uint8_t your_op_id) : display(OLED_RESET) {
   // LEDs
   last_led_blink = 0;
   led_on = false;
+
+}
+
+
+
+void Operator::displayLogo() {
+
+}
+
+
+void Operator::setOpID(uint8_t the_op_id) {
+  OP_ID = the_op_id;
 }
 
 void Operator::setCommLed(uint8_t pin) {
@@ -217,6 +235,34 @@ void Operator::set_robot_removed_callback( void (*robotRemovedCallback)(bool sti
 
 void Operator::initOperator(int conn, int baud) {
 
+
+  // Promulgate
+  promulgate = Promulgate(&Serial1, &Serial1);
+  promulgate.useBase64Parsing(false);
+
+  xbee = XBee();
+  addr64 = XBeeAddress64(0x00000000, 0x0000ffff);
+  addr_coord = XBeeAddress64(XBEE_COORDINATOR_DH, XBEE_COORDINATOR_DL);
+  addr_robot = XBeeAddress64(0x0013A200, 0x40D96FC2);
+  addr_fake = XBeeAddress64(0x13131313, 0x13131313);
+  txStatus = ZBTxStatusResponse();
+  rx = ZBRxResponse();
+
+
+  for(int i=0; i<MAX_ROBOTS; i++) {
+    addr_all_robots[i] = XBeeAddress64(addr_fake.getMsb(), addr_fake.getLsb());
+    ids_of_all_robots[i] = 0;
+    failed_send_count[i] = 0;
+    last_rx_all[i] = 0;
+    SELECTED_ROBOT_ID[i] = 0;
+  }
+
+  for(int i=0; i<32; i++) {
+    message_tx[i] = '0';
+    message_rx[i] = '0';
+  }
+
+
   displayLogo();
 
   calibrateHome();
@@ -226,8 +272,6 @@ void Operator::initOperator(int conn, int baud) {
   if(conn == USB_CONN) {
 
     Serial1.begin(baud);
-    // Promulgate
-    promulgate = Promulgate(&Serial1, &Serial1);
 
     CONN_TYPE = USB_CONN;
     SELECTED_ROBOT = true; // connected by default
@@ -235,12 +279,16 @@ void Operator::initOperator(int conn, int baud) {
 
   } else if(conn == XBEE_CONN) {
     
+    pinMode(SPEAKER, OUTPUT);
+    for(int i=0; i<5; i++) {
+      tone(SPEAKER, 150, 100);
+      delay(100);
+    }
+    
     // Start xbee's serial
     Serial1.begin(baud);
+    delay(500);
     xbee.begin(Serial1);
-
-    // Promulgate
-    promulgate = Promulgate(&Serial1, &Serial1);
 
     CONN_TYPE = XBEE_CONN;
     possible = true;
@@ -248,8 +296,6 @@ void Operator::initOperator(int conn, int baud) {
   } else if(conn == BT_CONN) {
 
     Serial1.begin(baud);
-    // Promulgate
-    promulgate = Promulgate(&Serial1, &Serial1);
 
     CONN_TYPE = BT_CONN;
     SELECTED_ROBOT = true; // connected by default
@@ -258,36 +304,32 @@ void Operator::initOperator(int conn, int baud) {
   }
 
   if(possible) {
-    Serial.println("Connection set up OK");
+    if(OP_DEBUG) Serial.println("Connection set up OK");
   } else {
-    Serial.println("ERROR SETTING UP CONNECTION - UART DOES NOT EXIST");
+    if(OP_DEBUG) Serial.println("ERROR SETTING UP CONNECTION - UART DOES NOT EXIST");
   }
 
   // promulgate setup
   promulgate.LOG_LEVEL = Promulgate::ERROR_;
-  promulgate.set_rx_callback(received_action);
-  promulgate.set_tx_callback(transmit_complete);
+  promulgate.set_rx_callback(this->received_action);
+  promulgate.set_tx_callback(this->transmit_complete);
   promulgate.set_debug_stream(&Serial);
-
-  if(use_base64_parsing) {
-    promulgate.useBase64Parsing(true);
-  }
 
   initLeds();
   initButtons();
   initJoystick();
   initSpeaker();
   introLedSequence();
-  display.clearDisplay();
 }
 
 void Operator::updateOperator() {
 
+  opInstance = this;
   current_time = millis();
 
   // Conn Comms
   connBlink();
-  
+
   // Xbee Specific
   if(CONN_TYPE == XBEE_CONN) xbeeWatchdog();
 
@@ -296,12 +338,7 @@ void Operator::updateOperator() {
   // more frequently.
   if(!SELECTED_ROBOT) {
     if(current_time-last_retry_time >= 500) {
-      if(CONN_TYPE == XBEE_CONN) {
-        // send it directly, bypassing the queue
-        xbeeSendToList('$', 'X', 1, OP_ID, 'X', 1, OP_ID, '!');
-      } else if(CONN_TYPE == USB_CONN || CONN_TYPE == BT_CONN) {
-        connSend('$', 'X', 1, OP_ID, 'X', 1, OP_ID, '!');
-      }
+      connSend('$', 'X', 1, OP_ID, 'X', 1, OP_ID, '!');
       last_retry_time = current_time;
     }
   } else {
@@ -319,12 +356,11 @@ void Operator::updateOperator() {
   connRetrySend();
   
   // Comms have timed out
-  if(millis()-last_rx_comms >= REMOTE_OP_TIMEOUT) {
+  if(millis()-last_rx_comms >= REMOTE_OP_TIMEOUT && SELECTED_ROBOT == true) {
+    if(OP_DEBUG) Serial << "REMOTE OP TIMEOUT" << endl;
     digitalWrite(COMM_LED, LOW);
     // callback that the comms has timed out
     _commsTimeoutCallback();
-  } else {
-    digitalWrite(COMM_LED, HIGH);
   }
 
   // Update our interface
@@ -338,7 +374,7 @@ void Operator::updateOperator() {
       // Let's choose the robot in XBee mode
       // This will activate whenever SELECTED_ROBOT == false 
       // and whenever CONN_TYPE == XBEE_CONN
-      xbeeChooseRobotToConnect();
+      chooseRobotToConnect();
     } else {
       // Display
       mainMenu();
@@ -352,7 +388,7 @@ void Operator::updateOperator() {
     // or terminal.
     sendNextMsg();
   }
-
+  
 }
 
 
@@ -419,7 +455,7 @@ void Operator::joystickDriveControl() {
   if(joy_y >= (HOME_Y-ZERO_ZONE) && joy_y <= (HOME_Y+ZERO_ZONE)
      && joy_x >= (HOME_X-ZERO_ZONE) && joy_x <= (HOME_X+ZERO_ZONE)) {
     
-    Serial << "home" << endl;
+    if(OP_DEBUG) Serial << "home" << endl;
 
     motor_speed = 0;
     motor_l_dir = false;
@@ -634,9 +670,9 @@ void Operator::updateButtons() {
     bounce_buttons[i].update();
     if(bounce_buttons[i].fell()) {
       if(i < 6) {
-        Serial << "Button " << i;
+        if(OP_DEBUG) Serial << "Button " << i;
       } else {
-        Serial << "Joystick button";
+        if(OP_DEBUG) Serial << "Joystick button";
       }
       Serial << " pressed " << current_time << endl;
       if(button_states[i] == 0) {
@@ -835,14 +871,20 @@ Msg Operator::popNextMsg() {
     msg_queue[i] = msg_queue[i+1];
   }
 
-  if(msgs_in_queue > 0) msgs_in_queue--;
+  msgs_in_queue--;
+
+  if(msgs_in_queue <= 0) {
+    msgs_in_queue = 0;
+    addMsg(msg_none);
+  }
+
   return m;
 }
 
 void Operator::addMsg(uint8_t priority, char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim) {
   //Serial.print("adding next message");
   if(msgs_in_queue > MSG_QUEUE_SIZE-1) {
-    if(COMM_DEBUG) {
+    if(MSG_DEBUG) {
       Serial.print(F("Cannot add msg to queue, number of messages in queue: "));
       Serial.println(msgs_in_queue);
     }
@@ -865,10 +907,9 @@ void Operator::addMsg(uint8_t priority, char action, char cmd, uint8_t key, uint
 // that was attempted to be added — it would be out of date already. With the cycle
 // of sensor sends, there will be new data along its way shortly.
 void Operator::addMsg(Msg m) {
-  // TODO future might need to have msgs be replaced rather than added
   //if(OP_DEBUG) Serial << "adding next msg " << msgs_in_queue << endl;
   if(msgs_in_queue > MSG_QUEUE_SIZE-1) {
-    if(COMM_DEBUG) {
+    if(MSG_DEBUG) {
       Serial.print(F("Cannot add msg to queue, number of messages in queue: "));
       Serial.println(msgs_in_queue);
     }
@@ -886,16 +927,7 @@ void Operator::addMsg(Msg m) {
 // As a failsafe, if it can't be inserted, the message is at least added.
 void Operator::insertMsg(Msg m) {
 
-  Serial.print("inserting next message");
-
-  /*
-  if(msgs_in_queue == 0) {
-    if(OP_DEBUG) Serial << "Adding it to index 0" << endl;
-    msg_queue[0] = m;
-    msgs_in_queue++;
-    return;
-  }
-  */
+  if(MSG_DEBUG) Serial.println("inserting next message");
 
   bool completed = false;
   uint8_t insert_index = 0;
@@ -906,13 +938,13 @@ void Operator::insertMsg(Msg m) {
       for(int j=msgs_in_queue-1; j>insert_index; j--) {
         msg_queue[j] = msg_queue[j-1];
       }
-      if(OP_DEBUG) Serial << "A: Inserting " << i << " (" << msg_queue[i].priority << ") at index: " << insert_index << endl;
+      if(MSG_DEBUG) Serial << "A: Inserting " << i << " (" << msg_queue[i].priority << ") at index: " << insert_index << endl;
       msg_queue[insert_index] = m;
       completed = true;
       break;
     } else if(m.priority == msg_queue[i].priority) { // if it's the same priority, and the same commands, overwrite with the newest version
       if(m.pck1.cmd == msg_queue[i].pck1.cmd && m.pck2.cmd == msg_queue[i].pck2.cmd) {
-        if(OP_DEBUG) Serial << "B: Replacing " << i << " (" << msg_queue[i].priority << ") with new msg (" << m.priority << ")" << endl;
+        if(MSG_DEBUG) Serial << "B: Replacing " << i << " (" << msg_queue[i].priority << ") with new msg (" << m.priority << ")" << endl;
         msg_queue[i] = m;
         completed = true;
         break;
@@ -921,7 +953,7 @@ void Operator::insertMsg(Msg m) {
   }
 
   if(!completed) { // if we can't insert it, at least add it
-    Serial << "if we can't insert it, at least add it" << endl;
+    if(MSG_DEBUG) Serial << "if we can't insert it, at least add it" << endl;
     addMsg(m);
   }
 
@@ -934,109 +966,66 @@ void Operator::insertMsg(Msg m) {
 
 */
 
+void Operator::xbeeSend(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim) {
+
+  sprintf(message_tx,"%c%c%d,%d,%c%d,%d%c", action, cmd, key, val, cmd2, key2, val2, delim);
+
+  if(SELECTED_ROBOT) { // send to everyone as we're in discovery mode
+  
+    for(int i=0; i<num_addrs; i++) {
+      if(num_addrs >= MAX_ROBOTS-1) break; // something went wrong here
+
+      if(addr_all_robots[i].getMsb() != 0 && addr_all_robots[i].getLsb() != 0) {
+        if(addr_all_robots[i].getMsb() != addr_fake.getMsb() && addr_all_robots[i].getLsb() != addr_fake.getLsb()) {
+      
+          if(XBEE_DEBUG) Serial << "Sent to list ind " << i << endl;
+          ZBTxRequest zbtx = ZBTxRequest(addr_all_robots[i], (uint8_t *)message_tx, strlen(message_tx));
+          zbtx.setFrameId('0');
+          xbee.send(zbtx); 
+          ind_addr_sent = i;
+        
+        }
+      }
+    }
+
+  } else {
+    // by default, send to the coordinator of the network
+    if(XBEE_DEBUG) Serial << "Send to default coordinator" << endl;
+    ZBTxRequest zbtx = ZBTxRequest(addr_coord, (uint8_t *)message_tx, strlen(message_tx));
+    //ZBTxRequest zbtx = ZBTxRequest(addr_robot, (uint8_t *)message_tx, strlen(message_tx));
+    zbtx.setFrameId('0');
+    xbee.send(zbtx); 
+  }
+ 
+}
+
 void Operator::xbeeSendEasy(char c) {
 
   sprintf(message_tx,"%c", c);
 
-  Serial << "Xbee TX: " << message_tx << endl;
-
   if(SELECTED_ROBOT) { // send to everyone as we're in discovery mode
-  //if(num_addrs > 0) {
-    
-    for(int i=0; i<num_addrs; i++) {
-      if(addr_all_robots[i].getMsb() != 0 && addr_all_robots[i].getLsb() != 0) {
-
-        for(int j=0; j<num_robot_conn; j++) {
-          if(SELECTED_ROBOT_ID[j] != 0) { // we have chosen a robot
-            if(ids_of_all_robots[i] == SELECTED_ROBOT_ID[j]) { // this is its id
-              Serial << "Sent to list ind " << i << endl;
-              ZBTxRequest zbtx = ZBTxRequest(addr_all_robots[i], (uint8_t *)message_tx, strlen(message_tx));
-              zbtx.setFrameId('0');
-              xbee.send(zbtx); 
-              ind_addr_sent = i;
-            }
-          }
-        }
-
-      }
-    }
-
-  } else {
-    // by default, send to the coordinator of the network
-    Serial << "Send to default A" << endl;
-    ZBTxRequest zbtx = ZBTxRequest(addr_coord, (uint8_t *)message_tx, strlen(message_tx));
-    zbtx.setFrameId('0');
-    xbee.send(zbtx); 
-  }
- 
-}
-
-void Operator::xbeeSend(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim) {
-
-  // Promulgate format:
-  // *out_stream << action << cmd << key << "," << val << delim;
   
-  sprintf(message_tx,"%c%c%d,%d,%c%d,%d%c", action, cmd, key, val, cmd2, key2, val2, delim);
-
-  if(SELECTED_ROBOT) { // send to everyone as we're in discovery mode
-  //if(num_addrs > 0) {
-
     for(int i=0; i<num_addrs; i++) {
+      if(num_addrs >= MAX_ROBOTS-1) break; // something went wrong here
+
       if(addr_all_robots[i].getMsb() != 0 && addr_all_robots[i].getLsb() != 0) {
-
-        for(int j=0; j<num_robot_conn; j++) {
-
-          if(SELECTED_ROBOT_ID[j] != 0) { // we have chosen a robot
-
-            if(ids_of_all_robots[i] == SELECTED_ROBOT_ID[j]) { // this is its id
-              Serial << "Sent " << message_tx << " to list ind " << i << endl;
-              ZBTxRequest zbtx = ZBTxRequest(addr_all_robots[i], (uint8_t *)message_tx, strlen(message_tx));
-              zbtx.setFrameId('0');
-              xbee.send(zbtx); 
-              ind_addr_sent = i;
-            }
-          }
-        }
-        
-      }
-    }
-
-  } else {
-    // by default, send to the coordinator of the network
-    Serial << "Send to default B" << endl;
-    ZBTxRequest zbtx = ZBTxRequest(addr_coord, (uint8_t *)message_tx, strlen(message_tx));
-    zbtx.setFrameId('0');
-    xbee.send(zbtx); 
-  }
- 
-}
-
-void Operator::xbeeSendToList(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim) {
-
-  // Promulgate format:
-  // *out_stream << action << cmd << key << "," << val << delim;
-  
-  sprintf(message_tx,"%c%c%d,%d,%c%d,%d%c", action, cmd, key, val, cmd2, key2, val2, delim);
-
-  if(SELECTED_ROBOT) { // send to everyone as we're in discovery mode
-  //if(num_addrs > 0) {
-
-    for(int i=0; i<num_addrs; i++) {
-      if(addr_all_robots[i].getMsb() != 0 && addr_all_robots[i].getLsb() != 0) {
+        if(addr_all_robots[i].getMsb() != addr_fake.getMsb() && addr_all_robots[i].getLsb() != addr_fake.getLsb()) {
       
-        Serial << "nnnnnnnnnnnnnnn Sent to list ind " << i << endl;
-        ZBTxRequest zbtx = ZBTxRequest(addr_all_robots[i], (uint8_t *)message_tx, strlen(message_tx));
-        zbtx.setFrameId('0');
-        xbee.send(zbtx); 
-        ind_addr_sent = i;
+          if(XBEE_DEBUG) Serial << "Sent to list ind " << i << endl;
+          ZBTxRequest zbtx = ZBTxRequest(addr_all_robots[i], (uint8_t *)message_tx, strlen(message_tx));
+          zbtx.setFrameId('0');
+          xbee.send(zbtx); 
+          ind_addr_sent = i;
         
+        }
       }
     }
 
   } else {
     // by default, send to the coordinator of the network
-    Serial << "Send to default C" << endl;
+    if(XBEE_DEBUG) Serial << "Send to default coordinator" << endl;
     ZBTxRequest zbtx = ZBTxRequest(addr_coord, (uint8_t *)message_tx, strlen(message_tx));
+    //ZBTxRequest zbtx = ZBTxRequest(addr_robot, (uint8_t *)message_tx, strlen(message_tx));
     zbtx.setFrameId('0');
     xbee.send(zbtx); 
   }
@@ -1044,24 +1033,41 @@ void Operator::xbeeSendToList(char action, char cmd, uint8_t key, uint16_t val, 
 }
 
 void Operator::addXbeeToList(XBeeAddress64 newAddr) {
-  Serial << "Sender address - High: ";
-  print32Bits(newAddr.getMsb());
-  Serial << " Low: ";
-  print32Bits(newAddr.getLsb());
-  Serial << endl;
+  
+  if(XBEE_DEBUG) Serial << "Sender address - High: ";
+  if(XBEE_DEBUG) print32Bits(newAddr.getMsb());
+  if(XBEE_DEBUG) Serial << " Low: ";
+  if(XBEE_DEBUG) print32Bits(newAddr.getLsb());
+  if(XBEE_DEBUG) Serial << endl;
 
   bool add_it_to_list = true;
 
   for(int i=0; i<MAX_ROBOTS; i++) {
     if(addr_all_robots[i].getMsb() == newAddr.getMsb() && addr_all_robots[i].getLsb() == newAddr.getLsb()) {
+      if(XBEE_DEBUG) Serial << "Not adding to the list - already there" << endl;
       // already on the list
       add_it_to_list = false;
     }
   }
 
   if(add_it_to_list) {
-    Serial << "! New robot added to Xbee list !" << endl;
+    if(num_addrs >= MAX_ROBOTS-1) {
+      if(XBEE_DEBUG) Serial << "! Reached max number of robots !" << endl;
+      return;
+    }
+    if(XBEE_DEBUG) Serial << "! New robot added to Xbee list !" << endl;
     addr_all_robots[num_addrs] = XBeeAddress64(newAddr.getMsb(), newAddr.getLsb());
+    
+    if(XBEE_DEBUG) {
+      for(int i=0; i<MAX_ROBOTS; i++) {
+        Serial << i << ": ";
+        print32Bits(addr_all_robots[i].getMsb());
+        Serial << " ";
+        print32Bits(addr_all_robots[i].getLsb());
+        Serial << endl;
+      }
+    }
+    
     num_addrs++;
     _robotAddedCallback();
   }
@@ -1082,47 +1088,61 @@ void Operator::xbeeWatchdog() {
     for(int i=0; i<MAX_ROBOTS; i++) {
       if(current_time-last_rx_all[i] >= 11000) {
         if(addr_all_robots[i].getMsb() != 0 && addr_all_robots[i].getLsb() != 0) {
-          // remove it from the list
-          Serial << "Have not heard from: ";
-          print32Bits(addr_all_robots[i].getMsb());
-          Serial << " ";
-          print32Bits(addr_all_robots[i].getLsb());
-          Serial << " since " << current_time-last_rx_all[i] << "ms ago." << endl;
-          Serial << "! Removing it from list !" << endl;
-          Serial << "Its num was: " << ids_of_all_robots[i];
-          // check to see if it was a robot we were connected to
-          for(int j=0; j<num_robot_conn; j++) {
-            // go through the list of all the robots we're
-            // connected to
-            if(ids_of_all_robots[i] == SELECTED_ROBOT_ID[j]) {
-              Serial << " us: " << SELECTED_ROBOT_ID[j] << endl;
-              Serial << "Resetting selected robot" << endl;
-              SELECTED_ROBOT_ID[j] = 0;
-              num_robot_conn--;
-              // now we are not connected to any robot
-              if(num_robot_conn < 0) num_robot_conn = 0; // just in case
+          if(addr_all_robots[i].getMsb() != addr_fake.getMsb() && addr_all_robots[i].getLsb() != addr_fake.getLsb()) {
+            // remove it from the list
+            if(XBEE_DEBUG) Serial << "Have not heard from: ";
+            if(XBEE_DEBUG) print32Bits(addr_all_robots[i].getMsb());
+            if(XBEE_DEBUG) Serial << " ";
+            if(XBEE_DEBUG) print32Bits(addr_all_robots[i].getLsb());
+            if(XBEE_DEBUG) Serial << " since " << current_time-last_rx_all[i] << "ms ago." << endl;
+            if(XBEE_DEBUG) Serial << "! Removing it from list !" << endl;
+            if(XBEE_DEBUG) Serial << "Its num was: " << ids_of_all_robots[i];
+            // check to see if it was a robot we were connected to
+            for(int j=0; j<num_robot_conn; j++) {
+              // go through the list of all the robots we're
+              // connected to
+              if(ids_of_all_robots[i] == SELECTED_ROBOT_ID[j]) {
+                if(XBEE_DEBUG) Serial << " us: " << SELECTED_ROBOT_ID[j] << endl;
+                if(XBEE_DEBUG) Serial << "Resetting selected robot" << endl;
+                SELECTED_ROBOT_ID[j] = 0;
+                num_robot_conn--;
+                // now we are not connected to any robot
+                if(num_robot_conn < 0) num_robot_conn = 0; // just in case
+              }
             }
+            // reset if we're no longer connected to any robot
+            if(num_robot_conn == 0) {
+              resetButtonStates();
+              SELECTED_ROBOT = false;
+              CURRENT_STATE = SEARCHING_STATE;
+            }
+            // remove it from the list
+            addr_all_robots[i] = XBeeAddress64(0, 0);
+            last_rx_all[i] = 0;
+            ids_of_all_robots[i] = 0;
+            // then push everything else up
+            for(int j=i; j<MAX_ROBOTS-1; j++) {
+              addr_all_robots[j] = addr_all_robots[j+1];
+              last_rx_all[j] = last_rx_all[j+1];
+              ids_of_all_robots[j] = ids_of_all_robots[j+1];
+              SELECTED_ROBOT_ID[j] = SELECTED_ROBOT_ID[j+1];
+            }
+
+            if(XBEE_DEBUG) {
+              for(int i=0; i<MAX_ROBOTS; i++) {
+                Serial << i << ": ";
+                print32Bits(addr_all_robots[i].getMsb());
+                Serial << " ";
+                print32Bits(addr_all_robots[i].getLsb());
+                Serial << endl;
+              }
+            }
+
+            // so that we can properly deincrement the num_addr counter
+            num_addrs--;
+            if(num_addrs < 0) num_addrs = 0;
+            _robotRemovedCallback(SELECTED_ROBOT);
           }
-          // reset if we're no longer connected to any robot
-          if(num_robot_conn == 0) {
-            resetButtonStates();
-            SELECTED_ROBOT = false;
-            CURRENT_STATE = SEARCHING_STATE;
-          }
-          // remove it from the list
-          addr_all_robots[i] = XBeeAddress64(0, 0);
-          last_rx_all[i] = 0;
-          ids_of_all_robots[i] = 0;
-          // then push everything else up
-          for(int j=i; j<MAX_ROBOTS-1; j++) {
-            addr_all_robots[j] = addr_all_robots[j+1];
-            last_rx_all[j] = last_rx_all[j+1];
-            ids_of_all_robots[j] = ids_of_all_robots[j+1];
-            SELECTED_ROBOT_ID[j] = SELECTED_ROBOT_ID[j+1];
-          }
-          // so that we can properly deincrement the num_addr counter
-          num_addrs--;
-          _robotRemovedCallback(SELECTED_ROBOT);
         }
       }
     }
@@ -1131,12 +1151,14 @@ void Operator::xbeeWatchdog() {
 }
 
 bool Operator::xbeeRead() {
+
+  if(XBEE_DEBUG) Serial << "Xbee read" << endl;
   
   xbee.readPacket();
 
   if (xbee.getResponse().isAvailable()) { // we got something
 
-    Serial << "Xbee response: " << xbee.getResponse().getApiId() << endl;
+    if(XBEE_DEBUG) Serial << "Xbee response: " << xbee.getResponse().getApiId();
 
     // --- Node Identifier Response
     // I'm not sure if this one will be good to have for the
@@ -1145,42 +1167,37 @@ bool Operator::xbeeRead() {
     // different purpose, like multiplayer pong.
     // Will need a way to filter out the other controllers
     if(xbee.getResponse().getApiId() == ZB_IO_NODE_IDENTIFIER_RESPONSE) {
-      Serial << "Xbee node identifier response" << endl;
+      if(XBEE_DEBUG) Serial << "Node identifier" << endl;
       xbee.getResponse().getZBRxResponse(rx);
       XBeeAddress64 senderLongAddress = rx.getRemoteAddress64();
       addXbeeToList(senderLongAddress);
     }
-
+    
     // --- TX Response
     if(xbee.getResponse().getApiId() == ZB_TX_STATUS_RESPONSE) {
+      if(XBEE_DEBUG) Serial << "TX" << endl;
       xbee.getResponse().getZBTxStatusResponse(txStatus);
       uint16_t the_tx_addr = txStatus.getRemoteAddress();
-      // get the delivery status, the fifth byte
-      if (txStatus.getDeliveryStatus() == SUCCESS) {
-        Serial << "Message delivered successfully! to: ";
-        print16Bits(the_tx_addr);
-        Serial << endl;
-      } else {
-        Serial << "Did not deliver message to: " << the_tx_addr << endl;
-      }
-      
     }
 
     // --- RX Response
     if (xbee.getResponse().getApiId() == ZB_RX_RESPONSE) { // got an rx packet
+      if(XBEE_DEBUG) Serial << "RX" << endl;
+
       xbee.getResponse().getZBRxResponse(rx);
 
       XBeeAddress64 senderLongAddress = rx.getRemoteAddress64();
-      Serial.print(msg_rx_count);
-      Serial.print(" >>>> Received data from ");
-      print32Bits(senderLongAddress.getMsb());
-      print32Bits(senderLongAddress.getLsb());
-      Serial.println(": ");
+      if(XBEE_DEBUG) Serial.print(msg_rx_count);
+      if(XBEE_DEBUG) Serial.print(" >>>> Received data from ");
+      if(XBEE_DEBUG) print32Bits(senderLongAddress.getMsb());
+      if(XBEE_DEBUG) Serial << " ";
+      if(XBEE_DEBUG) print32Bits(senderLongAddress.getLsb());
+      if(XBEE_DEBUG) Serial << "Len = " << rx.getDataLength() << endl;
 
       addXbeeToList(senderLongAddress);
       updateRxTime(senderLongAddress);
 
-      for(int i=0; i<64; i++) {
+      for(int i=0; i<32; i++) {
         message_rx[i] = ' ';
       }
 
@@ -1188,11 +1205,10 @@ bool Operator::xbeeRead() {
       for (int i=0; i <rx.getDataLength(); i++){
         if (!iscntrl(rx.getData()[i])) {
           message_rx[i] = (char)rx.getData()[i];
-          Serial.write(message_rx[i]);
+          if(XBEE_DEBUG) Serial.write(message_rx[i]);
         }
       }
-      Serial.println();
-      msg_rx_count++;
+      if(XBEE_DEBUG) Serial.println();
       last_rx = millis();
       return true;
     }
@@ -1200,67 +1216,6 @@ bool Operator::xbeeRead() {
 
   return false;
   
-}
-
-void Operator::xbeeChooseRobotToConnect() {
-
-  if(CONN_TYPE == XBEE_CONN) {
-    
-    sticky_buttons = true;
-
-    display.setTextColor(WHITE);
-
-    // Say we're searching while waiting
-    displaySearchingAnimation();
-
-    for(int i=0; i<3; i++) {
-      if(ids_of_all_robots[i] != 0) {
-        display.setCursor(i*50,22);
-        display.print(ids_of_all_robots[i]);
-      }
-    }
-
-    for(int i=3; i<6; i++) {
-      if(ids_of_all_robots[i] != 0) {
-        display.setCursor(i*50,50);
-        display.print(ids_of_all_robots[i]);
-      }
-    }
-
-    display.display();
-    
-    if(!AUTOCONNECT) {
-
-      if(getJoystickButton() == 1) {
-        Serial << "They have chosen their robots!" << endl;
-
-        for(int i=0; i<6; i++) {
-          if(getButton(i) == 1) {
-            SELECTED_ROBOT_ID[num_robot_conn] = ids_of_all_robots[i];
-            num_robot_conn++;
-          }
-        }
-
-      }
-
-    } else {
-
-      if(num_addrs > 0) { // as soon as we see one, connect to it
-        SELECTED_ROBOT_ID[num_robot_conn] = ids_of_all_robots[0];
-        num_robot_conn++;
-      }
-
-    }
-
-    if(num_robot_conn > 0) {  
-      SELECTED_ROBOT = true;
-      CURRENT_STATE = IDLE_STATE;
-      resetButtonStates();
-      sticky_buttons = false;
-    }
-
-  }
-
 }
 
 // these routines are just to print the data with
@@ -1306,19 +1261,19 @@ void Operator::connRead() {
     while(Serial1.available()) {
       c = Serial1.read();
       promulgate.organize_message(c);
-      Serial << c;
-      if(c == '!' || c == '?' || c == ';') Serial << endl;
+      if(CONN_DEBUG) Serial << c;
+      if(CONN_DEBUG) { if(c == '!' || c == '?' || c == ';') Serial << endl; }
     }
 
   } else if(CONN_TYPE == XBEE_CONN) {
 
     while(xbeeRead()) {
-      //Serial << "\n<< ";
+      if(CONN_DEBUG) Serial << "Read...\n<< ";
       for(int i=0; i<=rx.getDataLength(); i++) {
         c = message_rx[i];
         promulgate.organize_message(c);
-        Serial << c;
-        if(c == '!' || c == '?' || c == ';') Serial << endl;
+        if(CONN_DEBUG) Serial << c;
+        if(CONN_DEBUG) { if(c == '!' || c == '?' || c == ';') Serial << endl; }
       }
     }
 
@@ -1342,12 +1297,11 @@ void Operator::connSend(Msg m) {
 
   sprintf(message_tx,"%c%c%d,%d,%c%d,%d%c", m.action, m.pck1.cmd, m.pck1.key, m.pck1.val, m.pck2.cmd, m.pck2.key, m.pck2.val, m.delim);
   
-  Serial << "Conn TX: " << message_tx << endl;
+  Serial << "Conn TX ----> " << message_tx << endl;
 
   if(CONN_TYPE == USB_CONN || CONN_TYPE == BT_CONN) {
 
     Serial1.print(message_tx);
-    Serial << "----> " << message_tx << endl;
     last_tx = current_time;
 
   } else if(CONN_TYPE == XBEE_CONN) {
@@ -1363,7 +1317,7 @@ void Operator::connSend(char action, char cmd, uint8_t key, uint16_t val, char c
 
   sprintf(message_tx,"%c%c%d,%d,%c%d,%d%c", action, cmd, key, val, cmd2, key2, val2, delim);
 
-  Serial << "Conn TX: " << message_tx << endl;
+  Serial << "Conn TX ----> " << message_tx << endl;
 
   if(CONN_TYPE == USB_CONN || CONN_TYPE == BT_CONN) {
 
@@ -1384,7 +1338,7 @@ void Operator::connSendEasy(char c) {
 
   sprintf(message_tx,"%c", c);
 
-  Serial << "Conn TX: " << message_tx << endl;
+  Serial << "Conn TX ----> " << message_tx << endl;
 
   if(CONN_TYPE == USB_CONN || CONN_TYPE == BT_CONN) {
 
@@ -1402,8 +1356,8 @@ void Operator::connSendEasy(char c) {
 
 void Operator::connRetrySend() {
   if(current_time-last_rx_msg >= retry_time && retry_count < 5) { // retry 5 times
-    Serial.println(F("Retrying send"));
-    Serial << getMsgQueueLength() << " msgs in queue" << endl;
+    if(CONN_DEBUG) Serial.println(F("Retrying send"));
+    if(CONN_DEBUG) Serial << getMsgQueueLength() << " msgs in queue" << endl;
     if(getMsgQueueLength() <= 0) {
       addMsg(msg_none);
     }
@@ -1414,14 +1368,54 @@ void Operator::connRetrySend() {
   }
 }
 
+void Operator::chooseRobotToConnect() {
+
+  if(CONN_TYPE == XBEE_CONN) {
+    
+    sticky_buttons = true;
+
+    if(!AUTOCONNECT) {
+
+      if(getJoystickButton() == 1) {
+        if(CONN_DEBUG) Serial << "They have chosen their robots!" << endl;
+        
+        for(int i=0; i<6; i++) {
+          if(getButton(i) == 1) {
+            SELECTED_ROBOT_ID[num_robot_conn] = ids_of_all_robots[i];
+            num_robot_conn++;
+          }
+        }
+
+      }
+
+    } else {
+
+      if(num_addrs > 0) { // as soon as we see one, connect to it
+        if(CONN_DEBUG) Serial << "We are going to connect to this robot!" << endl;
+        SELECTED_ROBOT_ID[num_robot_conn] = ids_of_all_robots[0];
+        num_robot_conn++;
+      }
+
+    }
+
+    if(num_robot_conn > 0) {  
+      SELECTED_ROBOT = true;
+      CURRENT_STATE = IDLE_STATE;
+      resetButtonStates();
+      sticky_buttons = false;
+    }
+
+  }
+
+}
+
+
 
 /*
 
 ---- #Promulgate Related ----
 
 */
-
-Operator *Operator::opInstance;
 
 void Operator::received_action(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim) {
   Packet p1 = { cmd, key, val };
@@ -1437,7 +1431,11 @@ void Operator::transmit_complete() {
 
 void Operator::processAction(Msg m) {
 
-  if(OP_DEBUG) {
+  Serial << "Conn RX <---- " << m.action << m.pck1.cmd << m.pck1.key << ",";
+  Serial << m.pck1.val << "," << m.pck2.cmd << m.pck2.key << ",";
+  Serial << m.pck2.val << m.delim << endl;
+
+  if(COMM_DEBUG) {
     Serial << "---PROCESS ACTION---" << endl;
     Serial << "action: " << m.action << endl;
     Serial << "command: " << m.pck1.cmd << endl;
@@ -1475,7 +1473,7 @@ void Operator::processAction(Msg m) {
   _receivedActionCallback(m);
 
   msg_rx_count++;
-  diff_time = current_time-last_rx_msg;
+  diff_time = millis()-last_rx_msg;
   last_rx_msg = current_time;
   Serial << "COMMS- Roundtrip latency (ms): " << diff_time << " Msg count: " << msg_rx_count << endl;
 
@@ -1510,203 +1508,15 @@ void Operator::setModeLabel(String label, int mode) {
 
 void Operator::displaySearchingAnimation() {
 
-  display.clearDisplay();
-  display.setTextSize(2);
-  display.setCursor(10,10);
-  
-  switch(letter_itr) {
-    case 0:
-    display.print("S");
-    break;
-    case 1:
-    display.print("Se");
-    break;
-    case 2:
-    display.print("Sea");
-    break;
-    case 3:
-    display.print("Sear");
-    break;
-    case 4:
-    display.print("Searc");
-    break;
-    case 5:
-    display.print("Search");
-    break;
-    case 6:
-    display.print("Searchi");
-    break;
-    case 7:
-    display.print("Searchin");
-    break;
-    case 8:
-    display.print("Searching");
-    break;
-  }
-  if(current_time-last_letter_itr >= 200) {
-    letter_itr++;
-    if(letter_itr > 8) letter_itr = 0;
-    last_letter_itr = current_time;
-  }
-  
 }
 
 void Operator::mainMenu() {
 
-  display.clearDisplay();
-
-  displayTitleBar();
-
-  uint8_t r = 5;
-  uint8_t y = 20;
-  uint8_t sp = 27;
-
-  if(button_states[0] == 1) {
-    display.fillRect(((display.width()/2)-50)-r, y-r, r*2, r*2, WHITE);
-  } else {
-    display.drawCircle((display.width()/2)-50, y, r, WHITE);
-  }
-  
-  if(button_states[1] == 1) {
-    display.fillRect((display.width()/2)-r, y-r, r*2, r*2, WHITE);
-  } else {
-    display.drawCircle(display.width()/2, y, r, WHITE);
-  }
-
-  if(button_states[2] == 1) {
-    display.fillRect(((display.width()/2)+50)-r, y-r, r*2, r*2, WHITE);
-  } else {
-    display.drawCircle((display.width()/2)+50, y, r, WHITE);
-  }
-
-
-  if(button_states[3] == 1) {
-    display.fillRect(((display.width()/2)-50)-r, y+sp-r, r*2, r*2, WHITE);
-  } else {
-    display.drawCircle((display.width()/2)-50, y+sp, r, WHITE);
-  }
-
-  if(button_states[4] == 1) {
-    display.fillRect((display.width()/2)-r, y+sp-r, r*2, r*2, WHITE);
-  } else {
-    display.drawCircle(display.width()/2, y+sp, r, WHITE);
-  }
-
-  if(button_states[5] == 1) {
-    display.fillRect(((display.width()/2)+50)-r, y+sp-r, r*2, r*2, WHITE);
-  } else {
-    display.drawCircle((display.width()/2)+50, y+sp, r, WHITE);
-  }
-
-  display.setTextSize(1);
-
-  if(CURRENT_MODE == MODE1) {
-
-    display.setCursor(0,y+10);
-    display.println(buttonLabels[0][0]);
-
-    display.setCursor((display.width()/2)-15,y+10);
-    display.println(buttonLabels[1][0]);
-
-    display.setCursor((display.width()/2)+32,y+10);
-    display.println(buttonLabels[2][0]);
-
-    display.setCursor(0,y+sp+10);
-    display.println(buttonLabels[3][0]);
-
-    display.setCursor((display.width()/2)-15,y+sp+10);
-    display.println(buttonLabels[4][0]);
-
-    display.setCursor((display.width()/2)+32,y+sp+10);
-    display.println(buttonLabels[5][0]);
-
-  } else if(CURRENT_MODE == MODE2) {
-
-    display.setCursor(0,y+10);
-    display.println(buttonLabels[0][1]);
-
-    display.setCursor((display.width()/2)-15,y+10);
-    display.println(buttonLabels[1][1]);
-
-    display.setCursor((display.width()/2)+32,y+10);
-    display.println(buttonLabels[2][1]);
-
-    display.setCursor(0,y+sp+10);
-    display.println(buttonLabels[3][1]);
-
-    display.setCursor((display.width()/2)-15,y+sp+10);
-    display.println(buttonLabels[4][1]);
-
-    display.setCursor((display.width()/2)+32,y+sp+10);
-    display.println(buttonLabels[5][1]);
-
-  } else if(CURRENT_MODE == MODE3) {
-
-    display.setCursor(0,y+10);
-    display.println(buttonLabels[0][2]);
-
-    display.setCursor((display.width()/2)-15,y+10);
-    display.println(buttonLabels[1][2]);
-
-    display.setCursor((display.width()/2)+32,y+10);
-    display.println(buttonLabels[2][2]);
-
-    display.setCursor(0,y+sp+10);
-    display.println(buttonLabels[3][2]);
-
-    display.setCursor((display.width()/2)-15,y+sp+10);
-    display.println(buttonLabels[4][2]);
-
-    display.setCursor((display.width()/2)+32,y+sp+10);
-    display.println(buttonLabels[5][2]);
-
-  }
-
-  display.display();
 
 }
 
 void Operator::displayTitleBar() {
 
-  display.drawLine(0, 10, display.width()-1, 10, WHITE);
-
-  display.setCursor(5,0);
-  display.setTextSize(1);
-  display.setTextColor(WHITE);
-
-  if(CURRENT_MODE == MODE1) {
-    display.println(modeLabels[0]);
-    //display.println("Operator");
-  } else if(CURRENT_MODE == MODE2) {
-    display.println(modeLabels[1]);
-    //display.println("Sensors");
-  } else if(CURRENT_MODE == MODE3) {
-    display.println(modeLabels[2]);
-    //display.println("Autonomous");
-  }
-
-  display.setCursor(80,0);
-  display.println("Batt:");
-  display.setCursor(108,0);
-  uint8_t batt_val = 100;
-  display.println(batt_val);
-
-}
-
-void Operator::displayLogo() {
-  display.drawBitmap(0, 0,  robot_missions_logo, 128, 64, 1);
-  display.display();
-}
-
-void Operator::scrollLogo() {
-  display.drawBitmap(0, 0,  robot_missions_logo, 128, 64, 1);
-  display.display();
-  
-  display.startscrolldiagright(0x00, 0x0F);
-  delay(2000);
-  display.startscrolldiagleft(0x00, 0x0F);
-  delay(2000);
-  display.stopscroll();
 }
 
 

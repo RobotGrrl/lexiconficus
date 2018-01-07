@@ -24,18 +24,16 @@
 #include <XBee.h>
 #include "PromulgateBig.h"
 #include <Bounce2.h>
-#include <SPI.h>
-#include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
 
 #ifndef _OPINTERFACE_H_
 #define _OPINTERFACE_H_
 
 //#define DEBUG false
-#define COMM_DEBUG false
-#define OP_DEBUG true
-#define BUTTON_DEBUG true
+#define COMM_DEBUG false // anything with promulgate
+#define OP_DEBUG true    // anything with buttons, or op in general
+#define XBEE_DEBUG false // anything with the xbee scope
+#define CONN_DEBUG false // anything with the connection stack
+#define MSG_DEBUG false  // anything with adding / removing Msgs
 
 // speeds
 #define MAX_SPEED 255
@@ -205,7 +203,9 @@ class Operator {
   static void transmit_complete();
 
   public:
-    Operator(uint8_t your_op_id);
+    Operator();
+    void begin();
+    void setOpID(uint8_t the_op_id);
     void setCommLed(uint8_t pin);
     void setAutoconnect(bool b);
     unsigned long getCommLatency();
@@ -241,13 +241,15 @@ class Operator {
     uint8_t retry_count = 0;
 
     // Xbee
-    XBee xbee = XBee();
-    XBeeAddress64 addr64 = XBeeAddress64(0x00000000, 0x0000ffff);
-    XBeeAddress64 addr_coord = XBeeAddress64(XBEE_COORDINATOR_DH, XBEE_COORDINATOR_DL);
-    ZBTxStatusResponse txStatus = ZBTxStatusResponse();
-    ZBRxResponse rx = ZBRxResponse();
-    char message_tx[64];
-    char message_rx[64];
+    XBee xbee;// = XBee();
+    XBeeAddress64 addr64;// = XBeeAddress64(0x00000000, 0x0000ffff);
+    XBeeAddress64 addr_coord;// = XBeeAddress64(XBEE_COORDINATOR_DH, XBEE_COORDINATOR_DL);
+    XBeeAddress64 addr_robot;
+    XBeeAddress64 addr_fake;
+    ZBTxStatusResponse txStatus;// = ZBTxStatusResponse();
+    ZBRxResponse rx;// = ZBRxResponse();
+    char message_tx[32];
+    char message_rx[32];
     uint32_t msg_tx_count;
     uint32_t msg_rx_count;
     uint32_t msg_tx_err;
@@ -289,10 +291,9 @@ class Operator {
     void connSend(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim);
     void connSendEasy(char c);
     void connRetrySend();
-    void xbeeChooseRobotToConnect(); // added to public in case user wants to call this from their sketch
+    void chooseRobotToConnect(); // added to public in case user wants to call this from their sketch
 
     // Display
-    Adafruit_SSD1306 display;
     String buttonLabels[6][3];
     String modeLabels[3];
     void setButtonLabel(String label, int button, int mode);
