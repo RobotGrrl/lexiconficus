@@ -15,7 +15,7 @@ void controllerAdded();
 void controllerRemoved();
 
 void setup() {
-  delay(1000);
+  delay(2000);
   Serial.begin(9600);
 
   opinterface = Operator();
@@ -25,7 +25,7 @@ void setup() {
   opinterface.initOperator(XBEE_CONN, 9600);
   
   //opinterface.TESTING = true;
-  opinterface.setAutoconnect(false); // uncomment if you want to select which robot to connect to
+  //opinterface.setAutoconnect(false); // uncomment if you want to select which robot to connect to
   opinterface.set_received_action_callback(receivedAction);
   opinterface.set_comms_timeout_callback(commsTimeout);
   opinterface.set_controller_added_callback(controllerAdded);
@@ -53,22 +53,26 @@ void loop() {
 
   opinterface.updateOperator();
 
-  if(opinterface.getCurrentMode() == 1) {
+  if(opinterface.isConnectedToRobot()) {
   
-    if(opinterface.getButton(0) == 1) { // drive state
-      opinterface.joystickDriveControl();
+    if(opinterface.getCurrentMode() == 1) {
+    
+      if(opinterface.getButton(0) == 1) { // drive state
+        opinterface.joystickDriveControl();
+      }
+  
+      if(opinterface.getButton(1) == 1) { // arm state
+        opinterface.joystickArmControl();
+      }
+        
+      //if(opinterface.getButton(2) == 1) { // scoop
+        // send scoop command
+        // if, for example, you want to stop after some time...
+        // opinterface.setButtonState(2, 0);
+      //}
+    
     }
 
-    if(opinterface.getButton(1) == 1) { // arm state
-      opinterface.joystickArmControl();
-    }
-      
-    //if(opinterface.getButton(2) == 1) { // scoop
-      // send scoop command
-      // if, for example, you want to stop after some time...
-      // opinterface.setButtonState(2, 0);
-    //}
-  
   }
   
   //delay(50);

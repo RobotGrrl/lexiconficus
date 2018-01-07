@@ -64,7 +64,6 @@ void Operator::begin() {
   // Messages
   msgs_in_queue = 0;
   msg_send_index = 0;
-  last_rx_comms = 0;
   unlikely_count = 0;
   
   // Op-specific Comms
@@ -163,7 +162,7 @@ unsigned long Operator::getCommLatency() {
 }
 
 unsigned long Operator::getLastRXTime() {
-  return last_rx_comms;
+  return last_rx_msg;
 }
 
 int Operator::getMotorSpeed(int m) { // 1 = left, 2 = right
@@ -186,6 +185,10 @@ bool Operator::getMotorDir(int m) {
 
 int Operator::getCurrentMode() {
   return CURRENT_MODE;
+}
+
+bool Operator::isConnectedToRobot() {
+  return SELECTED_ROBOT;
 }
 
 /*
@@ -280,9 +283,9 @@ void Operator::initOperator(int conn, int baud) {
   } else if(conn == XBEE_CONN) {
     
     pinMode(SPEAKER, OUTPUT);
-    for(int i=0; i<5; i++) {
-      tone(SPEAKER, 150, 100);
-      delay(100);
+    for(int i=0; i<3; i++) {
+      buzz(NOTE_A6, 80);
+      delay(40);
     }
     
     // Start xbee's serial
@@ -356,7 +359,7 @@ void Operator::updateOperator() {
   connRetrySend();
   
   // Comms have timed out
-  if(millis()-last_rx_comms >= REMOTE_OP_TIMEOUT && SELECTED_ROBOT == true) {
+  if(millis()-last_rx_msg >= REMOTE_OP_TIMEOUT && SELECTED_ROBOT == true) {
     if(OP_DEBUG) Serial << "REMOTE OP TIMEOUT" << endl;
     digitalWrite(COMM_LED, LOW);
     // callback that the comms has timed out
@@ -678,11 +681,13 @@ void Operator::updateButtons() {
       if(button_states[i] == 0) {
         if(!sticky_buttons) resetButtonStates();
         button_states[i] = 1;
-        if(i<6) digitalWrite(led_pins[i], HIGH);
+        if(i<6) ledQuickFade(led_pins[i], 0, 255);
+        if(i>=6) ledQuickPulseAll();
         did_change = true;
       } else if(button_states[i] == 1) {
         button_states[i] = 0;
-        if(i<6) digitalWrite(led_pins[i], LOW);
+        if(i<6) ledQuickFade(led_pins[i], 255, 0);
+        if(i>=6) ledQuickPulseAll();
         did_change = true;
       }
     }
@@ -700,24 +705,68 @@ void Operator::updateButtons() {
       switch(i) {
         case 0: // 'red'
           m.pck1.cmd = 'P';
+          if(button_states[i] == 1) {
+            buzz(NOTE_C6, 80);
+          } else if(button_states[i] == 0) {
+            buzz(NOTE_C2, 80);
+          }
         break;
         case 1: // yellow
           m.pck1.cmd = 'Y';
+          if(button_states[i] == 1) {
+            buzz(NOTE_E6, 80);
+          } else if(button_states[i] == 0) {
+            buzz(NOTE_E2, 80);
+          }
         break;
         case 2: // green
           m.pck1.cmd = 'G';
+          if(button_states[i] == 1) {
+            buzz(NOTE_G6, 80);
+          } else if(button_states[i] == 0) {
+            buzz(NOTE_G2, 80);
+          }
         break;
         case 3: // white
           m.pck1.cmd = 'W';
+          if(button_states[i] == 1) {
+            buzz(NOTE_C7, 80);
+          } else if(button_states[i] == 0) {
+            buzz(NOTE_C3, 80);
+          }
         break;
         case 4: // blue
           m.pck1.cmd = 'B';
+          if(button_states[i] == 1) {
+            buzz(NOTE_E7, 80);
+          } else if(button_states[i] == 0) {
+            buzz(NOTE_E3, 80);
+          }
         break;
         case 5: // black
           m.pck1.cmd = 'N';
+          if(button_states[i] == 1) {
+            buzz(NOTE_G7, 80);
+          } else if(button_states[i] == 0) {
+            buzz(NOTE_G3, 80);
+          }
         break;
         case 6: // joystick
           m.pck1.cmd = 'J';
+          if(button_states[i] == 1) {
+            buzz(NOTE_A7, 80);
+          } else if(button_states[i] == 0) {
+            buzz(NOTE_A3, 80);
+          }
+          // we quickly pulsed the led, now we have to turn on the ones
+          // that were on before.
+          /*
+          for(int i=0; i<6; i++) {
+            if(button_states[i] == 1) {
+              ledQuickFade(led_pins[i], 0, 255);
+            }
+          }
+          */
         break;
       }
 
@@ -762,6 +811,7 @@ void Operator::resetButtonStates() {
   ledsOff();
 }
 
+
 /*
 
 ---- Mode Switch ----
@@ -774,18 +824,33 @@ void Operator::updateModeSwitch() {
 
   if(val >= MODE1_THRESH) {
     if(CURRENT_MODE != MODE1) {
+      buzz(NOTE_E6, 80);
+      delay(80);
+      buzz(NOTE_F6, 80);
+      delay(80);
+      buzz(NOTE_E6, 80);
       resetButtonStates();
       _modeChangedCallback(MODE1);
     }
     CURRENT_MODE = MODE1;
   } else if(val >= MODE2_THRESH) {
     if(CURRENT_MODE != MODE2) {
+      buzz(NOTE_C6, 80);
+      delay(80);
+      buzz(NOTE_G6, 80);
+      delay(80);
+      buzz(NOTE_C6, 80);
       resetButtonStates();
       _modeChangedCallback(MODE2);
     }
     CURRENT_MODE = MODE2;
   } else if(val >= MODE3_THRESH) {
     if(CURRENT_MODE != MODE3) {
+      buzz(NOTE_A6, 80);
+      delay(80);
+      buzz(NOTE_D6, 80);
+      delay(80);
+      buzz(NOTE_A6, 80);
       resetButtonStates();
       _modeChangedCallback(MODE3);
     }
@@ -801,13 +866,13 @@ void Operator::updateModeSwitch() {
 
 */
 
-void Operator::buzz(int targetPin, long frequency, long length) {
+void Operator::buzz(long frequency, long length) {
   long delayValue = 1000000 / frequency / 2;
   long numCycles = frequency * length / 1000;
   for (long i = 0; i < numCycles; i++) { 
-    digitalWrite(targetPin, HIGH); 
+    digitalWrite(SPEAKER, HIGH); 
     delayMicroseconds(delayValue); 
-    digitalWrite(targetPin, LOW); 
+    digitalWrite(SPEAKER, LOW); 
     delayMicroseconds(delayValue); 
   }
 }
@@ -844,11 +909,11 @@ void Operator::initJoystick() {
 void Operator::initSpeaker() {
   pinMode(SPEAKER, OUTPUT);
   // beep beep
-  buzz(SPEAKER, 1568, 100);
+  buzz(NOTE_G6, 100);
   delay(100);
-  buzz(SPEAKER, 2349, 100);
+  buzz(NOTE_D7, 100);
   delay(100);
-  buzz(SPEAKER, 4699, 100);
+  buzz(NOTE_D8, 100);
   delay(100);
 }
 
@@ -1522,7 +1587,7 @@ void Operator::displayTitleBar() {
 
 /*
 
----- LEDs ----
+---- #LEDs ----
 
 */
 
@@ -1585,5 +1650,49 @@ void Operator::ledsOff() {
   }
 }
 
+
+void Operator::ledQuickFade(uint8_t pin, uint8_t from, uint8_t to) {
+  
+  if(from < to) {
+    for(int i=from; i<to; i+=3) {
+      analogWrite(pin, i);
+      delay(1);
+    }
+  } else if(from > to) {
+    for(int i=from; i>to; i-=3) {
+      analogWrite(pin, i);
+      delay(1);
+    }
+  }
+
+  analogWrite(pin, to);
+
+}
+
+void Operator::ledQuickPulseAll() {
+
+  for(int i=0; i<255; i+=5) {
+    for(int j=0; j<6; j++) {
+      analogWrite(led_pins[j], i);
+      delay(1);
+    }
+  }
+  for(int j=0; j<6; j++) {
+    analogWrite(led_pins[j], 255);
+    delay(1);
+  }
+
+  for(int i=255; i>0; i-=5) {
+    for(int j=0; j<6; j++) {
+      analogWrite(led_pins[j], i);
+      delay(1);
+    }
+  }
+  for(int j=0; j<6; j++) {
+    analogWrite(led_pins[j], 0);
+    delay(1);
+  }
+
+}
 
 
