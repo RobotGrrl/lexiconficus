@@ -25,7 +25,7 @@ void setup() {
   opinterface.initOperator(XBEE_CONN, 9600);
   
   //opinterface.TESTING = true;
-  //opinterface.setAutoconnect(false); // uncomment if you want to select which robot to connect to
+  opinterface.setAutoconnect(true);
   opinterface.set_received_action_callback(receivedAction);
   opinterface.set_comms_timeout_callback(commsTimeout);
   opinterface.set_controller_added_callback(controllerAdded);

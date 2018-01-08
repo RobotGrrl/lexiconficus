@@ -2,6 +2,8 @@
 
 Operator *Operator::opInstance;
 
+// TODO add an api for controlling the op's speaker
+
 Operator::Operator() {
 
 }
@@ -12,6 +14,8 @@ void Operator::begin() {
   opInstance = this;
   TESTING = false;
   OP_ID = 50;
+
+  //opDisplay = OperatorDisplay();
 
   // LED
   COMM_LED = 13;
@@ -69,17 +73,6 @@ void Operator::begin() {
   // Op-specific Comms
   retry_time = DEFAULT_RETRY_TIME;
   retry_count = 0;
-
-  // Display
-  // by default, we'll generate the high voltage from the 3.3v line internally! (neat!)
-  for(int i=0; i<6; i++) {
-    for(int j=0; j<3; j++) {
-      buttonLabels[i][j] = " ";
-    }
-  }
-  for(int i=0; i<3; i++) {
-    modeLabels[i] = " ";
-  }
 
   // Pins
   button_pins[0] = BUTTON1;
@@ -139,11 +132,13 @@ void Operator::begin() {
 }
 
 
-
-void Operator::displayLogo() {
-
+void Operator::setButtonLabel(String label, int button, int mode) {
+  //opDisplay.setButtonLabel(label, button, mode);
 }
 
+void Operator::setModeLabel(String label, int mode) {
+  //opDisplay.setModeLabel(label, mode);
+}
 
 void Operator::setOpID(uint8_t the_op_id) {
   OP_ID = the_op_id;
@@ -266,7 +261,7 @@ void Operator::initOperator(int conn, int baud) {
   }
 
 
-  displayLogo();
+  //opDisplay.displayLogo();
 
   calibrateHome();
 
@@ -323,6 +318,7 @@ void Operator::initOperator(int conn, int baud) {
   initJoystick();
   initSpeaker();
   introLedSequence();
+  //opDisplay.clearTheDisplay();
 }
 
 void Operator::updateOperator() {
@@ -371,7 +367,7 @@ void Operator::updateOperator() {
   updateModeSwitch();
   
   if(TESTING) {
-    mainMenu();
+    //opDisplay.mainMenu(button_states, CURRENT_MODE);
   } else {
     if(SELECTED_ROBOT == false) {
       // Let's choose the robot in XBee mode
@@ -380,7 +376,7 @@ void Operator::updateOperator() {
       chooseRobotToConnect();
     } else {
       // Display
-      mainMenu();
+      //opDisplay.mainMenu(button_states, CURRENT_MODE);
     }
   }
 
@@ -493,7 +489,7 @@ void Operator::joystickDriveControl() {
       // forwards
 
       if(current_time - last_increment > 10) {
-        incr_speed = 4;
+        incr_speed = 1;
         last_increment = current_time;
       } else {
         incr_speed = 0;  
@@ -522,7 +518,7 @@ void Operator::joystickDriveControl() {
       // backwards
 
       if(current_time - last_increment > 10) {
-        incr_speed = 4;
+        incr_speed = 1;
         last_increment = current_time;
       } else {
         incr_speed = 0;  
@@ -668,6 +664,11 @@ void Operator::updateButtons() {
   Msg m = msg_none;
   bool did_change = false;
 
+  uint8_t prev_button_states[7];
+  for(int i=0; i<7; i++) {
+    prev_button_states[i] = button_states[i];
+  }
+
   for(int i=0; i<7; i++) {
     did_change = false;
     bounce_buttons[i].update();
@@ -677,18 +678,42 @@ void Operator::updateButtons() {
       } else {
         if(OP_DEBUG) Serial << "Joystick button";
       }
-      Serial << " pressed " << current_time << endl;
-      if(button_states[i] == 0) {
-        if(!sticky_buttons) resetButtonStates();
+      Serial << " pressed " << endl;
+      
+      if(prev_button_states[i] == 0) { // before, it was off
+
+        if(sticky_buttons) {
+          // no need to do anything extra
+        } else {
+          // clear the other ones first
+          for(int j=0; j<6; j++) {
+            if(button_states[j] == 1) {
+              ledQuickFade(led_pins[j], 255, 0);
+              button_states[j] = 0;
+            }
+          }
+          resetButtonStates();
+          delay(100);
+        }
         button_states[i] = 1;
+
         if(i<6) ledQuickFade(led_pins[i], 0, 255);
         if(i>=6) ledQuickPulseAll();
         did_change = true;
-      } else if(button_states[i] == 1) {
+        
+      } else if(prev_button_states[i] == 1) { // before, it was on
+
+        if(sticky_buttons) {
+          // no need to do anything extra
+        } else {
+          resetButtonStates();
+          delay(100);
+        }
         button_states[i] = 0;
         if(i<6) ledQuickFade(led_pins[i], 255, 0);
         if(i>=6) ledQuickPulseAll();
         did_change = true;
+        
       }
     }
 
@@ -930,6 +955,9 @@ uint8_t Operator::getMsgQueueLength() {
 
 // Retrieve the next message, and move the other messages behind it up
 Msg Operator::popNextMsg() {
+
+  if(msgs_in_queue <= 0) return msg_none;
+
   struct Msg m = msg_queue[0];
 
   for(int i=0; i<msgs_in_queue-1; i++) {
@@ -1437,9 +1465,12 @@ void Operator::chooseRobotToConnect() {
 
   if(CONN_TYPE == XBEE_CONN) {
     
-    sticky_buttons = true;
+    //opDisplay.displaySearching(current_time);
+    //opDisplay.displaySearchingRobotIDs(ids_of_all_robots);
 
-    if(!AUTOCONNECT) {
+    if(AUTOCONNECT == false) {
+
+      sticky_buttons = true;
 
       if(getJoystickButton() == 1) {
         if(CONN_DEBUG) Serial << "They have chosen their robots!" << endl;
@@ -1453,7 +1484,9 @@ void Operator::chooseRobotToConnect() {
 
       }
 
-    } else {
+    } else if(AUTOCONNECT == true) {
+
+      sticky_buttons = false;
 
       if(num_addrs > 0) { // as soon as we see one, connect to it
         if(CONN_DEBUG) Serial << "We are going to connect to this robot!" << endl;
@@ -1554,34 +1587,6 @@ void Operator::transmitDidComplete() {
 void Operator::sendNextMsg() {
   Msg m = popNextMsg();
   connSend(m);
-}
-
-
-/*
-
----- #Display ----
-
-*/
-
-void Operator::setButtonLabel(String label, int button, int mode) {
-  buttonLabels[button][mode-1] = label;
-}
-
-void Operator::setModeLabel(String label, int mode) {
-  modeLabels[mode-1] = label;
-}
-
-void Operator::displaySearchingAnimation() {
-
-}
-
-void Operator::mainMenu() {
-
-
-}
-
-void Operator::displayTitleBar() {
-
 }
 
 

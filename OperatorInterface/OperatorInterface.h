@@ -9,7 +9,7 @@
  * Erin RobotGrrl for Robot Missions
  * --> http://RobotMissions.org
  *
- * Using Teensy 3.6, works with Teensy 3.2
+ * Using Teensy 3.2
  * 
  * Erin RobotGrrl
  * Jan. 3rd, 2018
@@ -24,11 +24,11 @@
 #include <XBee.h>
 #include "PromulgateBig.h"
 #include <Bounce2.h>
+//#include "OperatorDisplay.h"
 
 #ifndef _OPINTERFACE_H_
 #define _OPINTERFACE_H_
 
-//#define DEBUG false
 #define COMM_DEBUG false // anything with promulgate
 #define OP_DEBUG true    // anything with buttons, or op in general
 #define XBEE_DEBUG false // anything with the xbee scope
@@ -227,6 +227,9 @@ class Operator {
   public:
     Operator();
     void begin();
+    void setButtonLabel(String label, int button, int mode);
+    void setModeLabel(String label, int mode);
+
     void setOpID(uint8_t the_op_id);
     void setCommLed(uint8_t pin);
     void setAutoconnect(bool b);
@@ -238,6 +241,8 @@ class Operator {
     bool TESTING;
     uint8_t OP_ID;
     bool isConnectedToRobot();
+
+    //OperatorDisplay opDisplay;
 
     // Callbacks
     void set_comms_timeout_callback( void (*commsTimeoutCallback)() );
@@ -315,17 +320,6 @@ class Operator {
     void connSendEasy(char c);
     void connRetrySend();
     void chooseRobotToConnect(); // added to public in case user wants to call this from their sketch
-
-    // Display
-    String buttonLabels[6][3];
-    String modeLabels[3];
-    void setButtonLabel(String label, int button, int mode);
-    void setModeLabel(String label, int mode);
-    void displayLogo();
-    void scrollLogo();
-    void displayTitleBar();
-    void mainMenu();
-    void displaySearchingAnimation();
 
     // Mode & State
     int CURRENT_STATE; // For continuous states (ie, with joystick)
