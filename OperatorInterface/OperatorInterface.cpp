@@ -1,21 +1,22 @@
 #include "OperatorInterface.h"
+#include "HardwareSerial.h"
 
-Operator *Operator::opInstance;
+OperatorInterface *OperatorInterface::opInstance;
 
 // TODO add an api for controlling the op's speaker
 
-Operator::Operator() {
+OperatorInterface::OperatorInterface() {
 
 }
 
-void Operator::begin() {
+void OperatorInterface::begin() {
 
   // Instance of the class for the callbacks from Promulgate
   opInstance = this;
   TESTING = false;
   OP_ID = 50;
 
-  //opDisplay = OperatorDisplay();
+  // //opDisplay = OperatorDisplay();
 
   // LED
   COMM_LED = 13;
@@ -132,35 +133,35 @@ void Operator::begin() {
 }
 
 
-void Operator::setButtonLabel(String label, int button, int mode) {
-  //opDisplay.setButtonLabel(label, button, mode);
+void OperatorInterface::setButtonLabel(String label, int button, int mode) {
+  ////opDisplay.setButtonLabel(label, button, mode);
 }
 
-void Operator::setModeLabel(String label, int mode) {
-  //opDisplay.setModeLabel(label, mode);
+void OperatorInterface::setModeLabel(String label, int mode) {
+  ////opDisplay.setModeLabel(label, mode);
 }
 
-void Operator::setOpID(uint8_t the_op_id) {
+void OperatorInterface::setOpID(uint8_t the_op_id) {
   OP_ID = the_op_id;
 }
 
-void Operator::setCommLed(uint8_t pin) {
+void OperatorInterface::setCommLed(uint8_t pin) {
   COMM_LED = pin;
 }
 
-void Operator::setAutoconnect(bool b) {
+void OperatorInterface::setAutoconnect(bool b) {
   AUTOCONNECT = b;
 }
 
-unsigned long Operator::getCommLatency() {
+unsigned long OperatorInterface::getCommLatency() {
   return diff_time;
 }
 
-unsigned long Operator::getLastRXTime() {
+unsigned long OperatorInterface::getLastRXTime() {
   return last_rx_msg;
 }
 
-int Operator::getMotorSpeed(int m) { // 1 = left, 2 = right
+int OperatorInterface::getMotorSpeed(int m) { // 1 = left, 2 = right
   if(m == 1) {
     return motor_l_speed;
   } else if(m == 2) {
@@ -169,7 +170,7 @@ int Operator::getMotorSpeed(int m) { // 1 = left, 2 = right
   return 0;
 }
 
-bool Operator::getMotorDir(int m) {
+bool OperatorInterface::getMotorDir(int m) {
   if(m == 1) {
     return motor_l_dir;
   } else if(m == 2) {
@@ -178,11 +179,11 @@ bool Operator::getMotorDir(int m) {
   return false;
 }
 
-int Operator::getCurrentMode() {
+int OperatorInterface::getCurrentMode() {
   return CURRENT_MODE;
 }
 
-bool Operator::isConnectedToRobot() {
+bool OperatorInterface::isConnectedToRobot() {
   return SELECTED_ROBOT;
 }
 
@@ -192,35 +193,35 @@ bool Operator::isConnectedToRobot() {
 
 */
 
-void Operator::set_comms_timeout_callback( void (*commsTimeoutCallback)() ) {
+void OperatorInterface::set_comms_timeout_callback( void (*commsTimeoutCallback)() ) {
   _commsTimeoutCallback = commsTimeoutCallback;
 }
 
-void Operator::set_controller_added_callback( void (*controllerAddedCallback)() ) {
+void OperatorInterface::set_controller_added_callback( void (*controllerAddedCallback)() ) {
   _controllerAddedCallback = controllerAddedCallback;
 }
 
-void Operator::set_controller_removed_callback( void (*controllerRemovedCallback)() ) {
+void OperatorInterface::set_controller_removed_callback( void (*controllerRemovedCallback)() ) {
   _controllerRemovedCallback = controllerRemovedCallback;
 }
 
-void Operator::set_received_action_callback( void (*receivedActionCallback)(Msg m) ) {
+void OperatorInterface::set_received_action_callback( void (*receivedActionCallback)(Msg m) ) {
   _receivedActionCallback = receivedActionCallback;
 }
 
-void Operator::set_button_changed_callback( void (*buttonChangedCallback)(int button, int value) ) {
+void OperatorInterface::set_button_changed_callback( void (*buttonChangedCallback)(int button, int value) ) {
   _buttonChangedCallback = buttonChangedCallback;
 }
 
-void Operator::set_mode_changed_callback( void (*modeChangedCallback)(int mode) ) {
+void OperatorInterface::set_mode_changed_callback( void (*modeChangedCallback)(int mode) ) {
   _modeChangedCallback = modeChangedCallback;
 }
 
-void Operator::set_robot_added_callback( void (*robotAddedCallback)() ) {
+void OperatorInterface::set_robot_added_callback( void (*robotAddedCallback)() ) {
   _robotAddedCallback = robotAddedCallback;
 }
 
-void Operator::set_robot_removed_callback( void (*robotRemovedCallback)(bool still_connected) ) {
+void OperatorInterface::set_robot_removed_callback( void (*robotRemovedCallback)(bool still_connected) ) {
   _robotRemovedCallback = robotRemovedCallback;
 }
 
@@ -231,11 +232,19 @@ void Operator::set_robot_removed_callback( void (*robotRemovedCallback)(bool sti
 
 */
 
-void Operator::initOperator(int conn, int baud) {
+void OperatorInterface::initOperator(int conn, long baud, HardwareSerial *serial) {
 
+  //opDisplay.begin();
 
+  //opDisplay.testDisplay();
+
+  serialyeah = serial;
+  
   // Promulgate
-  promulgate = Promulgate(&Serial1, &Serial1);
+  // promulgate = Promulgate(&Serial1, &Serial1);
+  // promulgate.useBase64Parsing(false);
+
+  promulgate = Promulgate(serialyeah, serialyeah);
   promulgate.useBase64Parsing(false);
 
   xbee = XBee();
@@ -261,7 +270,7 @@ void Operator::initOperator(int conn, int baud) {
   }
 
 
-  //opDisplay.displayLogo();
+  ////opDisplay.displayLogo();
 
   calibrateHome();
 
@@ -284,9 +293,13 @@ void Operator::initOperator(int conn, int baud) {
     }
     
     // Start xbee's serial
-    Serial1.begin(baud);
-    delay(500);
-    xbee.begin(Serial1);
+    // Serial1.begin(baud);
+    // delay(500);
+    // xbee.begin(Serial1);
+
+    serialyeah->begin(9600);
+    delay(50);
+    xbee.begin(*serialyeah);
 
     CONN_TYPE = XBEE_CONN;
     possible = true;
@@ -308,6 +321,7 @@ void Operator::initOperator(int conn, int baud) {
   }
 
   // promulgate setup
+  promulgate.useBase64Parsing(false);
   promulgate.LOG_LEVEL = Promulgate::ERROR_;
   promulgate.set_rx_callback(this->received_action);
   promulgate.set_tx_callback(this->transmit_complete);
@@ -318,10 +332,13 @@ void Operator::initOperator(int conn, int baud) {
   initJoystick();
   initSpeaker();
   introLedSequence();
-  //opDisplay.clearTheDisplay();
+
+  //opDisplay.displayLogo();
+
+  ////opDisplay.clearTheDisplay();
 }
 
-void Operator::updateOperator() {
+void OperatorInterface::updateOperator() {
 
   opInstance = this;
   current_time = millis();
@@ -342,8 +359,10 @@ void Operator::updateOperator() {
     }
   } else {
     // If not, send our ID less frequently
-    if(current_time-last_retry_time >= 2500) {
-      addMsg( 3, '$', 'X', 1, OP_ID, 'X', 1, OP_ID, '!' );
+    //if(current_time-last_retry_time >= 2500) {
+    if(current_time-last_retry_time >= 500) {
+      //addMsg( 3, '$', 'X', 1, OP_ID, 'X', 1, OP_ID, '!' );
+      connSend('$', 'X', 1, OP_ID, 'X', 1, OP_ID, '!');
       last_retry_time = current_time;
     }
   }
@@ -355,19 +374,21 @@ void Operator::updateOperator() {
   connRetrySend();
   
   // Comms have timed out
+  /*
   if(millis()-last_rx_msg >= REMOTE_OP_TIMEOUT && SELECTED_ROBOT == true) {
     if(OP_DEBUG) Serial << "REMOTE OP TIMEOUT" << endl;
     digitalWrite(COMM_LED, LOW);
     // callback that the comms has timed out
     _commsTimeoutCallback();
   }
+  */
 
   // Update our interface
   updateButtons();
   updateModeSwitch();
   
   if(TESTING) {
-    //opDisplay.mainMenu(button_states, CURRENT_MODE);
+    ////opDisplay.mainMenu(button_states, CURRENT_MODE);
   } else {
     if(SELECTED_ROBOT == false) {
       // Let's choose the robot in XBee mode
@@ -376,7 +397,7 @@ void Operator::updateOperator() {
       chooseRobotToConnect();
     } else {
       // Display
-      //opDisplay.mainMenu(button_states, CURRENT_MODE);
+      ////opDisplay.mainMenu(button_states, CURRENT_MODE);
     }
   }
 
@@ -397,7 +418,7 @@ void Operator::updateOperator() {
 
 */
 
-void Operator::updateJoystick() {
+void OperatorInterface::updateJoystick() {
   joy_x_prev = joy_x;
   joy_y_prev = joy_y;
   joy_x = getJoyX();
@@ -411,7 +432,7 @@ void Operator::updateJoystick() {
   if(joy_x < MIN_X) joy_x = MIN_X;
 }
 
-void Operator::calibrateHome() {
+void OperatorInterface::calibrateHome() {
 
   int num = 10;
   int x_avg = 0;
@@ -428,11 +449,11 @@ void Operator::calibrateHome() {
 
 }
 
-int Operator::getJoyX() {
+int OperatorInterface::getJoyX() {
   return analogRead(JOYSTICK_X);
 }
 
-int Operator::getJoyY() {
+int OperatorInterface::getJoyY() {
   return analogRead(JOYSTICK_Y);
 }
 
@@ -443,7 +464,7 @@ int Operator::getJoyY() {
 
 */
 
-void Operator::joystickDriveControl() {
+void OperatorInterface::joystickDriveControl() {
 
   Msg m = msg_none;
   bool motor_dir = true;
@@ -578,7 +599,7 @@ void Operator::joystickDriveControl() {
   
 }
 
-void Operator::joystickArmControl() {
+void OperatorInterface::joystickArmControl() {
 
   Msg m = msg_none;
   current_time = millis();
@@ -657,7 +678,7 @@ void Operator::joystickArmControl() {
 
 */
 
-void Operator::updateButtons() {
+void OperatorInterface::updateButtons() {
   
   if(current_time < 4000) return; // something odd happens on startup
 
@@ -815,21 +836,21 @@ void Operator::updateButtons() {
 
 }
 
-bool Operator::getButton(uint8_t b) {
+bool OperatorInterface::getButton(uint8_t b) {
   if(button_states[b] == 1) return true;
   return false;
 }
 
-void Operator::setButtonState(uint8_t b, uint8_t state) {
+void OperatorInterface::setButtonState(uint8_t b, uint8_t state) {
   button_states[b] = state;
 }
 
-bool Operator::getJoystickButton() {
+bool OperatorInterface::getJoystickButton() {
   if(button_states[6] == 1) return true;
   return false;
 }
 
-void Operator::resetButtonStates() {
+void OperatorInterface::resetButtonStates() {
   for(int i=0; i<7; i++) {
     button_states[i] = 0;
   }
@@ -843,7 +864,7 @@ void Operator::resetButtonStates() {
 
 */
 
-void Operator::updateModeSwitch() {
+void OperatorInterface::updateModeSwitch() {
 
   int val = analogRead(MODE_SW);
 
@@ -891,7 +912,7 @@ void Operator::updateModeSwitch() {
 
 */
 
-void Operator::buzz(long frequency, long length) {
+void OperatorInterface::buzz(long frequency, long length) {
   long delayValue = 1000000 / frequency / 2;
   long numCycles = frequency * length / 1000;
   for (long i = 0; i < numCycles; i++) { 
@@ -909,14 +930,14 @@ void Operator::buzz(long frequency, long length) {
 
 */
 
-void Operator::initLeds() {
+void OperatorInterface::initLeds() {
   pinMode(COMM_LED, OUTPUT);
   for(int i=0; i<7; i++) {
     pinMode(led_pins[i], OUTPUT);
   }
 }
 
-void Operator::initButtons() {
+void OperatorInterface::initButtons() {
   for(int i=0; i<7; i++) {
     pinMode(button_pins[i], INPUT_PULLUP);
     bounce_buttons[i].attach(button_pins[i]);
@@ -925,13 +946,13 @@ void Operator::initButtons() {
   pinMode(MODE_SW, INPUT);
 }
 
-void Operator::initJoystick() {
+void OperatorInterface::initJoystick() {
   pinMode(JOYSTICK_X, INPUT_PULLUP);
   pinMode(JOYSTICK_Y, INPUT_PULLUP);
   pinMode(JOYSTICK_SW, INPUT_PULLUP);
 }
 
-void Operator::initSpeaker() {
+void OperatorInterface::initSpeaker() {
   pinMode(SPEAKER, OUTPUT);
   // beep beep
   buzz(NOTE_G6, 100);
@@ -949,12 +970,12 @@ void Operator::initSpeaker() {
 
 */
 
-uint8_t Operator::getMsgQueueLength() {
+uint8_t OperatorInterface::getMsgQueueLength() {
   return msgs_in_queue;
 }
 
 // Retrieve the next message, and move the other messages behind it up
-Msg Operator::popNextMsg() {
+Msg OperatorInterface::popNextMsg() {
 
   if(msgs_in_queue <= 0) return msg_none;
 
@@ -974,7 +995,7 @@ Msg Operator::popNextMsg() {
   return m;
 }
 
-void Operator::addMsg(uint8_t priority, char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim) {
+void OperatorInterface::addMsg(uint8_t priority, char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim) {
   //Serial.print("adding next message");
   if(msgs_in_queue > MSG_QUEUE_SIZE-1) {
     if(MSG_DEBUG) {
@@ -999,7 +1020,7 @@ void Operator::addMsg(uint8_t priority, char action, char cmd, uint8_t key, uint
 // the rest of the queue has been sent, chances are when we reach the message
 // that was attempted to be added — it would be out of date already. With the cycle
 // of sensor sends, there will be new data along its way shortly.
-void Operator::addMsg(Msg m) {
+void OperatorInterface::addMsg(Msg m) {
   //if(OP_DEBUG) Serial << "adding next msg " << msgs_in_queue << endl;
   if(msgs_in_queue > MSG_QUEUE_SIZE-1) {
     if(MSG_DEBUG) {
@@ -1018,7 +1039,7 @@ void Operator::addMsg(Msg m) {
 // If the message is the same priority, and has the same commands (for both packets in 
 // the message), then it will replace it. 
 // As a failsafe, if it can't be inserted, the message is at least added.
-void Operator::insertMsg(Msg m) {
+void OperatorInterface::insertMsg(Msg m) {
 
   if(MSG_DEBUG) Serial.println("inserting next message");
 
@@ -1059,7 +1080,7 @@ void Operator::insertMsg(Msg m) {
 
 */
 
-void Operator::xbeeSend(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim) {
+void OperatorInterface::xbeeSend(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim) {
 
   sprintf(message_tx,"%c%c%d,%d,%c%d,%d%c", action, cmd, key, val, cmd2, key2, val2, delim);
 
@@ -1092,7 +1113,7 @@ void Operator::xbeeSend(char action, char cmd, uint8_t key, uint16_t val, char c
  
 }
 
-void Operator::xbeeSendEasy(char c) {
+void OperatorInterface::xbeeSendEasy(char c) {
 
   sprintf(message_tx,"%c", c);
 
@@ -1125,7 +1146,7 @@ void Operator::xbeeSendEasy(char c) {
  
 }
 
-void Operator::addXbeeToList(XBeeAddress64 newAddr) {
+void OperatorInterface::addXbeeToList(XBeeAddress64 newAddr) {
   
   if(XBEE_DEBUG) Serial << "Sender address - High: ";
   if(XBEE_DEBUG) print32Bits(newAddr.getMsb());
@@ -1167,7 +1188,7 @@ void Operator::addXbeeToList(XBeeAddress64 newAddr) {
   
 }
 
-void Operator::updateRxTime(XBeeAddress64 senderLongAddress) {
+void OperatorInterface::updateRxTime(XBeeAddress64 senderLongAddress) {
   for(int i=0; i<MAX_ROBOTS; i++) {
     if(addr_all_robots[i].getMsb() == senderLongAddress.getMsb() && addr_all_robots[i].getLsb() == senderLongAddress.getLsb()) {
       last_rx_all[i] = millis();
@@ -1176,7 +1197,7 @@ void Operator::updateRxTime(XBeeAddress64 senderLongAddress) {
   }
 }
 
-void Operator::xbeeWatchdog() {
+void OperatorInterface::xbeeWatchdog() {
   if(current_time-last_rx_check >= 10000) {
     for(int i=0; i<MAX_ROBOTS; i++) {
       if(current_time-last_rx_all[i] >= 11000) {
@@ -1204,11 +1225,11 @@ void Operator::xbeeWatchdog() {
               }
             }
             // reset if we're no longer connected to any robot
-            if(num_robot_conn == 0) {
+            //if(num_robot_conn == 0) {
               resetButtonStates();
               SELECTED_ROBOT = false;
               CURRENT_STATE = SEARCHING_STATE;
-            }
+            //}
             // remove it from the list
             addr_all_robots[i] = XBeeAddress64(0, 0);
             last_rx_all[i] = 0;
@@ -1243,9 +1264,9 @@ void Operator::xbeeWatchdog() {
   }
 }
 
-bool Operator::xbeeRead() {
+bool OperatorInterface::xbeeRead() {
 
-  if(XBEE_DEBUG) Serial << "Xbee read" << endl;
+  //if(XBEE_DEBUG) Serial << "Xbee read" << endl;
   
   xbee.readPacket();
 
@@ -1314,17 +1335,17 @@ bool Operator::xbeeRead() {
 // these routines are just to print the data with
 // leading zeros and allow formatting such that it
 // will be easy to read.
-void Operator::print32Bits(uint32_t dw){
+void OperatorInterface::print32Bits(uint32_t dw){
   print16Bits(dw >> 16);
   print16Bits(dw & 0xFFFF);
 }
 
-void Operator::print16Bits(uint16_t w){
+void OperatorInterface::print16Bits(uint16_t w){
   print8Bits(w >> 8);
   print8Bits(w & 0x00FF);
 }
 
-void Operator::print8Bits(byte c){
+void OperatorInterface::print8Bits(byte c){
   uint8_t nibble = (c >> 4);
   if (nibble <= 9)
     Serial.write(nibble + 0x30);
@@ -1345,7 +1366,7 @@ void Operator::print8Bits(byte c){
 
 */
 
-void Operator::connRead() {
+void OperatorInterface::connRead() {
 
   char c;
 
@@ -1361,7 +1382,7 @@ void Operator::connRead() {
   } else if(CONN_TYPE == XBEE_CONN) {
 
     while(xbeeRead()) {
-      if(CONN_DEBUG) Serial << "Read...\n<< ";
+      if(CONN_DEBUG) Serial << "Read... (" << rx.getDataLength() << ")\n";
       for(int i=0; i<=rx.getDataLength(); i++) {
         c = message_rx[i];
         promulgate.organize_message(c);
@@ -1374,7 +1395,7 @@ void Operator::connRead() {
 
 }
 
-void Operator::connBlink() {
+void OperatorInterface::connBlink() {
   if(current_time-last_led_blink >= 100) {
     if(current_time-last_rx <= 6000 && current_time > 6000) {
       digitalWrite(COMM_LED, led_on);
@@ -1386,7 +1407,7 @@ void Operator::connBlink() {
   }
 }
 
-void Operator::connSend(Msg m) {
+void OperatorInterface::connSend(Msg m) {
 
   sprintf(message_tx,"%c%c%d,%d,%c%d,%d%c", m.action, m.pck1.cmd, m.pck1.key, m.pck1.val, m.pck2.cmd, m.pck2.key, m.pck2.val, m.delim);
   
@@ -1406,7 +1427,7 @@ void Operator::connSend(Msg m) {
 
 }
 
-void Operator::connSend(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim) {
+void OperatorInterface::connSend(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim) {
 
   sprintf(message_tx,"%c%c%d,%d,%c%d,%d%c", action, cmd, key, val, cmd2, key2, val2, delim);
 
@@ -1427,7 +1448,7 @@ void Operator::connSend(char action, char cmd, uint8_t key, uint16_t val, char c
 }
 
 // this is only used in case of debugging
-void Operator::connSendEasy(char c) {
+void OperatorInterface::connSendEasy(char c) {
 
   sprintf(message_tx,"%c", c);
 
@@ -1447,7 +1468,7 @@ void Operator::connSendEasy(char c) {
 
 }
 
-void Operator::connRetrySend() {
+void OperatorInterface::connRetrySend() {
   if(current_time-last_rx_msg >= retry_time && retry_count < 5) { // retry 5 times
     if(CONN_DEBUG) Serial.println(F("Retrying send"));
     if(CONN_DEBUG) Serial << getMsgQueueLength() << " msgs in queue" << endl;
@@ -1461,12 +1482,12 @@ void Operator::connRetrySend() {
   }
 }
 
-void Operator::chooseRobotToConnect() {
+void OperatorInterface::chooseRobotToConnect() {
 
   if(CONN_TYPE == XBEE_CONN) {
     
-    //opDisplay.displaySearching(current_time);
-    //opDisplay.displaySearchingRobotIDs(ids_of_all_robots);
+    ////opDisplay.displaySearching(current_time);
+    ////opDisplay.displaySearchingRobotIDs(ids_of_all_robots);
 
     if(AUTOCONNECT == false) {
 
@@ -1515,7 +1536,7 @@ void Operator::chooseRobotToConnect() {
 
 */
 
-void Operator::received_action(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim) {
+void OperatorInterface::received_action(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim) {
   Packet p1 = { cmd, key, val };
   Packet p2 = { cmd2, key2, val2 };
   Msg m = { 99, action, p1, p2, delim };
@@ -1523,11 +1544,11 @@ void Operator::received_action(char action, char cmd, uint8_t key, uint16_t val,
   opInstance->processAction(m);
 }
 
-void Operator::transmit_complete() {
+void OperatorInterface::transmit_complete() {
   opInstance->transmitDidComplete();
 }
 
-void Operator::processAction(Msg m) {
+void OperatorInterface::processAction(Msg m) {
 
   Serial << "Conn RX <---- " << m.action << m.pck1.cmd << m.pck1.key << ",";
   Serial << m.pck1.val << "," << m.pck2.cmd << m.pck2.key << ",";
@@ -1580,11 +1601,11 @@ void Operator::processAction(Msg m) {
 
 }
 
-void Operator::transmitDidComplete() {
+void OperatorInterface::transmitDidComplete() {
   // Not really sure what to put here right now, so built in in for the future
 }
 
-void Operator::sendNextMsg() {
+void OperatorInterface::sendNextMsg() {
   Msg m = popNextMsg();
   connSend(m);
 }
@@ -1596,7 +1617,7 @@ void Operator::sendNextMsg() {
 
 */
 
-void Operator::introLedSequence() {
+void OperatorInterface::introLedSequence() {
 
   for(int i=0; i<6; i++) {
     analogWrite(led_pins[i], 255);
@@ -1621,7 +1642,7 @@ void Operator::introLedSequence() {
   
 }
 
-void Operator::breatheLeds() {
+void OperatorInterface::breatheLeds() {
 
   for(int i=0; i<=256; i+=2) {
     for(int j=0; j<6; j++) {
@@ -1649,14 +1670,14 @@ void Operator::breatheLeds() {
 
 }
 
-void Operator::ledsOff() {
+void OperatorInterface::ledsOff() {
   for(int j=0; j<6; j++) {
     digitalWrite(led_pins[j], LOW);
   }
 }
 
 
-void Operator::ledQuickFade(uint8_t pin, uint8_t from, uint8_t to) {
+void OperatorInterface::ledQuickFade(uint8_t pin, uint8_t from, uint8_t to) {
   
   if(from < to) {
     for(int i=from; i<to; i+=3) {
@@ -1674,7 +1695,7 @@ void Operator::ledQuickFade(uint8_t pin, uint8_t from, uint8_t to) {
 
 }
 
-void Operator::ledQuickPulseAll() {
+void OperatorInterface::ledQuickPulseAll() {
 
   for(int i=0; i<255; i+=5) {
     for(int j=0; j<6; j++) {

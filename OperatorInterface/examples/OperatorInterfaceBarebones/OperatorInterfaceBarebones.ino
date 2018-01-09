@@ -1,8 +1,16 @@
 #include "OperatorInterface.h"
 
+#include <SPI.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+
+#define OLED_RESET 12
+Adafruit_SSD1306 display(OLED_RESET);
+
 #define OP_ID 50
 
-Operator opinterface;
+OperatorInterface opinterface;
 
 void buttonChanged(int button, int val);
 void modeChanged(int mode);
@@ -17,13 +25,13 @@ void controllerRemoved();
 void setup() {
   delay(2000);
   Serial.begin(9600);
-
-  opinterface = Operator();
+  
+  opinterface = OperatorInterface();
 
   opinterface.begin();
   opinterface.setOpID(OP_ID);
-  opinterface.initOperator(XBEE_CONN, 9600);
-  
+  opinterface.initOperator(XBEE_CONN, 9600, &Serial1);
+
   //opinterface.TESTING = true;
   opinterface.setAutoconnect(true);
   opinterface.set_received_action_callback(receivedAction);
@@ -47,12 +55,27 @@ void setup() {
   opinterface.setModeLabel("Sensors", 2);
   opinterface.setModeLabel("Autonomous", 3);
 
+
+
+
+
+
+  display.begin(SSD1306_SWITCHCAPVCC, 0x3D);  // initialize with the I2C addr 0x3D (for the 128x64)
+  // init done
+  
+  // Show image buffer on the display hardware.
+  // Since the buffer is intialized with an Adafruit splashscreen
+  // internally, this will display the splashscreen.
+  display.display();
+  delay(2000);
+
 }
 
 void loop() {
 
   opinterface.updateOperator();
 
+  /*
   if(opinterface.isConnectedToRobot()) {
   
     if(opinterface.getCurrentMode() == 1) {
@@ -74,6 +97,7 @@ void loop() {
     }
 
   }
+  */
   
   //delay(50);
 

@@ -24,15 +24,16 @@
 #include <XBee.h>
 #include "PromulgateBig.h"
 #include <Bounce2.h>
-//#include "OperatorDisplay.h"
+#include <Adafruit_SSD1306.h>
+#include "OperatorDisplay.h"
 
 #ifndef _OPINTERFACE_H_
 #define _OPINTERFACE_H_
 
 #define COMM_DEBUG false // anything with promulgate
 #define OP_DEBUG true    // anything with buttons, or op in general
-#define XBEE_DEBUG false // anything with the xbee scope
-#define CONN_DEBUG false // anything with the connection stack
+#define XBEE_DEBUG true // anything with the xbee scope
+#define CONN_DEBUG true // anything with the connection stack
 #define MSG_DEBUG false  // anything with adding / removing Msgs
 
 // speeds
@@ -218,14 +219,40 @@ struct Msg {
   char delim;
 };
 
-class Operator {
+class OperatorInterface {
 
-  static Operator *opInstance;
+  static OperatorInterface *opInstance;
   static void received_action(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim);
   static void transmit_complete();
 
   public:
-    Operator();
+    OperatorInterface();
+
+    //Operator & operator = (*Operator);
+
+    /** Copy assignment operator */
+    OperatorInterface& operator= (const OperatorInterface& other)
+    {
+        // OperatorInterface tmp(other);         // re-use copy-constructor
+        // *this = std::move(tmp); // re-use move-assignment
+        return *this;
+    }
+
+    /** Move assignment operator */
+    OperatorInterface& operator= (OperatorInterface&& other) noexcept
+    {
+        // if (this == &other)
+        // {
+        //     // take precautions against `foo = std::move(foo)`
+        //     return *this;
+        // }
+        // delete[] data;
+        // data = other.data;
+        // other.data = nullptr;
+        return *this;
+    }
+
+
     void begin();
     void setButtonLabel(String label, int button, int mode);
     void setModeLabel(String label, int mode);
@@ -242,7 +269,7 @@ class Operator {
     uint8_t OP_ID;
     bool isConnectedToRobot();
 
-    //OperatorDisplay opDisplay;
+    OperatorDisplay opDisplay;
 
     // Callbacks
     void set_comms_timeout_callback( void (*commsTimeoutCallback)() );
@@ -254,8 +281,10 @@ class Operator {
     void set_robot_added_callback( void (*robotAddedCallback)() );
     void set_robot_removed_callback( void (*robotRemovedCallback)(bool still_connected) );
 
+    HardwareSerial *serialyeah;
+
     // Init & Update
-    void initOperator(int conn, int baud);
+    void initOperator(int conn, long baud, HardwareSerial *serial);
     void updateOperator();
 
     // Promulgate
