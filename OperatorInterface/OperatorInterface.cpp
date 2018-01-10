@@ -1,5 +1,4 @@
 #include "OperatorInterface.h"
-#include "HardwareSerial.h"
 
 OperatorInterface *OperatorInterface::opInstance;
 
@@ -15,8 +14,6 @@ void OperatorInterface::begin() {
   opInstance = this;
   TESTING = false;
   OP_ID = 50;
-
-  // //opDisplay = OperatorDisplay();
 
   // LED
   COMM_LED = 13;
@@ -132,15 +129,6 @@ void OperatorInterface::begin() {
 
 }
 
-
-void OperatorInterface::setButtonLabel(String label, int button, int mode) {
-  ////opDisplay.setButtonLabel(label, button, mode);
-}
-
-void OperatorInterface::setModeLabel(String label, int mode) {
-  ////opDisplay.setModeLabel(label, mode);
-}
-
 void OperatorInterface::setOpID(uint8_t the_op_id) {
   OP_ID = the_op_id;
 }
@@ -186,6 +174,7 @@ int OperatorInterface::getCurrentMode() {
 bool OperatorInterface::isConnectedToRobot() {
   return SELECTED_ROBOT;
 }
+
 
 /*
 
@@ -234,19 +223,12 @@ void OperatorInterface::set_robot_removed_callback( void (*robotRemovedCallback)
 
 void OperatorInterface::initOperator(int conn, long baud, HardwareSerial *serial) {
 
-  //opDisplay.begin();
-
-  //opDisplay.testDisplay();
-
   serialyeah = serial;
   
   // Promulgate
-  // promulgate = Promulgate(&Serial1, &Serial1);
-  // promulgate.useBase64Parsing(false);
-
   promulgate = Promulgate(serialyeah, serialyeah);
-  promulgate.useBase64Parsing(false);
 
+  // Xbee
   xbee = XBee();
   addr64 = XBeeAddress64(0x00000000, 0x0000ffff);
   addr_coord = XBeeAddress64(XBEE_COORDINATOR_DH, XBEE_COORDINATOR_DL);
@@ -269,10 +251,9 @@ void OperatorInterface::initOperator(int conn, long baud, HardwareSerial *serial
     message_rx[i] = '0';
   }
 
-
-  ////opDisplay.displayLogo();
-
   calibrateHome();
+
+  // ---
 
   bool possible = false;
 
@@ -291,13 +272,8 @@ void OperatorInterface::initOperator(int conn, long baud, HardwareSerial *serial
       buzz(NOTE_A6, 80);
       delay(40);
     }
-    
-    // Start xbee's serial
-    // Serial1.begin(baud);
-    // delay(500);
-    // xbee.begin(Serial1);
 
-    serialyeah->begin(9600);
+    serialyeah->begin(baud);
     delay(50);
     xbee.begin(*serialyeah);
 
@@ -333,9 +309,6 @@ void OperatorInterface::initOperator(int conn, long baud, HardwareSerial *serial
   initSpeaker();
   introLedSequence();
 
-  //opDisplay.displayLogo();
-
-  ////opDisplay.clearTheDisplay();
 }
 
 void OperatorInterface::updateOperator() {
@@ -359,10 +332,9 @@ void OperatorInterface::updateOperator() {
     }
   } else {
     // If not, send our ID less frequently
-    //if(current_time-last_retry_time >= 2500) {
-    if(current_time-last_retry_time >= 500) {
-      //addMsg( 3, '$', 'X', 1, OP_ID, 'X', 1, OP_ID, '!' );
-      connSend('$', 'X', 1, OP_ID, 'X', 1, OP_ID, '!');
+    if(current_time-last_retry_time >= 2500) {
+      addMsg( 3, '$', 'X', 1, OP_ID, 'X', 1, OP_ID, '!' );
+      //connSend('$', 'X', 1, OP_ID, 'X', 1, OP_ID, '!');
       last_retry_time = current_time;
     }
   }
@@ -374,31 +346,22 @@ void OperatorInterface::updateOperator() {
   connRetrySend();
   
   // Comms have timed out
-  /*
   if(millis()-last_rx_msg >= REMOTE_OP_TIMEOUT && SELECTED_ROBOT == true) {
-    if(OP_DEBUG) Serial << "REMOTE OP TIMEOUT" << endl;
+    if(CONN_DEBUG) Serial << "REMOTE OP TIMEOUT" << endl;
     digitalWrite(COMM_LED, LOW);
     // callback that the comms has timed out
     _commsTimeoutCallback();
   }
-  */
 
   // Update our interface
   updateButtons();
   updateModeSwitch();
   
-  if(TESTING) {
-    ////opDisplay.mainMenu(button_states, CURRENT_MODE);
-  } else {
-    if(SELECTED_ROBOT == false) {
-      // Let's choose the robot in XBee mode
-      // This will activate whenever SELECTED_ROBOT == false 
-      // and whenever CONN_TYPE == XBEE_CONN
-      chooseRobotToConnect();
-    } else {
-      // Display
-      ////opDisplay.mainMenu(button_states, CURRENT_MODE);
-    }
+  if(SELECTED_ROBOT == false) {
+    // Let's choose the robot in XBee mode
+    // This will activate whenever SELECTED_ROBOT == false 
+    // and whenever CONN_TYPE == XBEE_CONN
+    chooseRobotToConnect();
   }
 
   if(CONN_TYPE == BT_CONN || CONN_TYPE == USB_CONN) {
@@ -510,7 +473,7 @@ void OperatorInterface::joystickDriveControl() {
       // forwards
 
       if(current_time - last_increment > 10) {
-        incr_speed = 1;
+        incr_speed = 4;
         last_increment = current_time;
       } else {
         incr_speed = 0;  
@@ -539,7 +502,7 @@ void OperatorInterface::joystickDriveControl() {
       // backwards
 
       if(current_time - last_increment > 10) {
-        incr_speed = 1;
+        incr_speed = 4;
         last_increment = current_time;
       } else {
         incr_speed = 0;  
@@ -804,15 +767,6 @@ void OperatorInterface::updateButtons() {
           } else if(button_states[i] == 0) {
             buzz(NOTE_A3, 80);
           }
-          // we quickly pulsed the led, now we have to turn on the ones
-          // that were on before.
-          /*
-          for(int i=0; i<6; i++) {
-            if(button_states[i] == 1) {
-              ledQuickFade(led_pins[i], 0, 255);
-            }
-          }
-          */
         break;
       }
 
@@ -860,7 +814,7 @@ void OperatorInterface::resetButtonStates() {
 
 /*
 
----- Mode Switch ----
+---- #Mode Switch ----
 
 */
 
@@ -908,7 +862,7 @@ void OperatorInterface::updateModeSwitch() {
 
 /*
 
----- Speaker ----
+---- #Speaker ----
 
 */
 
@@ -926,7 +880,7 @@ void OperatorInterface::buzz(long frequency, long length) {
 
 /*
 
----- Init ----
+---- #Init ----
 
 */
 
@@ -966,7 +920,7 @@ void OperatorInterface::initSpeaker() {
 
 /*
 
----- Messages ----
+---- #Messages ----
 
 */
 
@@ -1076,7 +1030,7 @@ void OperatorInterface::insertMsg(Msg m) {
 
 /*
 
----- Xbee ----
+---- #Xbee ----
 
 */
 
@@ -1485,9 +1439,6 @@ void OperatorInterface::connRetrySend() {
 void OperatorInterface::chooseRobotToConnect() {
 
   if(CONN_TYPE == XBEE_CONN) {
-    
-    ////opDisplay.displaySearching(current_time);
-    ////opDisplay.displaySearchingRobotIDs(ids_of_all_robots);
 
     if(AUTOCONNECT == false) {
 

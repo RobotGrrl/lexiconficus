@@ -9,7 +9,7 @@
  * Erin RobotGrrl for Robot Missions
  * --> http://RobotMissions.org
  *
- * Using Teensy 3.2
+ * Using Teensy 3.2, or Teensy LC (with an external 3.3V regulator)
  * 
  * Erin RobotGrrl
  * Jan. 3rd, 2018
@@ -24,16 +24,14 @@
 #include <XBee.h>
 #include "PromulgateBig.h"
 #include <Bounce2.h>
-#include <Adafruit_SSD1306.h>
-#include "OperatorDisplay.h"
 
 #ifndef _OPINTERFACE_H_
 #define _OPINTERFACE_H_
 
 #define COMM_DEBUG false // anything with promulgate
 #define OP_DEBUG true    // anything with buttons, or op in general
-#define XBEE_DEBUG true // anything with the xbee scope
-#define CONN_DEBUG true // anything with the connection stack
+#define XBEE_DEBUG false // anything with the xbee scope
+#define CONN_DEBUG false // anything with the connection stack
 #define MSG_DEBUG false  // anything with adding / removing Msgs
 
 // speeds
@@ -228,8 +226,6 @@ class OperatorInterface {
   public:
     OperatorInterface();
 
-    //Operator & operator = (*Operator);
-
     /** Copy assignment operator */
     OperatorInterface& operator= (const OperatorInterface& other)
     {
@@ -252,11 +248,7 @@ class OperatorInterface {
         return *this;
     }
 
-
     void begin();
-    void setButtonLabel(String label, int button, int mode);
-    void setModeLabel(String label, int mode);
-
     void setOpID(uint8_t the_op_id);
     void setCommLed(uint8_t pin);
     void setAutoconnect(bool b);
@@ -269,8 +261,6 @@ class OperatorInterface {
     uint8_t OP_ID;
     bool isConnectedToRobot();
 
-    OperatorDisplay opDisplay;
-
     // Callbacks
     void set_comms_timeout_callback( void (*commsTimeoutCallback)() );
     void set_controller_added_callback( void (*controllerAddedCallback)() );
@@ -281,9 +271,8 @@ class OperatorInterface {
     void set_robot_added_callback( void (*robotAddedCallback)() );
     void set_robot_removed_callback( void (*robotRemovedCallback)(bool still_connected) );
 
-    HardwareSerial *serialyeah;
-
     // Init & Update
+    HardwareSerial *serialyeah;
     void initOperator(int conn, long baud, HardwareSerial *serial);
     void updateOperator();
 
@@ -298,13 +287,13 @@ class OperatorInterface {
     uint8_t retry_count = 0;
 
     // Xbee
-    XBee xbee;// = XBee();
-    XBeeAddress64 addr64;// = XBeeAddress64(0x00000000, 0x0000ffff);
-    XBeeAddress64 addr_coord;// = XBeeAddress64(XBEE_COORDINATOR_DH, XBEE_COORDINATOR_DL);
+    XBee xbee;
+    XBeeAddress64 addr64;
+    XBeeAddress64 addr_coord;
     XBeeAddress64 addr_robot;
     XBeeAddress64 addr_fake;
-    ZBTxStatusResponse txStatus;// = ZBTxStatusResponse();
-    ZBRxResponse rx;// = ZBRxResponse();
+    ZBTxStatusResponse txStatus;
+    ZBRxResponse rx;
     char message_tx[32];
     char message_rx[32];
     uint32_t msg_tx_count;
@@ -368,6 +357,7 @@ class OperatorInterface {
     void joystickArmControl();
     
     // Buttons
+    uint8_t button_states[7];
     bool sticky_buttons;
     bool getButton(uint8_t b);
     void setButtonState(uint8_t b, uint8_t state);
@@ -433,7 +423,6 @@ class OperatorInterface {
     // Pins
     uint8_t button_pins[7];
     uint8_t led_pins[7];
-    uint8_t button_states[7];
     Bounce bounce_buttons[7];
 
     // Misc
@@ -467,5 +456,44 @@ class OperatorInterface {
     void updateButtons();
 
 };
+
+/*
+ * Notes:
+ * The reason for overloading the = operand is because when creating the
+ * instance of OperatorInterface in the sketch, it didn't construct all
+ * of the variables - or some reason from the behaviour we observed. This
+ * is most likely because of the static instance of the class, which is a
+ * necessary pointer to be able to call its non-static functions from the 
+ * static functions. To get the static instance to work, the instance has
+ * to be constructed again from the sketch in the setup function. My guess
+ * as to why this is is because of a "static initialization order fiasco"
+ * https://isocpp.org/wiki/faq/ctors#static-init-order - this came to my
+ * attention through a post by Paul S here: 
+ * https://forum.pjrc.com/threads/24157-Passing-Teensy-3-0-hardware-serial-
+ * as-an-object?p=66265&viewfull=1#post66265
+ * Before confirming that this was indeed the cause of this issue, passing
+ * HardwareSerial to the library was also tried. Following this thread
+ * was helpful to learn more about the pointers:
+ * http://forum.arduino.cc/index.php?topic=181603.0
+ * This worked fine, but didn't resolve the issue about the constructor.
+ * So, OK, we have to call the constructor again. Not a big deal. There hasn't
+ * been any observed issues. 
+ * Well, the new problem is that the Adafruit SSD1306 display library (for
+ * OLED small screens), has constructors with variables in them, which means
+ * the = operand can no longer be used.
+ * The error text was that the = operand:
+ * "is implicitly deleted because the default definition would be ill-formed".
+ * Was initially stuck here for a while, then learned about the 'Rule of Three',
+ * or 'Rule of Five' for C++ programming. Luckily on this page, there are 
+ * examples of overloading the = operand for a copy and move constructor.
+ * https://en.wikipedia.org/wiki/Rule_of_three_(C%2B%2B_programming)
+ * Testing this out, adding lines of code back in one by one, it started to
+ * compile without errors! The display code had to be added in the sketch,
+ * rather than a separate library. It's not that big of a deal - considering
+ * for the modularity of the Operator Interface, repurpusing it for other
+ * uses would require different things to be displayed on the screen.
+ * Now, after initial tests, the observed behaviour appears to be working!
+ * Fingers crossed something else does not come up.
+ */
 
 #endif

@@ -1,5 +1,21 @@
-#include "OperatorInterface.h"
+/*
+ * Operator Interface Barebones Example
+ * ------------------------------------
+ * 
+ * Send the basic commands to the robot,
+ * and display the main interface on the
+ * screen.
+ * 
+ * Erin RobotGrrl for RobotMissions
+ * Jan. 9th, 2018
+ * --> http://RobotMissions.org
+ * 
+ * MIT license, check LICENSE for more information
+ * All text above must be included in any redistribution
+ * 
+ */
 
+#include "OperatorInterface.h"
 #include <SPI.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
@@ -25,6 +41,10 @@ void controllerRemoved();
 void setup() {
   delay(2000);
   Serial.begin(9600);
+
+  display.begin(SSD1306_SWITCHCAPVCC, 0x3D);  // initialize with the I2C addr 0x3D (for the 128x64)
+  display.clearDisplay();
+  displayLogo();
   
   opinterface = OperatorInterface();
 
@@ -44,30 +64,17 @@ void setup() {
   opinterface.set_robot_added_callback(robotAdded);
   opinterface.set_robot_removed_callback(robotRemoved);
 
-  opinterface.setButtonLabel("Drive", 0, 1);
-  opinterface.setButtonLabel("Arm", 1, 1);
-  opinterface.setButtonLabel("Empty", 2, 1);
-  opinterface.setButtonLabel("Scoop S", 3, 1);
-  opinterface.setButtonLabel("Scoop F", 4, 1);
-  opinterface.setButtonLabel("Dump", 5, 1);
+  setButtonLabel("Drive", 0, 1);
+  setButtonLabel("Arm", 1, 1);
+  setButtonLabel("Empty", 2, 1);
+  setButtonLabel("Scoop S", 3, 1);
+  setButtonLabel("Scoop F", 4, 1);
+  setButtonLabel("Dump", 5, 1);
 
-  opinterface.setModeLabel("Operator", 1);
-  opinterface.setModeLabel("Sensors", 2);
-  opinterface.setModeLabel("Autonomous", 3);
+  setModeLabel("Operator", 1);
+  setModeLabel("Sensors", 2);
+  setModeLabel("Autonomous", 3);
 
-
-
-
-
-
-  display.begin(SSD1306_SWITCHCAPVCC, 0x3D);  // initialize with the I2C addr 0x3D (for the 128x64)
-  // init done
-  
-  // Show image buffer on the display hardware.
-  // Since the buffer is intialized with an Adafruit splashscreen
-  // internally, this will display the splashscreen.
-  display.display();
-  delay(2000);
 
 }
 
@@ -75,7 +82,12 @@ void loop() {
 
   opinterface.updateOperator();
 
-  /*
+  if(opinterface.isConnectedToRobot()) {
+    mainMenu(opinterface.button_states, opinterface.CURRENT_MODE);
+  } else {
+    displaySearching(millis());
+  }
+
   if(opinterface.isConnectedToRobot()) {
   
     if(opinterface.getCurrentMode() == 1) {
@@ -97,7 +109,6 @@ void loop() {
     }
 
   }
-  */
   
   //delay(50);
 
