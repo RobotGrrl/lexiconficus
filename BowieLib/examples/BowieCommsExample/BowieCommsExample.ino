@@ -4,7 +4,10 @@
 
 BowieComms bowiecomms = BowieComms();
 
+void receivedAction(Msg m);
 void commsTimeout();
+void controllerAdded();
+void controllerRemoved();
 
 long current_time = 0;
 long last_latency_print = 0;

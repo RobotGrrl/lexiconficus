@@ -2,8 +2,21 @@
 
 MegaBowieShoreline::MegaBowieShoreline() {
 
+  
+  
+}
+
+MegaBowieShoreline *MegaBowieShoreline::bowieInstance;
+
+void MegaBowieShoreline::setRobotID(uint8_t the_robot_id) {
+  ROBOT_ID = the_robot_id;
+}
+
+void MegaBowieShoreline::begin() {
+
   // Instance of the class for the callbacks from Promulgate
   bowieInstance = this;
+  ROBOT_ID = 3;
 
   EZ_DEBUG = true;
 
@@ -17,19 +30,14 @@ MegaBowieShoreline::MegaBowieShoreline() {
   last_ctrl = 0;
   last_update_periodic = 0;
 
-  current_sensor_periodic = bowiecomms_xbee.msg_none;
-
   arm_pos_over_current = ARM_HOME;
   end_pos_over_current = END_HOME;
   hopper_pos_over_current = TILT_MAX;
   lid_pos_over_current = LID_MIN;
   servos_deactivated_over_current = false;
-  
-}
 
-MegaBowieShoreline *MegaBowieShoreline::bowieInstance;
 
-void MegaBowieShoreline::begin() {
+
 
   // Outputs
   pinMode(BOARD_LED, OUTPUT);
@@ -64,6 +72,7 @@ void MegaBowieShoreline::begin() {
 
   // Drive
   bowiedrive = BowieDrive();
+  bowiedrive.begin();
 
   bowiedrive.setMotorASpeedPin(MOTORA_SPEED);
   bowiedrive.setMotorBSpeedPin(MOTORB_SPEED);
@@ -71,6 +80,8 @@ void MegaBowieShoreline::begin() {
   bowiedrive.setMotorACtrl2Pin(MOTORA_CTRL2);
   bowiedrive.setMotorBCtrl1Pin(MOTORB_CTRL1);
   bowiedrive.setMotorBCtrl2Pin(MOTORB_CTRL2);
+
+  bowiedrive.initMotors();
 
   // Hopper
   bowiehopper = BowieHopper();
@@ -113,27 +124,32 @@ void MegaBowieShoreline::begin() {
 
   // Comms
   bowiecomms_xbee = BowieComms();
+  bowiecomms_xbee.begin();
 
+  bowiecomms_xbee.setRobotID(ROBOT_ID);
   bowiecomms_xbee.setCommLed(COMM_LED);
-  bowiecomms_xbee.set_received_action_callback(receivedAction_Xbee);
+  bowiecomms_xbee.set_received_action_callback(this->receivedAction_Xbee);
   bowiecomms_xbee.set_comms_timeout_callback(commsTimeout_Xbee);
   bowiecomms_xbee.set_controller_added_callback(controllerAdded_Xbee);
   bowiecomms_xbee.set_controller_removed_callback(controllerRemoved_Xbee);
 
-  bowiecomms_xbee.initComms(XBEE_CONN);
+  bowiecomms_xbee.initComms(XBEE_CONN, 9600);
 
+  current_sensor_periodic = bowiecomms_xbee.msg_none;
   bowiecomms_xbee.addPeriodicMessage(current_sensor_periodic);
 
   // Arduino Comms
   bowiecomms_arduino = BowieComms();
+  bowiecomms_arduino.begin();
   
+  bowiecomms_arduino.setRobotID(ROBOT_ID);
   bowiecomms_arduino.setCommLed(COMM_LED);
   bowiecomms_arduino.set_received_action_callback(receivedAction_Arduino);
   bowiecomms_arduino.set_comms_timeout_callback(commsTimeout_Arduino);
   bowiecomms_arduino.set_controller_added_callback(controllerAdded_Arduino);
   bowiecomms_arduino.set_controller_removed_callback(controllerRemoved_Arduino);
 
-  bowiecomms_arduino.initComms(ARDUINO_CONN);
+  bowiecomms_arduino.initComms(ARDUINO_CONN, 9600);
 
   bowiecomms_arduino.addPeriodicMessage(current_sensor_periodic);
   
@@ -185,15 +201,21 @@ void MegaBowieShoreline::receivedAction_Arduino(Msg m) {
   // if there is / is not a core action associated with it.
   // You can do custom actions with this data here.
 
-  Serial << "---RECEIVED ACTION---" << endl;
-  Serial << "action: " << m.action << endl;
-  Serial << "command: " << m.pck1.cmd << endl;
-  Serial << "key: " << m.pck1.key << endl;
-  Serial << "val: " << m.pck1.val << endl;
-  Serial << "command: " << m.pck2.cmd << endl;
-  Serial << "key: " << m.pck2.key << endl;
-  Serial << "val: " << m.pck2.val << endl;
-  Serial << "delim: " << m.delim << endl;
+  Serial << "Conn Arduino RX <---- " << m.action << m.pck1.cmd << m.pck1.key << ",";
+  Serial << m.pck1.val << "," << m.pck2.cmd << m.pck2.key << ",";
+  Serial << m.pck2.val << m.delim << endl;
+
+  if(COMM_DEBUG) {
+    Serial << "---RECEIVED ACTION---" << endl;
+    Serial << "action: " << m.action << endl;
+    Serial << "command: " << m.pck1.cmd << endl;
+    Serial << "key: " << m.pck1.key << endl;
+    Serial << "val: " << m.pck1.val << endl;
+    Serial << "command: " << m.pck2.cmd << endl;
+    Serial << "key: " << m.pck2.key << endl;
+    Serial << "val: " << m.pck2.val << endl;
+    Serial << "delim: " << m.delim << endl;
+  }
 
   bowieInstance->control(m);
   
@@ -239,15 +261,21 @@ void MegaBowieShoreline::receivedAction_Xbee(Msg m) {
   // if there is / is not a core action associated with it.
   // You can do custom actions with this data here.
 
-  Serial << "---RECEIVED ACTION---" << endl;
-  Serial << "action: " << m.action << endl;
-  Serial << "command: " << m.pck1.cmd << endl;
-  Serial << "key: " << m.pck1.key << endl;
-  Serial << "val: " << m.pck1.val << endl;
-  Serial << "command: " << m.pck2.cmd << endl;
-  Serial << "key: " << m.pck2.key << endl;
-  Serial << "val: " << m.pck2.val << endl;
-  Serial << "delim: " << m.delim << endl;
+  Serial << "Conn RX <---- " << m.action << m.pck1.cmd << m.pck1.key << ",";
+  Serial << m.pck1.val << "," << m.pck2.cmd << m.pck2.key << ",";
+  Serial << m.pck2.val << m.delim << endl;
+
+  if(COMM_DEBUG) {
+    Serial << "---RECEIVED ACTION---" << endl;
+    Serial << "action: " << m.action << endl;
+    Serial << "command: " << m.pck1.cmd << endl;
+    Serial << "key: " << m.pck1.key << endl;
+    Serial << "val: " << m.pck1.val << endl;
+    Serial << "command: " << m.pck2.cmd << endl;
+    Serial << "key: " << m.pck2.key << endl;
+    Serial << "val: " << m.pck2.val << endl;
+    Serial << "delim: " << m.delim << endl;
+  }
 
   bowieInstance->control(m);
   
@@ -283,12 +311,14 @@ void MegaBowieShoreline::controllerRemoved_Xbee() {
 
 void MegaBowieShoreline::update(bool force_no_sleep) {
 
+  bowieInstance = this;
   current_time = millis();
 
   // comms
   bowiecomms_xbee.updateComms();
   bowiecomms_arduino.updateComms();
 
+  /*
   // specific things to do if remote operation is enabled
   if(REMOTE_OP_ENABLED) {
 
@@ -325,16 +355,19 @@ void MegaBowieShoreline::update(bool force_no_sleep) {
     updatePeriodicMessages();
     last_update_periodic = current_time;
   }
+  */
   
 }
 
 void MegaBowieShoreline::control(Msg m) {
+
+  if(BOT_DEBUG) Serial << "Control! WOOOOT" << endl;
   
   last_ctrl = millis();
 
   Packet packets[2] = { m.pck1, m.pck2 };
 
-  if(EZ_DEBUG) {
+  if(COMM_DEBUG) {
     Serial << "*c1 cmd: " << packets[0].cmd << " key: " << packets[0].key << " val: " << packets[0].val << endl;
     Serial << "*c2 cmd: " << packets[1].cmd << " key: " << packets[1].key << " val: " << packets[1].val << endl;
   }
@@ -419,32 +452,32 @@ void MegaBowieShoreline::control(Msg m) {
 
     if(packets[0].cmd == 'L' && packets[0].key == 1 && packets[1].cmd == 'R' && packets[1].key == 0) {
       // turning right
+      bowielights.setLight(0, MIN_BRIGHTNESS);
+      bowielights.setLight(1, MAX_BRIGHTNESS);
+      bowielights.setLight(2, MIN_BRIGHTNESS);
+      bowielights.setLight(3, MAX_BRIGHTNESS);
+
       if(TURN_SEQUENCE_MODE) {
         bowiedrive.turnSequence(false);
       } else {
-        bowielights.setLight(1, MAX_BRIGHTNESS);
-        bowielights.setLight(3, MIN_BRIGHTNESS);
         bowiedrive.motor_setDir(1, MOTOR_DIR_FWD);
         bowiedrive.motor_setSpeed(1, 255);
-
-        bowielights.setLight(0, MIN_BRIGHTNESS);
-        bowielights.setLight(2, MAX_BRIGHTNESS);
         bowiedrive.motor_setDir(0, MOTOR_DIR_REV);
         bowiedrive.motor_setSpeed(0, 255);
       }
       return; // we don't want the default stuff below when turning
     } else if(packets[0].cmd == 'L' && packets[0].key == 0 && packets[1].cmd == 'R' && packets[1].key == 1) {
       // turning left
+      bowielights.setLight(0, MAX_BRIGHTNESS);
+      bowielights.setLight(1, MIN_BRIGHTNESS);
+      bowielights.setLight(2, MAX_BRIGHTNESS);
+      bowielights.setLight(3, MIN_BRIGHTNESS);
+
       if(TURN_SEQUENCE_MODE) {
         bowiedrive.turnSequence(true);
       } else {
-        bowielights.setLight(0, MAX_BRIGHTNESS);
-        bowielights.setLight(2, MIN_BRIGHTNESS);
         bowiedrive.motor_setDir(0, MOTOR_DIR_FWD);
         bowiedrive.motor_setSpeed(0, 255);
-        
-        bowielights.setLight(1, MIN_BRIGHTNESS);
-        bowielights.setLight(3, MAX_BRIGHTNESS);
         bowiedrive.motor_setDir(1, MOTOR_DIR_REV);
         bowiedrive.motor_setSpeed(1, 255);
       }
@@ -468,14 +501,14 @@ void MegaBowieShoreline::control(Msg m) {
       if(packets[i].cmd == 'L') { // left motor
         if(packets[i].val > 255) packets[i].key = 99; // something weird here, set key to skip
         if(packets[i].key == 1) { // fwd
-          bowielights.setLight(0, MAX_BRIGHTNESS);
-          bowielights.setLight(2, MIN_BRIGHTNESS);
+          bowielights.setLight(0, packets[i].val);
+          bowielights.setLight(2, 0);
           //leftBork();
           bowiedrive.motor_setDir(0, MOTOR_DIR_FWD);
           bowiedrive.motor_setSpeed(0, packets[i].val);
         } else if(packets[i].key == 0) { // bwd
-          bowielights.setLight(0, MIN_BRIGHTNESS);
-          bowielights.setLight(2, MAX_BRIGHTNESS);
+          bowielights.setLight(0, 0);
+          bowielights.setLight(2, packets[i].val);
           //leftBork();
           bowiedrive.motor_setDir(0, MOTOR_DIR_REV);
           bowiedrive.motor_setSpeed(0, packets[i].val);
@@ -485,14 +518,14 @@ void MegaBowieShoreline::control(Msg m) {
       if(packets[i].cmd == 'R') { // right motor
         if(packets[i].val > 255) packets[i].key = 99; // something weird here, set key to skip
         if(packets[i].key == 1) { // fwd
-          bowielights.setLight(1, MAX_BRIGHTNESS);
-          bowielights.setLight(3, MIN_BRIGHTNESS);
+          bowielights.setLight(1, packets[i].val);
+          bowielights.setLight(3, 0);
           //leftBork();
           bowiedrive.motor_setDir(1, MOTOR_DIR_FWD);
           bowiedrive.motor_setSpeed(1, packets[i].val);
         } else if(packets[i].key == 0) { // bwd
-          bowielights.setLight(1, MIN_BRIGHTNESS);
-          bowielights.setLight(3, MAX_BRIGHTNESS);
+          bowielights.setLight(1, 0);
+          bowielights.setLight(3, packets[i].val);
           //leftBork();
           bowiedrive.motor_setDir(1, MOTOR_DIR_REV);
           bowiedrive.motor_setSpeed(1, packets[i].val);
@@ -600,7 +633,7 @@ void MegaBowieShoreline::updateLogSensorData() {
   bowielogger.setLogData_f(LOG_GPS_ALTITUDE, 0.0);
 
   // TODO - battery sensor
-  bowielogger.setLogData_u16(LOG_BATTERY_SENSOR, analogRead(A24));  
+  //bowielogger.setLogData_u16(LOG_BATTERY_SENSOR, analogRead(A24));  
 
   bowielogger.setLogData_u16(LOG_COMM_XBEE_LATENCY, bowiecomms_xbee.getCommLatency());
   bowielogger.setLogData_u16(LOG_COMM_ARDUINO_LATENCY, bowiecomms_arduino.getCommLatency());
@@ -621,7 +654,6 @@ void MegaBowieShoreline::updatePeriodicMessages() {
   current_sensor_periodic.delim = '!';
 
   bowiecomms_xbee.updatePeriodicMessage(current_sensor_periodic);
-  
   bowiecomms_arduino.updatePeriodicMessage(current_sensor_periodic);
   
 }
@@ -689,12 +721,12 @@ void MegaBowieShoreline::waitingToCoolDown_Servos(bool first) {
 
   if(first) {
 
-    tone(SPEAKER, 4435, 300);
+    buzz(NOTE_E3, 200);
     for(int i=0; i<3; i++) {
-      tone(SPEAKER, 622, 100);
-      delay(50);
-      tone(SPEAKER, 1760, 100);
-      delay(50);
+      buzz(NOTE_B1, 100);
+      delay(100);
+      buzz(NOTE_B0, 100);
+      delay(100);
     }
 
     arm_pos_over_current = bowiearm.getArmPos();
@@ -718,8 +750,8 @@ void MegaBowieShoreline::reactivateAfterCoolDown_Servos() {
 
   servos_deactivated_over_current = false;
 
-  for(int i=0; i<3; i++) {
-    tone(SPEAKER, 622, 300);
+  for(int i=0; i<2; i++) {
+    buzz(NOTE_E7, 100);
     delay(100);
   }
 
@@ -742,10 +774,10 @@ void MegaBowieShoreline::overCurrentThreshold_Servos(bool first) {
 
   servos_deactivated_over_current = true;
 
-  tone(SPEAKER, 622, 100);
-  delay(50);
-  tone(SPEAKER, 1760, 100);
-  delay(50);
+  for(int i=0; i<2; i++) {
+    buzz(NOTE_B1, 100);
+    delay(100);
+  }
 
 }
 
@@ -826,11 +858,11 @@ void MegaBowieShoreline::scoopSequence(int frame_delay) {
 
   // 5.
   // drive forward a bit
-  Serial << "Going to MOTORS FWD 255...";
+  if(BOT_DEBUG) Serial << "Going to MOTORS FWD 255...";
   bowiedrive.rampSpeed(true, 100, 255, 20, 10);
   bowiedrive.goSpeed(true, 255, 250);
   // stop motors!
-  Serial << "Going to MOTORS FWD 0...";
+  if(BOT_DEBUG) Serial << "Going to MOTORS FWD 0...";
   bowiedrive.rampSpeed(true, 255, 100, 10, 5);
   bowiedrive.goSpeed(true, 0, 0);
 
@@ -856,7 +888,7 @@ void MegaBowieShoreline::scoopSequence(int frame_delay) {
   delay(frame_delay);
 
   // tilt the scoop upwards to avoid losing the items
-  Serial << "Going to END_PARALLEL_BOTTOM-700...";
+  if(BOT_DEBUG) Serial << "Going to END_PARALLEL_BOTTOM-700...";
   bowiescoop.moveEnd(END_PARALLEL_BOTTOM-700, 3, 1); // todo - check this again, its less than end min
   delay(20);
 
@@ -864,7 +896,7 @@ void MegaBowieShoreline::scoopSequence(int frame_delay) {
 
   // lift arm with scoop parallel to ground
   // this has to be adjusted if going faster
-  Serial << "Going to ARM_HOME...";
+  if(BOT_DEBUG) Serial << "Going to ARM_HOME...";
   moveArmAndEnd(ARM_HOME, 5, 2, ARM_MIN, ARM_HOME, END_PARALLEL_BOTTOM-700, END_HOME-550);//END_PARALLEL_BOTTOM-400);
 
   delay(150);
@@ -872,43 +904,43 @@ void MegaBowieShoreline::scoopSequence(int frame_delay) {
   delay(frame_delay);
   
   // lift arm with scoop parallel to ground
-  Serial << "Going to ARM_MAX...";
+  if(BOT_DEBUG) Serial << "Going to ARM_MAX...";
   moveArmAndEnd(ARM_MAX, 3, 3, ARM_HOME, ARM_MAX, END_HOME-550, END_PARALLEL_TOP-400);//END_PARALLEL_BOTTOM-400, END_PARALLEL_TOP-100);
   
   delay(frame_delay);
 
   // open lid
-  Serial << "Going to LID_MIN...";
+  if(BOT_DEBUG) Serial << "Going to LID_MIN...";
   bowiehopper.moveLid(LID_MIN, 5, 2);
   
   delay(frame_delay);
 
   // dump scoop
-  Serial << "Going to END_MIN...";
+  if(BOT_DEBUG) Serial << "Going to END_MIN...";
   bowiescoop.moveEnd(END_MIN, 5, 3);
   
   delay(frame_delay);
 
   // bring scoop back to position
-  Serial << "Going to END_PARALLEL_TOP-200...";
+  if(BOT_DEBUG) Serial << "Going to END_PARALLEL_TOP-200...";
   bowiescoop.moveEnd(END_PARALLEL_TOP-200, 5, 3);
   
   delay(frame_delay);
 
   // close lid
-  Serial << "Going to LID_MAX...";
+  if(BOT_DEBUG) Serial << "Going to LID_MAX...";
   bowiehopper.moveLid(LID_MAX, 5, 2);
   
   delay(frame_delay);
 
   // 
   // drive backward a bit
-  Serial << "Going to MOTORS FWD 255...";
+  if(BOT_DEBUG) Serial << "Going to MOTORS FWD 255...";
   bowiedrive.rampSpeed(false, 100, 255, 20, 10);
   bowiedrive.goSpeed(false, 255, 100);
   
   // stop motors!
-  Serial << "Going to MOTORS FWD 0...";
+  if(BOT_DEBUG) Serial << "Going to MOTORS FWD 0...";
   bowiedrive.rampSpeed(false, 255, 100, 10, 5);
   bowiedrive.goSpeed(true, 0, 5);
   
@@ -948,49 +980,43 @@ void MegaBowieShoreline::deposit() {
   bowiehopper.unparkLid();
 
   // open lid
-  Serial << "Going to LID_MIN";
+  if(BOT_DEBUG) Serial << "Going to LID_MIN";
   bowiehopper.moveLid(LID_MIN, 3, 2);
-  Serial << " done" << endl;
   delay(10);
 
-  Serial << "Going to TILT_MIN";
+  if(BOT_DEBUG) Serial << "Going to TILT_MIN";
   bowiehopper.moveHopper(TILT_MIN, 2, 2);
-  Serial << " done" << endl;
   delay(100);
 
   delay(1000);
 
-  Serial << "Shaking the hopper TILT_MIN+300 to TILT_MIN";
+  if(BOT_DEBUG) Serial << "Shaking the hopper TILT_MIN+300 to TILT_MIN";
   for(int i=0; i<3; i++) {
     bowiehopper.moveHopper(TILT_MIN+300, 1, 2);
     delay(50);
     bowiehopper.moveHopper(TILT_MIN, 1, 2);
     delay(50);
   }
-  Serial << " done" << endl;
-
+  
   delay(1000);
 
-  Serial << "Going to TILT_MAX";
+  if(BOT_DEBUG) Serial << "Going to TILT_MAX";
   bowiehopper.moveHopper(TILT_MAX, 2, 2);
-  Serial << " done" << endl;
   delay(100);
 
-  Serial << "Positioning closed just in case TILT_MAX-200 to TILT_MAX";
+  if(BOT_DEBUG) Serial << "Positioning closed just in case TILT_MAX-200 to TILT_MAX";
   for(int i=0; i<2; i++) {
     bowiehopper.moveHopper(TILT_MAX-200, 1, 2);
     delay(50);
     bowiehopper.moveHopper(TILT_MAX, 1, 2);
     delay(50);
   }
-  Serial << " done" << endl;
-
+  
   bowiehopper.parkHopper();
 
   // close lid
-  Serial << "Going to LID_MAX";
+  if(BOT_DEBUG) Serial << "Going to LID_MAX";
   bowiehopper.moveLid(LID_MAX, 3, 2);
-  Serial << " done" << endl;
   delay(10);
 
   bowiehopper.parkLid();
@@ -1072,7 +1098,8 @@ void MegaBowieShoreline::moveArmAndEnd(int armPos, int step, int del, int armMin
 }
 
 // ---------
-// this code is from Micah Black, during Random Hacks of Kindness in Ottawa 2017!
+// This code is from Micah Black, during Random Hacks of Kindness in Ottawa 2017!
+// Check out his store: a2delectronics.ca
 
 //get a parallel claw value
 int MegaBowieShoreline::clawParallelVal(int arm_Val) {
@@ -1096,6 +1123,14 @@ int MegaBowieShoreline::clawParallelValBounds(int arm_Val, int armMin, int armMa
 
 */
 
-void MegaBowieShoreline::beep() {
-  tone(SPEAKER, 150, 100);
+void MegaBowieShoreline::buzz(long frequency, long length) {
+  long delayValue = 1000000 / frequency / 2;
+  long numCycles = frequency * length / 1000;
+  for (long i = 0; i < numCycles; i++) { 
+    digitalWrite(SPEAKER, HIGH); 
+    delayMicroseconds(delayValue); 
+    digitalWrite(SPEAKER, LOW); 
+    delayMicroseconds(delayValue); 
+  }
 }
+

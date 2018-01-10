@@ -31,18 +31,19 @@
 #ifndef _BOWIECOMMS_H_
 #define _BOWIECOMMS_H_
 
-#define ROBOT_ID 3
-
-#define PROG_DEBUG true
-#define COMM_DEBUG false
-#define OP_DEBUG false
+#define BOT_DEBUG true   // anything with the robot
+#define COMM_DEBUG false // anything with promulgate
+#define OP_DEBUG true    // anything with buttons, or op in general
+#define XBEE_DEBUG false // anything with the xbee scope
+#define CONN_DEBUG false // anything with the connection stack
+#define MSG_DEBUG false  // anything with adding / removing Msgs
 
 // Operator controllers
 #define MAX_CONTROLLERS 10
 
 // Messages
 #define MSG_QUEUE_SIZE 3
-#define REMOTE_OP_TIMEOUT 300
+#define REMOTE_OP_TIMEOUT 5000
 #define MAX_PERIODIC_MESSAGES 10
 
 // Vars
@@ -79,11 +80,16 @@ class BowieComms {
   public:
 
     BowieComms();
-    void initComms(int conn);
+    void begin();
+    void setRobotID(uint8_t the_robot_id);
+    void initComms(int conn, int baud);
     void updateComms();
     void setCommLed(uint8_t pin);
     unsigned long getCommLatency();
     unsigned long getLastRXTime();
+    void setConnType(uint8_t t);
+    uint8_t ROBOT_ID;
+    int getMsgRxCount();
 
     // Callbacks
     void set_comms_timeout_callback( void (*commsTimeoutCallback)() );
@@ -100,14 +106,15 @@ class BowieComms {
     bool use_base64_parsing; // false by default
 
     // Xbee
-    XBee xbee = XBee();
-    XBeeAddress64 addr64 = XBeeAddress64(0x00000000, 0x0000ffff);
-    ZBTxStatusResponse txStatus = ZBTxStatusResponse();
-    ZBRxResponse rx = ZBRxResponse();
-    char message_tx[64];
-    char message_rx[64];
+    XBee xbee;// = XBee();
+    XBeeAddress64 addr64;// = XBeeAddress64(0x00000000, 0x0000ffff);
+    XBeeAddress64 addr_fake;
+    ZBTxStatusResponse txStatus;// = ZBTxStatusResponse();
+    ZBRxResponse rx;// = ZBRxResponse();
+    char message_tx[32];
+    char message_rx[32];
     uint32_t msg_tx_count;
-    uint32_t msg_rx_count;
+    int msg_rx_count;
     uint32_t msg_tx_err;
     unsigned long last_rx;
     unsigned long last_tx;
@@ -161,7 +168,7 @@ class BowieComms {
 
     // Custom
     uint8_t COMM_LED;
-    uint8_t CONN_TYPE;
+    uint8_t CONN_TYPE; // Xbee by default
 
     // Comms
     uint8_t msgs_in_queue;

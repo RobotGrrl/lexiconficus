@@ -1,12 +1,20 @@
 #include "BowieComms.h"
 
+BowieComms *BowieComms::bcInstance;
+
 BowieComms::BowieComms() {
   
+}
+
+void BowieComms::begin() {
+
   // Instance of the class for the callbacks from Promulgate
   bcInstance = this;
+  ROBOT_ID = 3;
 
   // LED
   COMM_LED = 12;
+  CONN_TYPE = XBEE_CONN;
 
   // Promulgate
   current_time = 0;
@@ -18,9 +26,10 @@ BowieComms::BowieComms() {
   // Xbee
   xbee = XBee();
   addr64 = XBeeAddress64(0x00000000, 0x0000ffff);
+  addr_fake = XBeeAddress64(0x13131313, 0x13131313);
   txStatus = ZBTxStatusResponse();
   rx = ZBRxResponse();
-  for(int i=0; i<64; i++) {
+  for(int i=0; i<32; i++) {
     message_tx[i] = '0';
     message_rx[i] = '0';
   }
@@ -35,7 +44,7 @@ BowieComms::BowieComms() {
   num_addrs = 0;
   ind_addr_sent = 0;
   for(int i=0; i<MAX_CONTROLLERS; i++) {
-    addr_all_controllers[i] = XBeeAddress64(0, 0);
+    addr_all_controllers[i] = XBeeAddress64(addr_fake.getMsb(), addr_fake.getLsb());
     addr_remote_controllers[i] = 0;
     failed_send_count[i] = 0;
     last_rx_all[i] = 0;
@@ -57,6 +66,10 @@ BowieComms::BowieComms() {
 
 }
 
+void BowieComms::setRobotID(uint8_t the_robot_id) {
+  ROBOT_ID = the_robot_id;
+}
+
 void BowieComms::set_comms_timeout_callback( void (*commsTimeoutCallback)() ) {
   _commsTimeoutCallback = commsTimeoutCallback;
 }
@@ -73,7 +86,18 @@ void BowieComms::set_received_action_callback( void (*receivedActionCallback)(Ms
   _receivedActionCallback = receivedActionCallback;
 }
 
-void BowieComms::initComms(int conn) {
+void BowieComms::initComms(int conn, int baud) {
+
+
+  for(int i=0; i<MAX_CONTROLLERS; i++) {
+    addr_all_controllers[i] = XBeeAddress64(addr_fake.getMsb(), addr_fake.getLsb());
+    addr_remote_controllers[i] = 0;
+    failed_send_count[i] = 0;
+    last_rx_all[i] = 0;
+  }
+
+
+
   pinMode(COMM_LED, OUTPUT);
 
   // found these defs for serial ports here:
@@ -83,7 +107,7 @@ void BowieComms::initComms(int conn) {
 
   if(conn == PI_CONN) {
 
-    Serial1.begin(9600);
+    Serial1.begin(baud);
     // Promulgate
     promulgate = Promulgate(&Serial1, &Serial1);
 
@@ -92,8 +116,10 @@ void BowieComms::initComms(int conn) {
 
   } else if(conn == XBEE_CONN) {
     
+    delay(100);
+
     // Start xbee's serial
-    Serial2.begin(9600);
+    Serial2.begin(baud);
     xbee.begin(Serial2);
 
     // Promulgate
@@ -104,7 +130,7 @@ void BowieComms::initComms(int conn) {
 
   } else if(conn == GPS_CONN) {
 
-    Serial3.begin(9600);
+    Serial3.begin(baud);
     // Promulgate
     promulgate = Promulgate(&Serial3, &Serial3);
 
@@ -115,7 +141,7 @@ void BowieComms::initComms(int conn) {
 
     #ifdef HAS_KINETISK_UART3
 
-    Serial4.begin(9600);
+    Serial4.begin(baud);
     // Promulgate
     promulgate = Promulgate(&Serial4, &Serial4);
 
@@ -128,7 +154,7 @@ void BowieComms::initComms(int conn) {
 
     #ifdef HAS_KINETISK_UART4
 
-    Serial5.begin(9600);
+    Serial5.begin(baud);
     // Promulgate
     promulgate = Promulgate(&Serial5, &Serial5);
 
@@ -141,7 +167,7 @@ void BowieComms::initComms(int conn) {
 
     #if defined(HAS_KINETISK_UART5) || defined (HAS_KINETISK_LPUART0)
 
-    Serial6.begin(9600);
+    Serial6.begin(baud);
     // Promulgate
     promulgate = Promulgate(&Serial6, &Serial6);
 
@@ -152,25 +178,34 @@ void BowieComms::initComms(int conn) {
 
   }
 
+  // promulgate setup
+  promulgate.LOG_LEVEL = Promulgate::ERROR_;
+  promulgate.set_rx_callback(this->received_action);
+  promulgate.set_tx_callback(this->transmit_complete);
+  promulgate.set_debug_stream(&Serial);
+
+  /*
+  if(use_base64_parsing) {
+    promulgate.useBase64Parsing(true);
+  } else {
+    promulgate.useBase64Parsing(false);
+  }
+  */
+
+  promulgate.useBase64Parsing(false);
+
   if(possible) {
     Serial.println("Connection set up OK");
   } else {
     Serial.println("ERROR SETTING UP CONNECTION - UART DOES NOT EXIST");
   }
 
-  // promulgate setup
-  promulgate.LOG_LEVEL = Promulgate::ERROR_;
-  promulgate.set_rx_callback(received_action);
-  promulgate.set_tx_callback(transmit_complete);
-  promulgate.set_debug_stream(&Serial);
-
-  if(use_base64_parsing) {
-    promulgate.useBase64Parsing(true);
-  }
-
 }
 
 void BowieComms::updateComms() {
+
+  bcInstance = this;
+  current_time = millis();
 
   // Conn Comms
   connBlink();
@@ -183,7 +218,7 @@ void BowieComms::updateComms() {
   // from the controller. So if we don't hear, we will actively try to re-establish
   // the comms by sending this.
   if(current_time-last_tx >= HEARTBEAT_MS) {
-    Serial << "Sending a heartbeat" << endl;
+    if(COMM_DEBUG) Serial << "Sending a heartbeat" << endl;
     connSend('$', 'W', 1, ROBOT_ID, 'W', 1, ROBOT_ID, '!' );
     last_tx = current_time;
   }
@@ -214,6 +249,11 @@ unsigned long BowieComms::getLastRXTime() {
   return last_rx_comms;
 }
 
+void BowieComms::setConnType(uint8_t t) {
+  CONN_TYPE = t;
+  if(CONN_DEBUG) Serial << "setConnType " << t << " CONN_TYPE " << CONN_TYPE << endl;
+}
+
 
 /*
 
@@ -222,25 +262,38 @@ unsigned long BowieComms::getLastRXTime() {
 */
 
 void BowieComms::addXbeeToList(XBeeAddress64 newAddr) {
-  Serial << "Sender address - High: ";
-  print32Bits(newAddr.getMsb());
-  Serial << " Low: ";
-  print32Bits(newAddr.getLsb());
-  Serial << endl;
+  if(XBEE_DEBUG) Serial << "Sender address - High: ";
+  if(XBEE_DEBUG) print32Bits(newAddr.getMsb());
+  if(XBEE_DEBUG) Serial << " Low: ";
+  if(XBEE_DEBUG) print32Bits(newAddr.getLsb());
+  if(XBEE_DEBUG) Serial << endl;
 
   bool add_it_to_list = true;
 
   for(int i=0; i<MAX_CONTROLLERS; i++) {
     if(addr_all_controllers[i].getMsb() == newAddr.getMsb() && addr_all_controllers[i].getLsb() == newAddr.getLsb()) {
+      Serial << "Not adding to the list - already there" << endl;
       // already on the list
       add_it_to_list = false;
     }
   }
 
   if(add_it_to_list) {
+    if(num_addrs >= MAX_CONTROLLERS-1) {
+      Serial << "! Reached max number of controllers !" << endl;
+      return;
+    }
     Serial << "! New controller added to Xbee list !" << endl;
     addr_all_controllers[num_addrs] = XBeeAddress64(newAddr.getMsb(), newAddr.getLsb());
     num_addrs++;
+    Serial.println(num_addrs);
+    for(int i=0; i<MAX_CONTROLLERS; i++) {
+      Serial << i << ": ";
+      print32Bits(addr_all_controllers[i].getMsb());
+      Serial << " ";
+      print32Bits(addr_all_controllers[i].getLsb());
+      Serial << endl;
+    }
     // immediately reply with an identifier for the robot
     connSend('$', 'W', 1, ROBOT_ID, 'W', 1, ROBOT_ID, '!' );
     _controllerAddedCallback();
@@ -262,23 +315,33 @@ void BowieComms::xbeeWatchdog() {
     for(int i=0; i<MAX_CONTROLLERS; i++) {
       if(current_time-last_rx_all[i] >= 11000) {
         if(addr_all_controllers[i].getMsb() != 0 && addr_all_controllers[i].getLsb() != 0) {
-          // remove it from the list
-          Serial << "Have not heard from: ";
-          print32Bits(addr_all_controllers[i].getMsb());
-          Serial << " ";
-          print32Bits(addr_all_controllers[i].getLsb());
-          Serial << " since " << current_time-last_rx_all[i] << "ms ago." << endl;
-          Serial << "! Removing it from list !" << endl;
-          addr_all_controllers[i] = XBeeAddress64(0, 0);
-          last_rx_all[i] = 0;
-          // then push everything else up
-          for(int j=i; j<MAX_CONTROLLERS-1; j++) {
-            addr_all_controllers[j] = addr_all_controllers[j+1];
-            last_rx_all[j] = last_rx_all[j+1];
+          if(addr_all_controllers[i].getMsb() != addr_fake.getMsb() && addr_all_controllers[i].getLsb() != addr_fake.getLsb()) {
+            // remove it from the list
+            if(XBEE_DEBUG) Serial << "Have not heard from: ";
+            if(XBEE_DEBUG) print32Bits(addr_all_controllers[i].getMsb());
+            if(XBEE_DEBUG) Serial << " ";
+            if(XBEE_DEBUG) print32Bits(addr_all_controllers[i].getLsb());
+            if(XBEE_DEBUG) Serial << " since " << current_time-last_rx_all[i] << "ms ago." << endl;
+            if(XBEE_DEBUG) Serial << "! Removing it from list !" << endl;
+            addr_all_controllers[i] = XBeeAddress64(addr_fake.getMsb(), addr_fake.getLsb());
+            last_rx_all[i] = 0;
+            // then push everything else up
+            for(int j=i; j<MAX_CONTROLLERS-1; j++) {
+              addr_all_controllers[j] = addr_all_controllers[j+1];
+              last_rx_all[j] = last_rx_all[j+1];
+            }
+            // so that we can properly deincrement the num_addr counter
+            num_addrs--;
+            for(int i=0; i<MAX_CONTROLLERS; i++) {
+              Serial << i << ": ";
+              print32Bits(addr_all_controllers[i].getMsb());
+              Serial << " ";
+              print32Bits(addr_all_controllers[i].getLsb());
+              Serial << endl;
+            }
+            if(num_addrs < 0) num_addrs = 0;
+            _controllerRemovedCallback();
           }
-          // so that we can properly deincrement the num_addr counter
-          num_addrs--;
-          _controllerRemovedCallback();
         }
       }
     }
@@ -292,11 +355,11 @@ bool BowieComms::xbeeRead() {
 
   if (xbee.getResponse().isAvailable()) { // we got something
 
-    Serial << "Xbee response: " << xbee.getResponse().getApiId() << endl;
+    if(XBEE_DEBUG) Serial << "Xbee response: " << xbee.getResponse().getApiId();
 
     // --- Node Identifier Response
     if(xbee.getResponse().getApiId() == ZB_IO_NODE_IDENTIFIER_RESPONSE) {
-      Serial << "Xbee node identifier response" << endl;
+      if(XBEE_DEBUG) Serial << "Node identifier" << endl;
       xbee.getResponse().getZBRxResponse(rx);
       XBeeAddress64 senderLongAddress = rx.getRemoteAddress64();
       addXbeeToList(senderLongAddress);
@@ -304,49 +367,46 @@ bool BowieComms::xbeeRead() {
 
     // --- TX Response
     if(xbee.getResponse().getApiId() == ZB_TX_STATUS_RESPONSE) {
+      if(XBEE_DEBUG) Serial << "TX" << endl;
       xbee.getResponse().getZBTxStatusResponse(txStatus);
       uint16_t the_tx_addr = txStatus.getRemoteAddress();
       if(addr_remote_controllers[ind_addr_sent] == 0) {
         addr_remote_controllers[ind_addr_sent] = the_tx_addr;
       }
-      // get the delivery status, the fifth byte
-      if (txStatus.getDeliveryStatus() == SUCCESS) {
-        Serial << "Message delivered successfully! to: ";
-        print16Bits(the_tx_addr);
-        Serial << endl;
-      } else {
-        Serial << "Did not deliver message to: " << the_tx_addr << endl;
-      }
-      
     }
 
     // --- RX Response
     if (xbee.getResponse().getApiId() == ZB_RX_RESPONSE) { // got an rx packet
+      if(XBEE_DEBUG) Serial << "RX" << endl;
+
       xbee.getResponse().getZBRxResponse(rx);
 
       XBeeAddress64 senderLongAddress = rx.getRemoteAddress64();
-      Serial.print(msg_rx_count);
-      Serial.print(" >>>> Received data from ");
-      print32Bits(senderLongAddress.getMsb());
-      print32Bits(senderLongAddress.getLsb());
-      Serial.println(": ");
+      if(XBEE_DEBUG) Serial.print(msg_rx_count);
+      if(XBEE_DEBUG) Serial.print(" >>>> Received data from ");
+      if(XBEE_DEBUG) print32Bits(senderLongAddress.getMsb());
+      if(XBEE_DEBUG) print32Bits(senderLongAddress.getLsb());
+      if(XBEE_DEBUG) Serial.println(": ");
 
       addXbeeToList(senderLongAddress);
       updateRxTime(senderLongAddress);
 
-      for(int i=0; i<64; i++) {
+      for(int i=0; i<32; i++) {
         message_rx[i] = ' ';
       }
 
       // ascii representation of text sent through xbee
+      if(XBEE_DEBUG) Serial << "This is the data: ";
       for (int i=0; i <rx.getDataLength(); i++){
         if (!iscntrl(rx.getData()[i])) {
           message_rx[i] = (char)rx.getData()[i];
-          Serial.write(message_rx[i]);
+          if(XBEE_DEBUG) Serial.write(message_rx[i]);
         }
       }
       Serial.println();
-      msg_rx_count++;
+      for(int i=0; i<10; i++) {
+        if(XBEE_DEBUG) Serial << (char)message_rx[i];
+      }
       last_rx = millis();
       return true;
     }
@@ -405,13 +465,15 @@ void BowieComms::connRead() {
 
   } else if(CONN_TYPE == XBEE_CONN) {
 
+    if(XBEE_DEBUG) Serial << "Conn read" << endl;
+
     while(xbeeRead()) {
-      //Serial << "\n<< ";
+      if(XBEE_DEBUG) Serial << "\nRead...<< ";
       for(int i=0; i<=rx.getDataLength(); i++) {
         c = message_rx[i];
         promulgate.organize_message(c);
-        Serial << c;
-        if(c == '!' || c == '?' || c == ';') Serial << endl;
+        if(XBEE_DEBUG) Serial << c;
+        if(XBEE_DEBUG) { if(c == '!' || c == '?' || c == ';') Serial << endl; }
       }
     }
 
@@ -426,6 +488,8 @@ void BowieComms::connRead() {
 
   } else if(CONN_TYPE == PIXY_CONN) {
 
+    #ifdef HAS_KINETISK_UART3
+
     while(Serial4.available()) {
       c = Serial4.read();
       promulgate.organize_message(c);
@@ -433,7 +497,11 @@ void BowieComms::connRead() {
       if(c == '!' || c == '?' || c == ';') Serial << endl;
     }
 
+    #endif
+
   } else if(CONN_TYPE == BT_CONN) {
+
+    #ifdef HAS_KINETISK_UART4
 
     while(Serial5.available()) {
       c = Serial5.read();
@@ -442,7 +510,11 @@ void BowieComms::connRead() {
       if(c == '!' || c == '?' || c == ';') Serial << endl;
     }
 
+    #endif
+
   } else if(CONN_TYPE == ARDUINO_CONN) {
+
+    #if defined(HAS_KINETISK_UART5) || defined (HAS_KINETISK_LPUART0)
 
     while(Serial6.available()) {
       c = Serial6.read();
@@ -450,6 +522,8 @@ void BowieComms::connRead() {
       Serial << c;
       if(c == '!' || c == '?' || c == ';') Serial << endl;
     }
+
+    #endif
 
   }
 
@@ -469,10 +543,13 @@ void BowieComms::connBlink() {
 
 void BowieComms::connSend(Msg m) {
 
+  if(CONN_DEBUG) Serial << "Entering connSend m" << endl;
+
   sprintf(message_tx,"%c%c%d,%d,%c%d,%d%c", m.action, m.pck1.cmd, m.pck1.key, m.pck1.val, m.pck2.cmd, m.pck2.key, m.pck2.val, m.delim);
   
-  Serial << "Conn TX: " << message_tx << endl;
-
+  if(CONN_DEBUG) Serial << "Conn TX: " << message_tx << endl;
+  if(CONN_DEBUG) Serial << "CONN_TYPE = " << CONN_TYPE << endl;
+  
   if(CONN_TYPE == PI_CONN) {
 
     Serial1.print(message_tx);
@@ -480,9 +557,13 @@ void BowieComms::connSend(Msg m) {
 
   } else if(CONN_TYPE == XBEE_CONN) {
 
+    //Serial << "num_addrs = " << num_addrs << endl;
+
     for(int i=0; i<num_addrs; i++) {
+      if(i >= MAX_CONTROLLERS) break;
       if(addr_all_controllers[i].getMsb() != 0 && addr_all_controllers[i].getLsb() != 0) {
-        Serial << "Xbee TX: " << message_tx << endl;
+        if(CONN_DEBUG) Serial << "Xbee TX: " << message_tx << endl;
+        // crash here while printing the above
         ZBTxRequest zbtx = ZBTxRequest(addr_all_controllers[i], (uint8_t *)message_tx, strlen(message_tx));
         zbtx.setFrameId('0');
         xbee.send(zbtx); 
@@ -522,12 +603,18 @@ void BowieComms::connSend(Msg m) {
 
 }
 
+// TODO combine these two functions
 void BowieComms::connSend(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim) {
+
+  if(CONN_DEBUG) Serial << "Entering connSend long" << endl;
 
   sprintf(message_tx,"%c%c%d,%d,%c%d,%d%c", action, cmd, key, val, cmd2, key2, val2, delim);
 
-  Serial << "Conn TX: " << message_tx << endl;
-
+  if(CONN_DEBUG) Serial.print("Conn TX ");
+  if(CONN_DEBUG) Serial.print(message_tx);
+  if(CONN_DEBUG) Serial.print("\n");
+  if(CONN_DEBUG) Serial << "CONN_TYPE = " << CONN_TYPE << endl;
+  
   if(CONN_TYPE == PI_CONN) {
 
     Serial1.print(message_tx);
@@ -535,9 +622,21 @@ void BowieComms::connSend(char action, char cmd, uint8_t key, uint16_t val, char
 
   } else if(CONN_TYPE == XBEE_CONN) {
 
+    //Serial << "num_addrs = " << num_addrs << endl;
+    //num_addrs = 1;
+    //Serial << "num_addrs = " << num_addrs << endl;
+
+    if(CONN_DEBUG) Serial.print("NUM ADDRS: ");
+    if(CONN_DEBUG) Serial.print(num_addrs);
+    if(CONN_DEBUG) Serial.print("\n");
+
     for(int i=0; i<num_addrs; i++) {
+      if(i >= MAX_CONTROLLERS) break;
       if(addr_all_controllers[i].getMsb() != 0 && addr_all_controllers[i].getLsb() != 0) {
-        Serial << "Xbee TX: " << message_tx << endl;
+        if(CONN_DEBUG) Serial.print("Xbee TX ");
+        if(CONN_DEBUG) Serial.print(message_tx);
+        Serial.print("\n");
+        //Serial << "Xbee TX: " << message_tx << endl;
         ZBTxRequest zbtx = ZBTxRequest(addr_all_controllers[i], (uint8_t *)message_tx, strlen(message_tx));
         zbtx.setFrameId('0');
         xbee.send(zbtx); 
@@ -582,7 +681,7 @@ void BowieComms::connSendEasy(char c) {
 
   sprintf(message_tx,"%c", c);
 
-  Serial << "Conn TX: " << message_tx << endl;
+  if(CONN_DEBUG) Serial << "Conn TX: " << message_tx << endl;
 
   if(CONN_TYPE == PI_CONN) {
 
@@ -593,11 +692,11 @@ void BowieComms::connSendEasy(char c) {
 
     for(int i=0; i<num_addrs; i++) {
       if(addr_all_controllers[i].getMsb() != 0 && addr_all_controllers[i].getLsb() != 0) {
-        Serial << "[" << i << "] Xbee TX: " << message_tx << " - ";
-        print32Bits(addr_all_controllers[i].getMsb());
-        Serial << " ";
-        print32Bits(addr_all_controllers[i].getLsb());
-        Serial << endl;
+        if(CONN_DEBUG) Serial << "[" << i << "] Xbee TX: " << message_tx << " - ";
+        if(CONN_DEBUG) print32Bits(addr_all_controllers[i].getMsb());
+        if(CONN_DEBUG) Serial << " ";
+        if(CONN_DEBUG) print32Bits(addr_all_controllers[i].getLsb());
+        if(CONN_DEBUG) Serial << endl;
               
         ZBTxRequest zbtx = ZBTxRequest(addr_all_controllers[i], (uint8_t *)message_tx, strlen(message_tx));
         zbtx.setFrameId('0');
@@ -644,8 +743,6 @@ void BowieComms::connSendEasy(char c) {
 
 */
 
-BowieComms *BowieComms::bcInstance;
-
 void BowieComms::received_action(char action, char cmd, uint8_t key, uint16_t val, char cmd2, uint8_t key2, uint16_t val2, char delim) {
   Packet p1 = { cmd, key, val };
   Packet p2 = { cmd2, key2, val2 };
@@ -660,7 +757,7 @@ void BowieComms::transmit_complete() {
 
 void BowieComms::processAction(Msg m) {
 
-  if(PROG_DEBUG) {
+  if(COMM_DEBUG) {
     Serial << "---PROCESS ACTION---" << endl;
     Serial << "action: " << m.action << endl;
     Serial << "command: " << m.pck1.cmd << endl;
@@ -687,10 +784,14 @@ void BowieComms::processAction(Msg m) {
   _receivedActionCallback(m);
 
   msg_rx_count++;
-  diff_time = current_time-last_rx_msg;
+  diff_time = millis()-last_rx_msg;
   last_rx_msg = current_time;
   Serial << "COMMS- Roundtrip latency (ms): " << diff_time << " Msg count: " << msg_rx_count << endl;
 
+}
+
+int BowieComms::getMsgRxCount() {
+  return msg_rx_count;
 }
 
 void BowieComms::transmitDidComplete() {
@@ -716,13 +817,22 @@ uint8_t BowieComms::getMsgQueueLength() {
 
 // Retrieve the next message, and move the other messages behind it up
 Msg BowieComms::popNextMsg() {
+
+  if(msgs_in_queue <= 0) return msg_none;
+
   struct Msg m = msg_queue[0];
 
   for(int i=0; i<msgs_in_queue-1; i++) {
     msg_queue[i] = msg_queue[i+1];
   }
 
-  if(msgs_in_queue > 0) msgs_in_queue--;
+  msgs_in_queue--;
+
+  if(msgs_in_queue <= 0) {
+    msgs_in_queue = 0;
+    addMsg(msg_none);
+  }
+
   return m;
 }
 
@@ -733,6 +843,7 @@ void BowieComms::addMsg(uint8_t priority, char action, char cmd, uint8_t key, ui
       Serial.print(F("Cannot add msg to queue, number of messages in queue: "));
       Serial.println(msgs_in_queue);
     }
+    return;
   }
   msg_queue[msgs_in_queue].priority = priority;
   msg_queue[msgs_in_queue].action = action;
@@ -757,6 +868,7 @@ void BowieComms::addMsg(Msg m) {
       Serial.print(F("Cannot add msg to queue, number of messages in queue: "));
       Serial.println(msgs_in_queue);
     }
+    return;
   }
   msg_queue[msgs_in_queue] = m;
   msgs_in_queue++;
@@ -770,10 +882,10 @@ void BowieComms::addMsg(Msg m) {
 // As a failsafe, if it can't be inserted, the message is at least added.
 void BowieComms::insertMsg(Msg m) {
 
-  Serial.print("inserting next message");
+  if(MSG_DEBUG) Serial.print("inserting next message");
 
   if(msgs_in_queue == 0) {
-    if(OP_DEBUG) Serial << "Adding it to index 0" << endl;
+    if(MSG_DEBUG) Serial << "Adding it to index 0" << endl;
     msg_queue[0] = m;
     msgs_in_queue++;
     return;
@@ -788,13 +900,13 @@ void BowieComms::insertMsg(Msg m) {
       for(int j=msgs_in_queue-1; j>insert_index; j--) {
         msg_queue[j] = msg_queue[j-1];
       }
-      if(OP_DEBUG) Serial << "A: Inserting " << i << " (" << msg_queue[i].priority << ") at index: " << insert_index << endl;
+      if(MSG_DEBUG) Serial << "A: Inserting " << i << " (" << msg_queue[i].priority << ") at index: " << insert_index << endl;
       msg_queue[insert_index] = m;
       completed = true;
       break;
     } else if(m.priority == msg_queue[i].priority) { // if it's the same priority, and the same commands, overwrite with the newest version
       if(m.pck1.cmd == msg_queue[i].pck1.cmd && m.pck2.cmd == msg_queue[i].pck2.cmd) {
-        if(OP_DEBUG) Serial << "B: Replacing " << i << " (" << msg_queue[i].priority << ") with new msg (" << m.priority << ")" << endl;
+        if(MSG_DEBUG) Serial << "B: Replacing " << i << " (" << msg_queue[i].priority << ") with new msg (" << m.priority << ")" << endl;
         msg_queue[i] = m;
         completed = true;
         break;

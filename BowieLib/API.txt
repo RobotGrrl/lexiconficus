@@ -5,16 +5,17 @@ Operator -> Robot
 # L = left motor
 # R = right motor
 # S = arm
-# C = claw
-# P = red button
-# G = green button
-# Y = yellow button
-# B = blue button
-# W = white button
-# N = black button
+# C = scoop
+# P = button #1 (red)
+# G = button #2 (green)
+# Y = button #3 (yellow)
+# B = button #4 (blue)
+# W = button #5 (white)
+# N = button #6 (black)
 # Q = super bright leds
 # J = joystick button
 # M = mode switch
+# N = mode & state
 $ X = id
 
 Robot -> Operator

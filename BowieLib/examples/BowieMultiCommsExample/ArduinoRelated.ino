@@ -1,15 +1,17 @@
 void arduinoCommsInit() {
+  bowiecomms_arduino.setRobotID(ROBOT_ID);
   bowiecomms_arduino.setCommLed(COMM_LED);
   bowiecomms_arduino.set_received_action_callback(receivedAction_Arduino);
   bowiecomms_arduino.set_comms_timeout_callback(commsTimeout_Arduino);
   bowiecomms_arduino.set_controller_added_callback(controllerAdded_Arduino);
   bowiecomms_arduino.set_controller_removed_callback(controllerRemoved_Arduino);
 
-  bowiecomms_arduino.initComms(ARDUINO_CONN);
+  bowiecomms_arduino.initComms(ARDUINO_CONN, 9600);
 
   bowiecomms_arduino.addPeriodicMessage(random_periodic1);
   bowiecomms_arduino.addPeriodicMessage(random_periodic2);
 }
+
 
 void receivedAction_Arduino(Msg m) {
   // Received an action from the controller. The data is
@@ -19,7 +21,7 @@ void receivedAction_Arduino(Msg m) {
   // if there is / is not a core action associated with it.
   // You can do custom actions with this data here.
 
-  Serial << "---RECEIVED ACTION---" << endl;
+  Serial << "---RECEIVED ACTION FROM ARDUINO---" << endl;
   Serial << "action: " << m.action << endl;
   Serial << "command: " << m.pck1.cmd << endl;
   Serial << "key: " << m.pck1.key << endl;

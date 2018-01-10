@@ -2,6 +2,10 @@
 
 BowieDrive::BowieDrive() {
 
+}
+
+void BowieDrive::begin() {
+
   // states
   TURN_SEQUENCE_MODE = true;
 

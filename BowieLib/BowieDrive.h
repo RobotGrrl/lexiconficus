@@ -42,6 +42,8 @@ class BowieDrive {
 
   public:
     BowieDrive();
+    void begin();
+    void initMotors();
 
     // pins
     void setMotorASpeedPin(uint8_t p);
@@ -96,9 +98,6 @@ class BowieDrive {
     uint8_t turn_sequence_step;
     bool restart_step_timer;
     long step_start;
-
-    // init methods
-    void initMotors();
 
 };
 
