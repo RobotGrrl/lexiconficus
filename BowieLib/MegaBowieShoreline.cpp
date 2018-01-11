@@ -318,7 +318,6 @@ void MegaBowieShoreline::update(bool force_no_sleep) {
   bowiecomms_xbee.updateComms();
   bowiecomms_arduino.updateComms();
 
-  /*
   // specific things to do if remote operation is enabled
   if(REMOTE_OP_ENABLED) {
 
@@ -355,7 +354,6 @@ void MegaBowieShoreline::update(bool force_no_sleep) {
     updatePeriodicMessages();
     last_update_periodic = current_time;
   }
-  */
   
 }
 
