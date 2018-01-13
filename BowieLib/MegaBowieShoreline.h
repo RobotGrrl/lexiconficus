@@ -21,7 +21,9 @@
 
 #include "Arduino.h"
 #include <Streaming.h>
+#include <Servo.h>
 
+//#include "BowieGhost.h"
 #include "BowieArm.h"
 #include "BowieCurrentSensor.h"
 #include "BowieDrive.h"
@@ -196,10 +198,10 @@ class MegaBowieShoreline {
     MegaBowieShoreline();
     void setRobotID(uint8_t the_robot_id);
     void begin();
-    bool EZ_DEBUG;
     uint8_t ROBOT_ID;
 
     // Components
+    //BowieGhost bowieghost;
     BowieArm bowiearm;
     BowieCurrentSensor servoCurrent;
     BowieCurrentSensor motorCurrent;
@@ -215,6 +217,7 @@ class MegaBowieShoreline {
     void update(bool force_no_sleep);
     void control(Msg m);
     static void servoInterrupt(int key, int val);
+    bool performing_large_action;
     
     // States
     void enableRemoteOp();

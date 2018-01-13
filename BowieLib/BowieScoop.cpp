@@ -2,6 +2,9 @@
 
 BowieScoop::BowieScoop() {
 
+}
+
+void BowieScoop::begin() {
   end_position = END_PARALLEL_TOP;
 
   end_parked = false;
@@ -69,19 +72,22 @@ void BowieScoop::moveEnd(int endPos) {
 
 void BowieScoop::moveEnd(int endPos, int step, int del) {
 
-  unparkEnd();
+  end_parked = false;
 
-  if(getEndPos() > endPos) { // going towards END_MIN
-    for(int i=getEndPos(); i>endPos; i-=step) {
-      Serial << i << endl;
+  //unparkEnd();
+
+  int prev_pos = getEndPos();
+  if(prev_pos > endPos) { // going towards END_MIN
+    for(int i=prev_pos; i>endPos; i-=step) {
+      Serial << "S" << i << endl;
       scoop.writeMicroseconds(i);
       end_position = i;
       delay(del);
       servoInterruption(SERVO_END_KEY, i);
     }
-  } else if(getEndPos() <= endPos) { // going towards END_MAX
-    for(int i=getEndPos(); i<endPos; i+=step) {
-      Serial << i << endl;
+  } else if(prev_pos <= endPos) { // going towards END_MAX
+    for(int i=prev_pos; i<endPos; i+=step) {
+      Serial << "S" << i << endl;
       scoop.writeMicroseconds(i);
       end_position = i;
       delay(del);

@@ -42,6 +42,7 @@ class BowieArm {
 
   public:
     BowieArm();
+    void begin();
     void setArm1ServoPin(uint8_t p);
     void setArm2ServoPin(uint8_t p);
     void initServos();

@@ -19,7 +19,9 @@
 
 #include "Arduino.h"
 #include <Streaming.h>
+#ifndef Servo_h
 #include <Servo.h>
+#endif
 
 #ifndef _BOWIESCOOP_H_
 #define _BOWIESCOOP_H_
@@ -41,6 +43,8 @@ class BowieScoop {
 
   public:
     BowieScoop();
+    void begin();
+
     void setServoScoopPin(uint8_t p);
     void setProbeLPin(uint8_t p);
     void setProbeRPin(uint8_t p);

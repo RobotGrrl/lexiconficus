@@ -2,6 +2,9 @@
 
 BowieCurrentSensor::BowieCurrentSensor() {
   
+}
+
+void BowieCurrentSensor::begin() {
   // set this to true if you want to
   // constantly monitor and protect for over current
   MONITOR_OVER_CURRENT = true;
@@ -122,8 +125,8 @@ void BowieCurrentSensor::refreshCurrentSensor() {
   current_val_avg_bucket += current_val;
   if(current_avg_count > AVG_WINDOW-2) {
     current_val_avg = (float)current_val_avg_bucket / (float)(AVG_WINDOW-1);
-    Serial << CURRENT_SENSOR_NAME << " ";
-    Serial << "Monitoring current avg " << current_val_avg << endl;
+    if(CUR_DEBUG) Serial << CURRENT_SENSOR_NAME << " ";
+    if(CUR_DEBUG) Serial << "Monitoring current avg " << current_val_avg << endl;
     current_val_avg_bucket = 0;
     current_avg_count = 0;
   }

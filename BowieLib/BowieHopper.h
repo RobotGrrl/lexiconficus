@@ -20,7 +20,9 @@
 
 #include "Arduino.h"
 #include <Streaming.h>
+#ifndef Servo_h
 #include <Servo.h>
+#endif
 
 #ifndef _BOWIEHOPPER_H_
 #define _BOWIEHOPPER_H_
@@ -44,6 +46,7 @@ class BowieHopper {
   public:
 
     BowieHopper();
+    void begin();
     void setServoHopperPivotPin(uint8_t p);
     void setServoHopperLidPin(uint8_t p);
     void initServos();

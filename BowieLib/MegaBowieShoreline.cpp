@@ -17,8 +17,8 @@ void MegaBowieShoreline::begin() {
   // Instance of the class for the callbacks from Promulgate
   bowieInstance = this;
   ROBOT_ID = 3;
-
-  EZ_DEBUG = true;
+  
+  performing_large_action = false;
 
   REMOTE_OP_ENABLED = true;
   PREVENT_OVER_CURRENT = false;
@@ -36,26 +36,50 @@ void MegaBowieShoreline::begin() {
   lid_pos_over_current = LID_MIN;
   servos_deactivated_over_current = false;
 
-
-
-
   // Outputs
   pinMode(BOARD_LED, OUTPUT);
   pinMode(COMM_LED, OUTPUT);
   pinMode(SPEAKER, OUTPUT);
   
-  // Arm
-  bowiearm = BowieArm();
+  // Much thanks to Jeremy Cole @jeremycole for helping track down the
+  // servo bug we were encountering in this code!
 
+  // Arm
+  bowiearm.begin();
+  
   bowiearm.setArm1ServoPin(SERVO_ARM1);
   bowiearm.setArm2ServoPin(SERVO_ARM2);
   bowiearm.setServoInterruptCallback(servoInterrupt);
   bowiearm.initServos();
+  
+
+  // Hopper
+  bowiehopper.begin();
+
+  bowiehopper.setServoHopperPivotPin(SERVO_HOPPER_PIVOT);
+  bowiehopper.setServoHopperLidPin(SERVO_HOPPER_LID);
+
+  bowiehopper.setServoInterruptCallback(servoInterrupt);
+
+  bowiehopper.initServos();
+
+
+  // Scoop
+  bowiescoop.begin();
+
+  bowiescoop.setServoScoopPin(SERVO_END_EFFECTOR);
+  bowiescoop.setProbeLPin(SCOOP_PROBE_LEFT);
+  bowiescoop.setProbeRPin(SCOOP_PROBE_RIGHT);
+
+  bowiescoop.setServoInterruptCallback(servoInterrupt);
+
+  bowiescoop.initServos();
+
 
   // Current Sensors
-  servoCurrent = BowieCurrentSensor();
-  motorCurrent = BowieCurrentSensor();
-
+  servoCurrent.begin();
+  motorCurrent.begin();
+  
   servoCurrent.setCurrentSensePin(CURRENT_SERVO_SENS);
   servoCurrent.setCurrentSenseName("Servo");
   servoCurrent.initCurrentSensor();
@@ -70,8 +94,8 @@ void MegaBowieShoreline::begin() {
   motorCurrent.set_reactivateAfterCoolDown_callback(reactivateAfterCoolDown_MotorsCallback);
   motorCurrent.set_overCurrentThreshold_callback(overCurrentThreshold_MotorsCallback);
 
+
   // Drive
-  bowiedrive = BowieDrive();
   bowiedrive.begin();
 
   bowiedrive.setMotorASpeedPin(MOTORA_SPEED);
@@ -83,18 +107,9 @@ void MegaBowieShoreline::begin() {
 
   bowiedrive.initMotors();
 
-  // Hopper
-  bowiehopper = BowieHopper();
-
-  bowiehopper.setServoHopperPivotPin(SERVO_HOPPER_PIVOT);
-  bowiehopper.setServoHopperLidPin(SERVO_HOPPER_LID);
-
-  bowiehopper.setServoInterruptCallback(servoInterrupt);
-
-  bowiehopper.initServos();
 
   // Lights
-  bowielights = BowieLights();
+  bowielights.begin();
 
   bowielights.setFrontLeftPin(BRIGHT_LED_FRONT_LEFT);
   bowielights.setFrontRightPin(BRIGHT_LED_FRONT_RIGHT);
@@ -103,27 +118,17 @@ void MegaBowieShoreline::begin() {
 
   bowielights.initLeds();
 
+
   // Logger
-  bowielogger = BowieLogger();
+  bowielogger.begin();
 
   bowielogger.initTime();
 
   bowielogger.setLoggingLed(13);
   bowielogger.initLogging();
 
-  // Scoop
-  bowiescoop = BowieScoop();
-
-  bowiescoop.setServoScoopPin(SERVO_END_EFFECTOR);
-  bowiescoop.setProbeLPin(SCOOP_PROBE_LEFT);
-  bowiescoop.setProbeRPin(SCOOP_PROBE_RIGHT);
-
-  bowiescoop.setServoInterruptCallback(servoInterrupt);
-
-  bowiescoop.initServos();
 
   // Comms
-  bowiecomms_xbee = BowieComms();
   bowiecomms_xbee.begin();
 
   bowiecomms_xbee.setRobotID(ROBOT_ID);
@@ -138,8 +143,8 @@ void MegaBowieShoreline::begin() {
   current_sensor_periodic = bowiecomms_xbee.msg_none;
   bowiecomms_xbee.addPeriodicMessage(current_sensor_periodic);
 
+
   // Arduino Comms
-  bowiecomms_arduino = BowieComms();
   bowiecomms_arduino.begin();
   
   bowiecomms_arduino.setRobotID(ROBOT_ID);
@@ -354,7 +359,7 @@ void MegaBowieShoreline::update(bool force_no_sleep) {
     updatePeriodicMessages();
     last_update_periodic = current_time;
   }
-  
+
 }
 
 void MegaBowieShoreline::control(Msg m) {
@@ -398,6 +403,9 @@ void MegaBowieShoreline::control(Msg m) {
 
           if(servos_deactivated_over_current) return; // over current protection
 
+          if(performing_large_action) return; // don't do this action if we're already doing one
+
+          performing_large_action = true;
           bool was_lid_parked = bowiehopper.getLidParked();
           if(was_lid_parked) bowiehopper.unparkLid();
           bowiehopper.moveLid(LID_MIN, 5, 1); // open lid
@@ -407,6 +415,7 @@ void MegaBowieShoreline::control(Msg m) {
           bowiescoop.moveEnd(END_PARALLEL_TOP, 5, 1); // back into position
           bowiehopper.moveLid(LID_MAX, 5, 1); // close lid
           if(was_lid_parked) bowiehopper.parkLid();
+          performing_large_action = false;
         }
       }
 
@@ -414,8 +423,11 @@ void MegaBowieShoreline::control(Msg m) {
         if(packets[i].val == 1) {
 
           if(servos_deactivated_over_current) return; // over current protection
+          if(performing_large_action) return; // don't do this action if we're already doing one
 
+          performing_large_action = true;
           scoopSequence(1000);
+          performing_large_action = false;
         }
       }
 
@@ -423,8 +435,11 @@ void MegaBowieShoreline::control(Msg m) {
         if(packets[i].val == 1) {
 
           if(servos_deactivated_over_current) return; // over current protection
+          if(performing_large_action) return; // don't do this action if we're already doing one
 
+          performing_large_action = true;
           scoopSequence(0);
+          performing_large_action = false;
         }
       }
 
@@ -432,7 +447,9 @@ void MegaBowieShoreline::control(Msg m) {
         if(packets[i].val == 1) {
 
           if(servos_deactivated_over_current) return; // over current protection
+          if(performing_large_action) return; // don't do this action if we're already doing one
 
+          performing_large_action = true;
           bool was_hopper_parked = bowiehopper.getHopperParked();
           if(was_hopper_parked) bowiehopper.unparkHopper();
           bool was_lid_parked = bowiehopper.getLidParked();
@@ -440,6 +457,7 @@ void MegaBowieShoreline::control(Msg m) {
           deposit();
           if(was_hopper_parked) bowiehopper.parkHopper();
           if(was_lid_parked) bowiehopper.parkLid();
+          performing_large_action = false;
         }
       }
 
@@ -563,11 +581,13 @@ void MegaBowieShoreline::servoInterrupt(int key, int val) {
 
 void MegaBowieShoreline::processServoInterrupt(int key, int val) {
 
-  // force a refresh if it's been a bit of time
+  // We are forcing a refresh here, which will be able to send a heartbeat
+  // back to the controller, and the robot will read the latest command.
+  // There is a flag in control (performing_large_action) that will prevent
+  // other large actions from taking place if there's one running currently.
   if(current_time-bowiecomms_xbee.getLastRXTime() >= 500) {
     bowiecomms_xbee.updateComms();
   }
-
   if(current_time-bowiecomms_arduino.getLastRXTime() >= 500) {
     bowiecomms_arduino.updateComms();
   }
@@ -576,10 +596,12 @@ void MegaBowieShoreline::processServoInterrupt(int key, int val) {
     case SERVO_ARM_KEY:
     break;
     case SERVO_END_KEY:
+      Serial << "End" << endl;
     break;
     case SERVO_HOPPER_KEY:
     break;
     case SERVO_LID_KEY:
+      Serial << "Lid" << endl;
     break;
     case SERVO_EXTRA_KEY:
     break;
@@ -590,7 +612,7 @@ void MegaBowieShoreline::processServoInterrupt(int key, int val) {
 }
 
 void MegaBowieShoreline::updateLogSensorData() {
-  
+
   bowielogger.setLogData_t(LOG_TIME, now());
   bowielogger.setLogData_u8(LOG_MOTOR_A_SPEED, bowiedrive.getMotorASpeed());
   int r = 99;
@@ -713,6 +735,7 @@ void MegaBowieShoreline::overCurrentThreshold_MotorsCallback(bool first) {
 
 
 void MegaBowieShoreline::waitingToCoolDown_Servos(bool first) {
+
   if(!PREVENT_OVER_CURRENT) return;
 
   servos_deactivated_over_current = true;
@@ -744,6 +767,7 @@ void MegaBowieShoreline::waitingToCoolDown_Servos(bool first) {
 }
 
 void MegaBowieShoreline::reactivateAfterCoolDown_Servos() {
+
   if(!PREVENT_OVER_CURRENT) return;
 
   servos_deactivated_over_current = false;
@@ -816,10 +840,8 @@ void MegaBowieShoreline::scoopSequence(int frame_delay) {
   bool was_hopper_parked = bowiehopper.getHopperParked();
   bool was_lid_parked = bowiehopper.getLidParked();
 
-  /*
-  if(was_hopper_parked) bowie.unparkHopper();
-  if(was_lid_parked) bowie.unparkLid();
-  */
+  //if(was_hopper_parked) bowie.unparkHopper();
+  //if(was_lid_parked) bowie.unparkLid();
 
   // 2. 
   bowiescoop.moveEnd(END_PARALLEL_BOTTOM, 5, 1);
@@ -837,16 +859,14 @@ void MegaBowieShoreline::scoopSequence(int frame_delay) {
 
   // 3.
   // drive forward a bit
-  /*
-  Serial << "Going to MOTORS FWD 255...";
-  bowie.rampSpeed(true, 100, 255, 20, 10);
-  bowie.goSpeed(true, 255, 500);
-  // stop motors!
-  Serial << "Going to MOTORS FWD 0...";
-  bowie.rampSpeed(true, 255, 100, 10, 5);
-  bowie.goSpeed(true, 0, 0);
-  if(DEBUGGING_ANIMATION) delay(3000);
-  */
+  // Serial << "Going to MOTORS FWD 255...";
+  // bowie.rampSpeed(true, 100, 255, 20, 10);
+  // bowie.goSpeed(true, 255, 500);
+  // // stop motors!
+  // Serial << "Going to MOTORS FWD 0...";
+  // bowie.rampSpeed(true, 255, 100, 10, 5);
+  // bowie.goSpeed(true, 0, 0);
+  // if(DEBUGGING_ANIMATION) delay(3000);
 
   
   // 4.
@@ -945,17 +965,13 @@ void MegaBowieShoreline::scoopSequence(int frame_delay) {
   delay(frame_delay);
 
   // park arm
-  /*
-  Serial << "Parking arm...";
-  bowie.parkArm();
-  bowie.parkEnd();  
-  
-  if(DEBUGGING_ANIMATION) delay(3000);
+  // Serial << "Parking arm...";
+  // bowie.parkArm();
+  // bowie.parkEnd();  
+  // if(DEBUGGING_ANIMATION) delay(3000);
+  // if(was_hopper_parked) bowie.parkHopper();
+  // if(was_lid_parked) bowie.parkLid();
 
-  if(was_hopper_parked) bowie.parkHopper();
-  if(was_lid_parked) bowie.parkLid();
-  */
-  
 }
 
 void MegaBowieShoreline::deposit() {
@@ -1029,11 +1045,11 @@ void MegaBowieShoreline::deposit() {
     bowiescoop.parkEnd();
     bowiearm.parkArm();
   }
-  
+
 }
 
 void MegaBowieShoreline::moveArmAndEnd(int armPos, int step, int del, int armMin, int armMax, int endMin, int endMax) {
-  
+
   bool did_move_hopper = false;
   int hopper_original_pos = bowiehopper.getHopperPos();
   int endPos = 0;

@@ -31,6 +31,7 @@ class BowieLights {
 
   public:
     BowieLights();
+    void begin();
 
     void setFrontLeftPin(uint8_t p);
     void setFrontRightPin(uint8_t p);

@@ -21,22 +21,6 @@ void setup() {
 
 void loop() {
 
-  for(int i=0; i<256; i++) {
-    for(int j=0; j<4; j++) {
-      bowielights.setLight(j, i);
-    }
-    delay(2);
-  }
-  delay(100);
-
-  for(int i=255; i>0; i--) {
-    for(int j=0; j<4; j++) {
-      bowielights.setLight(j, i);
-    }
-    delay(2);
-  }
-  delay(100);
-
   bowielights.setLight(0, 60); // front left
   delay(1000);
 

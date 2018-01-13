@@ -13,8 +13,6 @@ void setup() {
 
 void loop() {
   bowie.update(false);
-  //Serial << millis() << " ~" << endl;
-  //delay(100);
 }
 
 

@@ -2,6 +2,9 @@
 
 BowieLogger::BowieLogger() {
 
+}
+
+void BowieLogger::begin() {
   // how often to write a new file (mins)
   TIMEOUT_MINS = 15;
   
@@ -49,7 +52,6 @@ BowieLogger::BowieLogger() {
   last_time_check = 0;
 
   LOG_LED = 13;
-
 }
 
 void BowieLogger::setLoggingLed(int pin) {

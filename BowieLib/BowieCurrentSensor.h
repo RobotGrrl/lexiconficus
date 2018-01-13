@@ -4,10 +4,14 @@
 #ifndef _BOWIECURRENTSENSOR_H_
 #define _BOWIECURRENTSENSOR_H_
 
+#define CUR_DEBUG false
+
 class BowieCurrentSensor {
 
   public:
     BowieCurrentSensor();
+    void begin();
+
     bool MONITOR_OVER_CURRENT;
     int CURRENT_THRESH_MAX;
     int CURRENT_THRESH_MIN;

@@ -2,10 +2,11 @@
 
 BowieArm::BowieArm() {
 
+}
+
+void BowieArm::begin() {
   arm_position = ARM_PARK;
-
   arm_parked = false;
-
 }
 
 void BowieArm::setArm1ServoPin(uint8_t p) {
@@ -41,8 +42,9 @@ void BowieArm::moveArm(int armPos, int step, int del) {
 
   unparkArm();
   
-  if(getArmPos() > armPos) { // headed towards ARM_MIN
-    for(int i=getArmPos(); i>armPos; i-=step) {
+  int prev_pos = getArmPos();
+  if(prev_pos > armPos) { // headed towards ARM_MIN
+    for(int i=prev_pos; i>armPos; i-=step) {
       //Serial << i << endl;
       arm.writeMicroseconds(i);
       arm2.writeMicroseconds(SERVO_MAX_US - i + SERVO_MIN_US);
@@ -50,8 +52,8 @@ void BowieArm::moveArm(int armPos, int step, int del) {
       delay(del);
       servoInterruption(SERVO_ARM_KEY, i);
     }
-  } else if(getArmPos() <= armPos) { // headed towards ARM_MAX
-    for(int i=getArmPos(); i<armPos; i+=step) {
+  } else if(prev_pos <= armPos) { // headed towards ARM_MAX
+    for(int i=prev_pos; i<armPos; i+=step) {
       //Serial << i << endl;
       arm.writeMicroseconds(i);
       arm2.writeMicroseconds(SERVO_MAX_US - i + SERVO_MIN_US);

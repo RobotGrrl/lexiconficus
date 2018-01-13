@@ -1,6 +1,10 @@
 #include "BowieLights.h"
 
 BowieLights::BowieLights() {
+  
+}
+
+void BowieLights::begin() {
   for(int i=0; i<4; i++) {
     led_val[i] = 0;
   }

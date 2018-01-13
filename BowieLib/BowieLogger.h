@@ -121,6 +121,7 @@ class BowieLogger {
   
   public:
     BowieLogger();
+    void begin();
 
     void setLoggingLed(int pin);
     void initLogging();
