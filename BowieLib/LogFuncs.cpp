@@ -13,6 +13,7 @@ void BowieLogger::setLogData_u8(int log_item, uint8_t val) {
   if(log_item == LOG_LED_FRONT_R) logdata.led_front_r = val;
   if(log_item == LOG_LED_BACK_L) logdata.led_back_l = val;
   if(log_item == LOG_LED_BACK_R) logdata.led_back_r = val;
+  if(log_item == LOG_GPS_SATS) logdata.gps_sats = val;
 }
 
 void BowieLogger::setLogData_u16(int log_item, uint16_t val) {
@@ -34,6 +35,7 @@ void BowieLogger::setLogData_f(int log_item, float val) {
   if(log_item == LOG_IMU_ROLL) logdata.imu_roll = val;
   if(log_item == LOG_IMU_YAW) logdata.imu_yaw = val;
   if(log_item == LOG_COMPASS_HEADING) logdata.compass_heading = val;
+  if(log_item == LOG_GPS_HDOP) logdata.gps_hdop = val;
   if(log_item == LOG_GPS_LATITUDE) logdata.gps_latitude = val;
   if(log_item == LOG_GPS_LONGITUDE) logdata.gps_longitude = val;
   if(log_item == LOG_GPS_ALTITUDE) logdata.gps_altitude = val;
@@ -62,6 +64,8 @@ void BowieLogger::randomLogData() {
   logdata.imu_roll = (float)random(-90, 90);
   logdata.imu_yaw = (float)random(-90, 90);
   logdata.compass_heading = (float)random(0, 360);
+  logdata.gps_sats = (float)random(40, 42);
+  logdata.gps_hdop = (float)random(40, 42);
   logdata.gps_latitude = (float)random(40, 42);
   logdata.gps_longitude = (float)random(70, 75);
   logdata.gps_altitude = (float)random(0, 10);
@@ -132,25 +136,31 @@ void BowieLogger::writeLogData() {
   logging_file.print(logdata.led_back_r);
   logging_file.print(",");
 
-  logging_file.print(logdata.imu_pitch);
+  logging_file.print(logdata.imu_pitch, 7);
   logging_file.print(",");
 
-  logging_file.print(logdata.imu_roll);
+  logging_file.print(logdata.imu_roll, 7);
   logging_file.print(",");
 
-  logging_file.print(logdata.imu_yaw);
+  logging_file.print(logdata.imu_yaw, 7);
   logging_file.print(",");
 
-  logging_file.print(logdata.compass_heading);
+  logging_file.print(logdata.compass_heading, 7);
   logging_file.print(",");
 
-  logging_file.print(logdata.gps_latitude);
+  logging_file.print(logdata.gps_sats);
+  logging_file.print(",");  
+
+  logging_file.print(logdata.gps_hdop, 7);
   logging_file.print(",");
 
-  logging_file.print(logdata.gps_longitude);
+  logging_file.print(logdata.gps_latitude, 7);
   logging_file.print(",");
 
-  logging_file.print(logdata.gps_altitude);
+  logging_file.print(logdata.gps_longitude, 7);
+  logging_file.print(",");
+
+  logging_file.print(logdata.gps_altitude, 7);
   logging_file.print(",");
 
   logging_file.print(logdata.battery_sensor);

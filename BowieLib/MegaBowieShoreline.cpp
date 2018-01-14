@@ -643,14 +643,16 @@ void MegaBowieShoreline::updateLogSensorData() {
   bowielogger.setLogData_u8(LOG_LED_BACK_L, bowielights.getLight(2));
   bowielogger.setLogData_u8(LOG_LED_BACK_R, bowielights.getLight(3));
 
-  // TODO - remainder of the IMU & GPS vars
-  bowielogger.setLogData_f(LOG_IMU_PITCH, 0.0);
-  bowielogger.setLogData_f(LOG_IMU_ROLL, 0.0);
-  bowielogger.setLogData_f(LOG_IMU_YAW, 0.0);
-  bowielogger.setLogData_f(LOG_COMPASS_HEADING, 0.0);
-  bowielogger.setLogData_f(LOG_GPS_LATITUDE, 0.0);
-  bowielogger.setLogData_f(LOG_GPS_LONGITUDE, 0.0);
-  bowielogger.setLogData_f(LOG_GPS_ALTITUDE, 0.0);
+  // The IMU & GPS vars can be set by the user in the sketch, like this!
+  // bowielogger.setLogData_f(LOG_IMU_PITCH, imu_pitch);
+  // bowielogger.setLogData_f(LOG_IMU_ROLL, imu_roll);
+  // bowielogger.setLogData_f(LOG_IMU_YAW, imu_yaw);
+  // bowielogger.setLogData_f(LOG_COMPASS_HEADING, compass_heading);
+  // bowielogger.setLogData_u8(LOG_GPS_SATS, gps_sats);
+  // bowielogger.setLogData_f(LOG_GPS_HDOP, gps_hdop);
+  // bowielogger.setLogData_f(LOG_GPS_LATITUDE, gps_lat);
+  // bowielogger.setLogData_f(LOG_GPS_LONGITUDE, gps_lon);
+  // bowielogger.setLogData_f(LOG_GPS_ALTITUDE, gps_alt);
 
   // TODO - battery sensor
   //bowielogger.setLogData_u16(LOG_BATTERY_SENSOR, analogRead(A24));  

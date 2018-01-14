@@ -1,11 +1,20 @@
 #include "BowieComms.h"
 
+#define ROBOT_ID 3
 #define COMM_LED 2
 
-BowieComms bowiecomms_xbee = BowieComms();
-BowieComms bowiecomms_arduino = BowieComms();
+BowieComms bowiecomms_xbee;
+BowieComms bowiecomms_arduino;
 
-void commsTimeout();
+void receivedAction_Arduino(Msg m);
+void commsTimeout_Arduino();
+void controllerAdded_Arduino();
+void controllerRemoved_Arduino();
+
+void receivedAction_Xbee(Msg m);
+void commsTimeout_Xbee();
+void controllerAdded_Xbee();
+void controllerRemoved_Xbee();
 
 long current_time = 0;
 long last_latency_print = 0;
@@ -17,6 +26,12 @@ Msg random_periodic2 = bowiecomms_xbee.msg_none;
 void setup() {
   Serial.begin(9600);
 
+  bowiecomms_xbee = BowieComms();
+  bowiecomms_xbee.begin();
+
+  bowiecomms_arduino = BowieComms();
+  bowiecomms_arduino.begin();
+  
   // Init the Xbee comms
   xbeeCommsInit();
 
@@ -26,17 +41,13 @@ void setup() {
 }
 
 void loop() {
+
+  delay(100);
   
   current_time = millis();
-  
+
   bowiecomms_xbee.updateComms();
   bowiecomms_arduino.updateComms();
-
-  if(current_time-last_latency_print >= 500) {
-    Serial << "Xbee Comm latency: " << bowiecomms_xbee.getCommLatency() << endl;
-    Serial << "Arduino Comm latency: " << bowiecomms_arduino.getCommLatency() << endl;
-    last_latency_print = current_time;
-  }
 
   if(current_time-last_update >= 1000) {
     updateRobotsPeriodicMessages();
@@ -91,7 +102,7 @@ void loop() {
       
     }
   }
-
+  
 }
 
 

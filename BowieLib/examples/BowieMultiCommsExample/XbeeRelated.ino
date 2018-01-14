@@ -1,11 +1,12 @@
 void xbeeCommsInit() {
+  bowiecomms_xbee.setRobotID(ROBOT_ID);
   bowiecomms_xbee.setCommLed(COMM_LED);
   bowiecomms_xbee.set_received_action_callback(receivedAction_Xbee);
   bowiecomms_xbee.set_comms_timeout_callback(commsTimeout_Xbee);
   bowiecomms_xbee.set_controller_added_callback(controllerAdded_Xbee);
   bowiecomms_xbee.set_controller_removed_callback(controllerRemoved_Xbee);
 
-  bowiecomms_xbee.initComms(XBEE_CONN);
+  bowiecomms_xbee.initComms(XBEE_CONN, 9600);
 
   bowiecomms_xbee.addPeriodicMessage(random_periodic1);
   bowiecomms_xbee.addPeriodicMessage(random_periodic2);
@@ -19,7 +20,8 @@ void receivedAction_Xbee(Msg m) {
   // if there is / is not a core action associated with it.
   // You can do custom actions with this data here.
 
-  Serial << "---RECEIVED ACTION---" << endl;
+  /*
+  Serial << "---RECEIVED ACTION FROM XBEE---" << endl;
   Serial << "action: " << m.action << endl;
   Serial << "command: " << m.pck1.cmd << endl;
   Serial << "key: " << m.pck1.key << endl;
@@ -28,6 +30,7 @@ void receivedAction_Xbee(Msg m) {
   Serial << "key: " << m.pck2.key << endl;
   Serial << "val: " << m.pck2.val << endl;
   Serial << "delim: " << m.delim << endl;
+  */
   
 }
 

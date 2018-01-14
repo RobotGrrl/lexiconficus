@@ -37,15 +37,17 @@ void BowieLogger::begin() {
   log_headers[19] = "IMU Yaw";
 
   log_headers[20] = "Compass Heading";
-  log_headers[21] = "GPS Latitude";
-  log_headers[22] = "GPS Longitude";
-  log_headers[23] = "GPS Altitude";
-  log_headers[24] = "Battery";
-  log_headers[25] = "Comm Xbee Latency";
-  log_headers[26] = "Comm Arduino Latency";
+  log_headers[21] = "GPS Sats";
+  log_headers[22] = "GPS HDOP";
+  log_headers[23] = "GPS Latitude";
+  log_headers[24] = "GPS Longitude";
+  log_headers[25] = "GPS Altitude";
+  log_headers[26] = "Battery";
+  log_headers[27] = "Comm Xbee Latency";
+  log_headers[28] = "Comm Arduino Latency";
 
-  logdata = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+  logdata = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
   LOGGING = false;
   logging_path = "";

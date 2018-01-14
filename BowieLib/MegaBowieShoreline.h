@@ -234,7 +234,6 @@ class MegaBowieShoreline {
     int clawParallelVal(int arm_Val);
     int clawParallelValBounds(int arm_Val, int armMin, int armMax, int endMin, int endMax);
 
-
   private:
 
     // States
