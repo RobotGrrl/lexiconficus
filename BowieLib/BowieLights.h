@@ -25,7 +25,7 @@
 
 // super bright led values
 #define MAX_BRIGHTNESS 255
-#define MIN_BRIGHTNESS 0
+#define MIN_BRIGHTNESS 120
 
 class BowieLights {
 

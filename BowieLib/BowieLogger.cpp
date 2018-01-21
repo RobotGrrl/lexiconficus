@@ -45,9 +45,13 @@ void BowieLogger::begin() {
   log_headers[26] = "Battery";
   log_headers[27] = "Comm Xbee Latency";
   log_headers[28] = "Comm Arduino Latency";
+  log_headers[29] = "Humidity";
+  log_headers[30] = "Temperature";
 
-  logdata = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+  log_headers[31] = "uRADMonitor";
+
+  logdata = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
   LOGGING = false;
   logging_path = "";

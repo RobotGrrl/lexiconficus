@@ -1,12 +1,27 @@
-#include "MegaBowieShoreline.h"
+/*
+ * Bowie Mini Shoreline Motor Test
+ * --------------------------------
+ * 
+ * Run through quick routines to test the motors on Mini Bowie.
+ * 
+ * Erin RobotGrrl for RobotMissions
+ * Jan. 21st, 2018
+ * --> http://RobotMissions.org
+ * 
+ * MIT license, check LICENSE for more information
+ * All text above must be included in any redistribution
+ * 
+ */
+
+#include "MiniBowieShoreline.h"
 
 #define ROBOT_ID 3
 
-MegaBowieShoreline bowie;
+MiniBowieShoreline bowie;
 
 void setup() {
   Serial.begin(9600);
-  bowie = MegaBowieShoreline();
+  bowie = MiniBowieShoreline();
   bowie.setRobotID(ROBOT_ID);
   bowie.begin();
 }

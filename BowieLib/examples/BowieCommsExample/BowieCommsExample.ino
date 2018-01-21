@@ -1,10 +1,29 @@
+/*
+ * Bowie Comms Example
+ * -------------------
+ * 
+ * Send commands to the robot, and see commands
+ * that were received from the robot.
+ * 
+ * Erin RobotGrrl for RobotMissions
+ * Jan. 5th, 2018
+ * --> http://RobotMissions.org
+ * 
+ * MIT license, check LICENSE for more information
+ * All text above must be included in any redistribution
+ * 
+ */
+
 #include "BowieComms.h"
 
 #define COMM_LED 2
 
 BowieComms bowiecomms = BowieComms();
 
+void receivedAction(Msg m);
 void commsTimeout();
+void controllerAdded();
+void controllerRemoved();
 
 long current_time = 0;
 long last_latency_print = 0;
@@ -16,6 +35,7 @@ Msg random_periodic2 = bowiecomms.msg_none;
 void setup() {
   Serial.begin(9600);
 
+  bowiecomms.begin();
   bowiecomms.setCommLed(COMM_LED);
   bowiecomms.set_received_action_callback(receivedAction);
   bowiecomms.set_comms_timeout_callback(commsTimeout);

@@ -39,6 +39,12 @@ void BowieLogger::setLogData_f(int log_item, float val) {
   if(log_item == LOG_GPS_LATITUDE) logdata.gps_latitude = val;
   if(log_item == LOG_GPS_LONGITUDE) logdata.gps_longitude = val;
   if(log_item == LOG_GPS_ALTITUDE) logdata.gps_altitude = val;
+  if(log_item == LOG_HUMIDITY) logdata.humidity = val;
+  if(log_item == LOG_TEMPERATURE) logdata.temperature = val;
+}
+
+void BowieLogger::setLogData_s(int log_item, String val) {
+  if(log_item == LOG_AQ_DATA) logdata.aq_data = val;
 }
 
 
@@ -72,6 +78,9 @@ void BowieLogger::randomLogData() {
   logdata.battery_sensor = (int)random(0, 1024);
   logdata.comm_xbee_latency = (int)random(50, 200);
   logdata.comm_arduino_latency = (int)random(50, 200);
+  logdata.humidity = (int)random(50, 200);
+  logdata.temperature = (int)random(50, 200);
+  logdata.aq_data = "Air quality data";
 }
 
 void BowieLogger::writeLogData() {
@@ -170,7 +179,16 @@ void BowieLogger::writeLogData() {
   logging_file.print(",");
   
   logging_file.print(logdata.comm_arduino_latency);
+  logging_file.print(",");
 
+  logging_file.print(logdata.humidity, 2);
+  logging_file.print(",");
+
+  logging_file.print(logdata.temperature, 2);
+  logging_file.print(",");
+
+  logging_file.print(logdata.aq_data);
+  
   logging_file.print("\r\n");
 
   log_interval = now() + INTERVAL_SECS;

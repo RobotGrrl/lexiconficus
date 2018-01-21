@@ -1,3 +1,19 @@
+/*
+ * Bowie Current Sensor Example
+ * -----------------------------
+ * 
+ * View the data from the two current sensors (motor and servos).
+ * 
+ * Erin RobotGrrl for RobotMissions
+ * Dec. 23rd, 2017
+ * --> http://RobotMissions.org
+ * 
+ * MIT license, check LICENSE for more information
+ * All text above must be included in any redistribution
+ * 
+ */
+
+
 #include "BowieCurrentSensor.h"
 
 #define CURRENT_SERVO_SENS 15
@@ -9,6 +25,7 @@ BowieCurrentSensor motorCurrent = BowieCurrentSensor();
 void setup() {
   Serial.begin(9600);
 
+  servoCurrent.begin();
   servoCurrent.setCurrentSensePin(CURRENT_SERVO_SENS);
   servoCurrent.setCurrentSenseName("Servo");
   servoCurrent.initCurrentSensor();
@@ -16,6 +33,7 @@ void setup() {
   servoCurrent.set_reactivateAfterCoolDown_callback(reactivateAfterCoolDown_Servos);
   servoCurrent.set_overCurrentThreshold_callback(overCurrentThreshold_Servos);
   
+  motorCurrent.begin();
   motorCurrent.setCurrentSensePin(CURRENT_MOTOR_SENS);
   motorCurrent.setCurrentSenseName("Motor");
   motorCurrent.initCurrentSensor();

@@ -1,3 +1,19 @@
+/*
+ * Bowie Drive Example
+ * -------------------
+ * 
+ * Test the drive system with the dc gear motors, on the robot.
+ * 
+ * Erin RobotGrrl for RobotMissions
+ * Dec. 28th, 2017
+ * --> http://RobotMissions.org
+ * 
+ * MIT license, check LICENSE for more information
+ * All text above must be included in any redistribution
+ * 
+ */
+
+
 #include "BowieDrive.h"
 
 #define MOTORA_SPEED 23
@@ -15,6 +31,7 @@ long start_turn_time = 0;
 void setup() {
   Serial.begin(9600);
 
+  bowiedrive.begin();
   bowiedrive.setMotorASpeedPin(MOTORA_SPEED);
   bowiedrive.setMotorBSpeedPin(MOTORB_SPEED);
   bowiedrive.setMotorACtrl1Pin(MOTORA_CTRL1);

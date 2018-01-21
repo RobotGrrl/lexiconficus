@@ -473,7 +473,7 @@ void OperatorInterface::joystickDriveControl() {
       // forwards
 
       if(current_time - last_increment > 10) {
-        incr_speed = 4;
+        incr_speed = 10;
         last_increment = current_time;
       } else {
         incr_speed = 0;  
@@ -502,7 +502,7 @@ void OperatorInterface::joystickDriveControl() {
       // backwards
 
       if(current_time - last_increment > 10) {
-        incr_speed = 4;
+        incr_speed = 10;
         last_increment = current_time;
       } else {
         incr_speed = 0;  

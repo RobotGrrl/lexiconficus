@@ -25,7 +25,6 @@ Robot -> Operator
 @ Z = reserved for testing
 $ W = id
 
-
 --------
 
 Next message priority list (lower # = bigger priority)
@@ -64,11 +63,18 @@ Log File Column Headers (by default)
   log_headers[19] = "IMU Yaw";
 
   log_headers[20] = "Compass Heading";
-  log_headers[21] = "GPS Latitude";
-  log_headers[22] = "GPS Longitude";
-  log_headers[23] = "GPS Altitude";
-  log_headers[24] = "Battery";
-  log_headers[25] = "Comm Latency";
+  log_headers[21] = "GPS Sats";
+  log_headers[22] = "GPS HDOP";
+  log_headers[23] = "GPS Latitude";
+  log_headers[24] = "GPS Longitude";
+  log_headers[25] = "GPS Altitude";
+  log_headers[26] = "Battery";
+  log_headers[27] = "Comm Xbee Latency";
+  log_headers[28] = "Comm Arduino Latency";
+  log_headers[29] = "Humidity";
+  log_headers[30] = "Temperature";
+
+  log_headers[31] = "uRADMonitor";
 
 ------------
 
@@ -89,6 +95,4 @@ Serial6 = Obstacle avoidance arduino
 #define SERVO_EXTRA_KEY 5
 #define SERVO_ARM_AND_END_KEY 6
 #define LOGGING_AFTER_KEY 99
-
-
 

@@ -1,3 +1,18 @@
+/*
+ * Bowie Hopper Example
+ * --------------------
+ * 
+ * Test the movement of the robot's hopper pivot and lid.
+ * 
+ * Erin RobotGrrl for RobotMissions
+ * Dec. 29th, 2017
+ * --> http://RobotMissions.org
+ * 
+ * MIT license, check LICENSE for more information
+ * All text above must be included in any redistribution
+ * 
+ */
+
 #include "BowieHopper.h"
 
 #define SERVO_HOPPER_PIVOT 3
@@ -10,6 +25,7 @@ void hopperAndLidInterrupt(int key, int val);
 void setup() {
   Serial.begin(9600);
 
+  bowiehopper.begin();
   bowiehopper.setServoHopperPivotPin(SERVO_HOPPER_PIVOT);
   bowiehopper.setServoHopperLidPin(SERVO_HOPPER_LID);
 

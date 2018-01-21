@@ -144,6 +144,8 @@ void displaySearching(unsigned long current_time) {
     if(letter_itr > 8) letter_itr = 0;
     last_letter_itr = current_time;
   }
+
+  display.display();
   
 }
 

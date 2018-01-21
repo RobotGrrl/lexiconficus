@@ -184,15 +184,11 @@ void BowieComms::initComms(int conn, int baud) {
   promulgate.set_tx_callback(this->transmit_complete);
   promulgate.set_debug_stream(&Serial);
 
-  /*
   if(use_base64_parsing) {
     promulgate.useBase64Parsing(true);
   } else {
     promulgate.useBase64Parsing(false);
   }
-  */
-
-  promulgate.useBase64Parsing(false);
 
   if(possible) {
     Serial.println("Connection set up OK");

@@ -1,12 +1,12 @@
 /*
- * Robot Missions Mega Bowie Shoreline (Mission #1)
+ * Robot Missions Mini Bowie Shoreline (Mission #1)
  * ------------------------------------------------
  *
  * Library for the control and logic of the Robot
  * Missions robot platform (Bowie) that is designed
- * for Mission #1 - Shoreline Cleanup. Mega version,
- * using Teensy 3.6. (For Teensy 3.2, please see
- * Mini version).
+ * for Mission #1 - Shoreline Cleanup. Mini version,
+ * using Teensy 3.2. (For Teensy 3.6, please see
+ * Mega version).
  *
  * Erin RobotGrrl for Robot Missions
  * --> http://RobotMissions.org
@@ -23,25 +23,23 @@
 #include <Streaming.h>
 #include <Servo.h>
 
-//#include "BowieGhost.h"
 #include "BowieArm.h"
 #include "BowieCurrentSensor.h"
 #include "BowieDrive.h"
 #include "BowieHopper.h"
 #include "BowieLights.h"
-#include "BowieLogger.h"
 #include "BowieScoop.h"
 #include "BowieComms.h"
 
-#ifndef _MEGABOWIESHORELINE_H_
-#define _MEGABOWIESHORELINE_H_
+#ifndef _MINIBOWIESHORELINE_H_
+#define _MINIBOWIESHORELINE_H_
 
-#define BOT_DEBUG false   // anything with the robot
-#define COMM_DEBUG false // anything with promulgate
-#define OP_DEBUG false    // anything with buttons, or op in general
-#define XBEE_DEBUG false // anything with the xbee scope
-#define CONN_DEBUG false // anything with the connection stack
-#define MSG_DEBUG false  // anything with adding / removing Msgs
+#define BOT_DEBUG_MINI false   // anything with the robot
+#define COMM_DEBUG_MINI false // anything with promulgate
+#define OP_DEBUG_MINI false    // anything with buttons, or op in general
+#define XBEE_DEBUG_MINI false // anything with the xbee scope
+#define CONN_DEBUG_MINI false // anything with the connection stack
+#define MSG_DEBUG_MINI false  // anything with adding / removing Msgs
 
 // motor pins
 #define MOTORA_SPEED 23
@@ -76,7 +74,8 @@
 #define SCOOP_PROBE_LEFT A18
 #define SCOOP_PROBE_RIGHT A17
 
-#define REMOTE_OP_TIMEOUT 300
+// comms
+#define REMOTE_OP_SLEEP 300
 
 #ifndef SERVO_ARM_KEY
 #define SERVO_ARM_KEY 1
@@ -190,25 +189,23 @@
 #define NOTE_D8  4699
 #define NOTE_DS8 4978
 
-class MegaBowieShoreline {
+class MiniBowieShoreline {
 
-  static MegaBowieShoreline *bowieInstance;
+  static MiniBowieShoreline *bowieInstance;
 
   public:
-    MegaBowieShoreline();
+    MiniBowieShoreline();
     void setRobotID(uint8_t the_robot_id);
     void begin();
     uint8_t ROBOT_ID;
 
     // Components
-    //BowieGhost bowieghost;
     BowieArm bowiearm;
     BowieCurrentSensor servoCurrent;
     BowieCurrentSensor motorCurrent;
     BowieDrive bowiedrive;
     BowieHopper bowiehopper;
     BowieLights bowielights;
-    BowieLogger bowielogger;
     BowieScoop bowiescoop;
     BowieComms bowiecomms_xbee;
     BowieComms bowiecomms_arduino;
@@ -287,9 +284,6 @@ class MegaBowieShoreline {
 
     // Servo interruption
     void processServoInterrupt(int key, int val);
-
-    // Update logging sensors
-    void updateLogSensorData();
 
     // Specific
     void buzz(long frequency, long length);

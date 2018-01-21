@@ -1,3 +1,19 @@
+/*
+ * Bowie Scoop Example
+ * --------------------
+ * 
+ * Test the movement of the robot's end effector, specifically
+ * for the scoop boundaries.
+ * 
+ * Erin RobotGrrl for RobotMissions
+ * Dec. 29th, 2017
+ * --> http://RobotMissions.org
+ * 
+ * MIT license, check LICENSE for more information
+ * All text above must be included in any redistribution
+ * 
+ */
+
 #include "BowieScoop.h"
 
 #define SERVO_END_EFFECTOR 4
@@ -11,6 +27,7 @@ void scoopInterrupt(int key, int val);
 void setup() {
   Serial.begin(9600);
 
+  bowiescoop.begin();
   bowiescoop.setServoScoopPin(SERVO_END_EFFECTOR);
   bowiescoop.setProbeLPin(SCOOP_PROBE_LEFT);
   bowiescoop.setProbeRPin(SCOOP_PROBE_RIGHT);

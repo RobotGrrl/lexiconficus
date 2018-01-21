@@ -1,3 +1,20 @@
+/*
+ * Bowie Multi Comms Example
+ * -------------------------
+ * 
+ * Communicate through the robot's Xbee and also to
+ * the connected Arduino (or similar). Easily send
+ * commands to both, and display what was received.
+ * 
+ * Erin RobotGrrl for RobotMissions
+ * Jan. 7th, 2018
+ * --> http://RobotMissions.org
+ * 
+ * MIT license, check LICENSE for more information
+ * All text above must be included in any redistribution
+ * 
+ */
+
 #include "BowieComms.h"
 
 #define ROBOT_ID 3

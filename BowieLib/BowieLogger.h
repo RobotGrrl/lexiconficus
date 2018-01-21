@@ -53,9 +53,9 @@
 // --
 // if you have more or less data, modify these three variables below
 
-#define NUM_DATA_POINTS 29
+#define NUM_DATA_POINTS 32
 
-struct LogLine { // 28 points
+struct LogLine { // 31 points
   time_t sample_time;
   uint8_t motor_a_speed;
   uint8_t motor_a_dir;
@@ -85,6 +85,9 @@ struct LogLine { // 28 points
   uint16_t battery_sensor;
   uint16_t comm_xbee_latency;
   uint16_t comm_arduino_latency;
+  float humidity;
+  float temperature;
+  String aq_data;
 };
 
 #define LOG_TIME 0
@@ -118,6 +121,10 @@ struct LogLine { // 28 points
 #define LOG_BATTERY_SENSOR 26
 #define LOG_COMM_XBEE_LATENCY 27
 #define LOG_COMM_ARDUINO_LATENCY 28
+#define LOG_HUMIDITY 29
+#define LOG_TEMPERATURE 30
+
+#define LOG_AQ_DATA 31
 
 // --
 
@@ -156,6 +163,7 @@ class BowieLogger {
     void setLogData_u8(int log_item, uint8_t val);
     void setLogData_u16(int log_item, uint16_t val);
     void setLogData_f(int log_item, float val);
+    void setLogData_s(int log_item, String val);
 
   private:
     // TimeFuncs
