@@ -79,7 +79,7 @@ int north_indicator;
 int heading_indicator;
 int robot_direction_indicator;
 bool at_heading = false;
-double tracking_heading = 196.75;
+double tracking_heading = 320.94;
 long last_diff_print = 0;
 enum all_drive_states {
   IDLE,
@@ -97,6 +97,30 @@ uint8_t pixel_states[NUMPIXELS]; // 0 = off, 1 = indicators, 2 = turning
 long last_change_heading = 0;
 double given_headings[] = { 0, 60, 120, 180, 240, 300 };
 int change_heading_step = 0;
+
+// ---- PID Control
+double kp = 4.0;
+double ki = 0.5;
+double kd = 0.3;
+long last_update_pid = 0;
+bool updating_pid = false;
+float elapsed_seconds = 0.0;
+long time_previous = 0;
+double error = 0.0;
+double previous_error = 0.0;
+int min_speed = 60;
+int speed_left = 0;
+int speed_right = 0;
+float PID = 0.0;
+float pid_p = 0.0;
+float pid_i = 0.0;
+float pid_d = 0.0;
+
+/*
+ * notes about calibration:
+ * with kp = 1, ki = 0, kd = 0
+ * 
+ */
 
 void setup() {
   Serial.begin(9600);
@@ -116,12 +140,21 @@ void setup() {
   
   bowie.begin();
 
+  compassUpdate();
+  tracking_heading = compass_heading;
+
 }
 
 void loop() {
 
-  current_time = millis();
+  if(current_time-last_update_pid >= 100 && current_time > 0) {
+    elapsed_seconds = float ( float(current_time-time_previous) / 1000 );
+    Serial << "tp: " << time_previous << " ct: " << current_time << " e: " << elapsed_seconds << endl;    
+    updating_pid = true;
+  }
 
+  current_time = millis();
+  
   // we're not updating bowie in this example
   //bowie.update(false);
 
@@ -134,6 +167,7 @@ void loop() {
   navigateHeadingDirection(); // set DRIVE_STATE based on tracking_heading
   compassDriveLeds(); // update the drive leds
   
+  /*
   robotDriveTrackHeading();
 
   if(current_time-last_change_heading >= 3000) {
@@ -142,7 +176,63 @@ void loop() {
     if(change_heading_step > 5) change_heading_step = 0;
     last_change_heading = current_time;
   }
+  */
 
+  if(updating_pid) {
+  
+    // determine how far off we are from the current heading
+    // to the tracking heading
+    previous_error = error;
+    error = tracking_heading - compass_heading;//distanceAngles((int)floor(tracking_heading), (int)floor(compass_heading));
+
+  
+    // proportional value is the proportional constant multiplied
+    // by the error
+    pid_p = kp*error;
+  
+    // integral value will only play a part when we are close to
+    // the desired heading. when the error is small, then it will
+    // kick in. it adds itself to itself, since it is an integral
+    // value
+    if(abs(error) < 20) {
+      Serial << "!!!!!!!!!!!!!!! YUP" << endl;
+      pid_i = pid_i+(ki*error);
+    } else {
+      pid_i = 0;
+    }
+  
+    // derivative value takes the change in error over the certain
+    // amount of time between the updates. it's the rate of change
+    // of the error. time is in seconds
+    pid_d = kd * ( (error-previous_error)/elapsed_seconds );
+  
+    Serial << "P: " << pid_p << " I: " << pid_i << " D: " << pid_d << endl;
+  
+    // these then get added together into the final value
+    PID = pid_p + pid_i + pid_d;
+
+    // constrain it so it would oscillate around min_speed
+    constrain(PID, min_speed-50, min_speed+50);
+
+    // adding the PID values to the left and right sides
+    speed_left = min_speed - PID;
+    speed_right = min_speed + PID;
+  
+    // be sure to constrain the values to the max (and min) speed
+    speed_left = constrain(speed_left, min_speed, 255);
+    speed_right = constrain(speed_right, min_speed, 255);
+  
+    Serial << "::::: Left: " << speed_left << " Right: " << speed_right << " PID: " << PID << endl;
+  
+    bowie.bowiedrive.goSpeed(true, true, speed_left, 1); // fwd, left, speed, del
+    bowie.bowiedrive.goSpeed(true, false, speed_right, 1); // fwd, right, speed, del
+  
+    time_previous = current_time;
+    last_update_pid = current_time;
+    updating_pid = false;
+
+  }
+  
 
   /*
   // Updating our logging sensors
