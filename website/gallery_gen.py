@@ -25,14 +25,14 @@ DIR_NAME = str(sys.argv[2])
 
 # --------------------------------------
 
-file = open( ("%s/out.html" % GALLERY_DIR), "w+")
+file = open( ("%s/%s.php" % (GALLERY_DIR, LIGHTBOX_NAME) ), "w+")
 
 dir_files = os.listdir(GALLERY_DIR)
 img_files = []
 
 for f in dir_files:
 	if not f.startswith('.'):
-		if not f.startswith('out'):
+		if not f.startswith(LIGHTBOX_NAME):
 			img_files.append(f)
 
 #print(img_files)
@@ -61,8 +61,9 @@ for f in img_files:
 	else:
 		link_line1 = ("\t\t\t<a href=\"%s\" data-lightbox=\"%s\">\r\n" % (link_url, LIGHTBOX_NAME))
 	img_line1 = ("\t\t\t\t<img src=\"%s\" style=\"width:100%%\" class=\"rounded\" />\r\n" % thumb_url)
-	caption_line = ("\t\t\t\t<figcaption class=\"figure-caption text-center\">Insert caption here</figcaption>\r\n")
 	link_line2 = ("\t\t\t</a>\r\n")
+	caption_line = ("\t\t\t\t<figcaption class=\"figure-caption text-center\">Insert caption here</figcaption>\r\n")
+	caption_line_alternate = ("\t\t\t\t<figcaption class=\"figure-caption text-center\"><a href=\"%s\" rel=\"none\" target=\"_blank\"><i class=\"bi bi-box-arrow-up-right\" style=\"font-size: 10px\"></i></a></figcaption>\r\n" % (link_url))
 	fig_line2 = ("\t\t</figure>\r\n")
 	col_line2 = ("\t</div>\r\n")
 	row_line2 = ("</div>\r\n\r\n\r\n")
@@ -80,9 +81,11 @@ for f in img_files:
 	file.write(fig_line1)
 	file.write(link_line1)
 	file.write(img_line1)
+	file.write(link_line2)
 	if INCLUDE_CAPTIONS:
 		file.write(caption_line)
-	file.write(link_line2)
+	else:
+		file.write(caption_line_alternate)
 	file.write(fig_line2)
 	file.write(col_line2)
 
